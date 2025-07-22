@@ -1,0 +1,946 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap');
+
+/**
+ * @file index.css
+ * @description Main stylesheet for Business First English Center public-facing site.
+ * @author Jonathan Ray Hendrix
+ * @license MIT License
+ *
+ * @sections
+ *   1. Navbar & Demo Notice
+ *   2. Home Page Layout
+ *   3. Footer
+ *   4. Typography & Tables
+ *   5. IC, Exams, Special Classes
+ *   6. Dashboard Layouts (Admin, Teacher, Student)
+ *   7. Login Screen
+ *   8. Thank You Screen
+ *   9. Responsive Media Queries (Tablet & Mobile)
+ */
+
+/* ==========================================================================
+   1. NAVBAR STYLES & DEMO NOTICE
+   ========================================================================== */
+
+/* Main navbar container */
+
+@media (min-width: 992px) {
+    #Navbar_Logo {
+        margin-left: 100px;
+    }
+}
+.navbar {
+    background-color: midnightblue !important;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    padding: 0.5rem 2rem;
+}
+
+/* Navbar item container */
+.navbar-nav {
+    display: flex;
+    align-items: center;
+    gap: 60px;
+}
+
+/* Link styling and hover effect */
+.nav-link {
+    color: white;
+    font-size: 18px;
+    font-weight: 500;
+    padding: 8px 14px;
+    border-radius: 6px;
+    position: relative;
+    transition: all 0.3s ease;
+}
+
+.nav-link::after {
+    content: '';
+    position: absolute;
+    width: 0%;
+    height: 2px;
+    left: 0;
+    bottom: 0;
+    background-color: crimson;
+    transition: width 0.3s ease-in-out;
+}
+
+.nav-link:hover::after {
+    width: 100%;
+}
+
+.nav-link:hover {
+    color: crimson !important;
+    background-color: rgba(255, 255, 255, 0.05);
+}
+
+/* Logo responsiveness */
+#Navbar_Logo {
+    width: 240px;
+    height: auto;
+    /*margin-left: 100px;*/
+}
+
+/* Dropdown styling */
+.dropdown-item {
+    padding: 10px 20px;
+    font-size: 16px;
+    color: white;
+    background-color: midnightblue;
+    border-bottom: 1px solid #111;
+    transition: background-color 0.3s ease;
+}
+
+.dropdown-item:last-child {
+    border-bottom: none;
+}
+
+.dropdown-item:hover {
+    background-color: crimson;
+    color: white !important;
+}
+
+.dropdown-menu {
+    opacity: 0;
+    transform: translateY(-10px);
+    transition: opacity 0.3s ease, transform 0.3s ease;
+    display: block;
+    pointer-events: none;
+    overflow: hidden;
+    margin-top: 0;
+    padding: 0;
+    border: none;
+    background-color: midnightblue;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    border-radius: 6px;
+}
+
+.dropdown:hover .dropdown-menu {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+}
+
+/* Dropdown caret customization */
+.custom-caret {
+    margin-left: 8px;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-top: 5px solid crimson;
+    transition: transform 0.3s ease;
+}
+
+.dropdown-toggle::after {
+    display: none;
+}
+
+.nav-item.show .custom-caret {
+    transform: rotate(180deg);
+}
+
+/* Navbar list text styles */
+nav ul li {
+    font-family: 'Poppins', sans-serif;
+    font-weight: 500;
+    font-size: 18px;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+}
+
+/* Menu styling background */
+.Menu-Style,
+#Navegación {
+    background-color: midnightblue;
+}
+
+#Navbar_Login {
+    padding: 15px 0;
+}
+
+/* Link coloring */
+.list-color a,
+.list-color span {
+    color: white !important;
+}
+
+/* Demo/maintenance banner */
+.demo-notice {
+    position: fixed;
+    top: 0;
+    width: 100%;
+    background-color: crimson;
+    color: white;
+    font-family: 'Poppins', sans-serif;
+    font-size: 16px;
+    padding: 0.6rem 1rem;
+    text-align: center;
+    z-index: 9999;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 1rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+
+#close-notice {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 20px;
+    cursor: pointer;
+    font-weight: bold;
+    margin-left: 10px;
+    transition: color 0.3s ease;
+}
+
+#close-notice:hover {
+    color: black;
+}
+
+/* ==========================================================================
+   2. HOME PAGE LAYOUT
+   ========================================================================== */
+
+/* Hero image container */
+#banner-container {
+    width: 100%;
+    max-height: 450px;
+    background-color: #0c145a;
+    overflow: hidden;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 350px;
+}
+
+#Title-Image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+/* Smooth scroll offset anchor */
+a.anchor {
+    display: block;
+    position: relative;
+    top: -110px;
+    visibility: hidden;
+}
+
+/* Panel overlay for clickable areas */
+.panel-link {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    top: 0;
+    left: 0;
+    z-index: 1;
+}
+
+/* Even and uneven row styling */
+.Row-Even,
+.Row-Uneven {
+    height: auto;
+    overflow: auto;
+    position: relative;
+}
+
+.Row-Even {
+    background-color: aliceblue;
+}
+
+.Row-Even:hover {
+    background-color: white;
+}
+
+.Row-Uneven {
+    background-color: lightsteelblue;
+}
+
+.Row-Uneven:hover {
+    background-color: rgb(219, 224, 230);
+}
+
+/* Row hover effects */
+.Row-Even:hover img,
+.Row-Uneven:hover img {
+    border: thin solid navy;
+}
+
+/* Typography & structure */
+.row-pic {
+    width: 32%;
+    max-height: 350px;
+    float: left;
+    margin: 0 20px;
+}
+
+.rows h2 {
+    margin-left: 30px;
+    padding-left: 30px;
+}
+
+.rows p {
+    font-size: 22px;
+    font-family: cursive;
+}
+
+/* Row header */
+.Row-Header {
+    background-color: midnightblue;
+    color: white;
+    text-align: center;
+    outline-style: solid;
+    outline-color: crimson;
+}
+
+/* Link buttons with icons */
+.link-icon {
+    margin-left: 10px;
+    color: crimson;
+    transition: transform 0.3s ease;
+}
+
+.icon-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: 12px;
+    background-color: crimson;
+    color: white;
+    border-radius: 50%;
+    width: 36px;
+    height: 36px;
+    text-decoration: none;
+    transition: background-color 0.3s ease, transform 0.2s ease;
+}
+
+.icon-button:hover {
+    background-color: darkred;
+    transform: scale(1.1);
+}
+
+.icon-button i {
+    font-size: 16px;
+}
+/* ==========================================================================
+   3. FOOTER STYLES
+   ========================================================================== */
+
+.footer {
+    background-color: midnightblue;
+    color: white;
+    padding: 3rem 1rem;
+    font-family: 'Poppins', sans-serif;
+}
+
+.footer-container {
+    max-width: 1200px;
+    margin: auto;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2rem;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.footer-contact {
+    flex: 1 1 300px;
+}
+
+.footer-contact h3 {
+    font-size: 1.5rem;
+    margin-bottom: 1rem;
+    color: white;
+}
+
+.footer-contact p {
+    margin: 0.5rem 0;
+    font-size: 1rem;
+}
+
+.footer-contact i {
+    margin-right: 0.5rem;
+    color: crimson;
+}
+
+.footer-contact a {
+    color: white;
+    text-decoration: none;
+}
+
+.footer-contact a:hover {
+    text-decoration: underline;
+}
+
+.footer-note {
+    font-size: 0.9rem;
+    color: #ccc;
+    margin-top: 1rem;
+    font-weight:bolder;
+}
+
+.footer-map {
+    flex: 1 1 400px;
+    max-width: 600px;
+    border-radius: 16px;
+    overflow: hidden;
+    border: 2px solid crimson;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+
+.footer-map iframe {
+    width: 100%;
+    height: 300px;
+    display: block;
+    border: none;
+    filter:  contrast(1.1) brightness(1.05);
+}
+
+.footer-contact a {
+    color: white !important;
+    text-decoration: none;
+}
+
+.footer-contact a:hover {
+    color: crimson !important;
+    text-decoration: underline;
+}
+
+/* ==========================================================================
+   4. GENERAL TYPOGRAPHY & TABLES
+   ========================================================================== */
+
+#Contenido {
+    text-align: center;
+    font-family: Arial;
+    font-size: 20px;
+}
+
+.error {
+    color: red;
+    margin: 10px;
+}
+
+h3, p {
+    color: navy;
+}
+
+table tr td {
+    color: navy;
+    font-size: 20px;
+}
+
+table tr th {
+    font-size: 25px;
+}
+
+
+
+
+/* ==========================================================================
+   5. IC, EXAMS, SPECIAL CLASSES
+   ========================================================================== */
+
+.TítuloPágina {
+    font-size: 38px;
+    font-family: lucida;
+    color: navy;
+    text-align: center;
+    font-weight: bolder;
+    margin-top: 15px;
+}
+
+.TítuloMenor {
+    font-family: Arial;
+    font-weight: bold;
+    color: crimson;
+}
+
+.pageContent {
+    color: navy;
+    width: 70%;
+}
+
+.pageSide {
+    width: 30%;
+}
+
+.pageSide img {
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
+    width: 70%;
+    height: auto;
+}
+
+.pageSide p {
+    text-align: center;
+    font-family: Arial;
+    font-size: 25px;
+    font-weight: bolder;
+}
+
+.pageContent ul {
+    font-size: 20px;
+    font-family: 'Lucida Sans Unicode', 'Lucida Grande', sans-serif;
+    line-height: 1.8;
+}
+
+/* Custom bullet for lists */
+#Bulletchange::marker {
+    content: "✓   ";
+}
+
+/* Info table styles */
+.infotable {
+    width: 50%;
+    margin-left: 20px;
+    color: navy;
+}
+
+.infotable thead tr:first-child,
+.infotable tfoot tr:first-child {
+    background-color: midnightblue;
+}
+
+.infotable tfoot th {
+    text-align: center;
+}
+
+.infotable tfoot input {
+    margin-left: 20px;
+    margin-right: 20px;
+}
+
+.infotable th h2 {
+    text-align: center;
+    color: white;
+    font-weight: bolder;
+}
+
+.infotable input[type=text] {
+    width: 100%;
+}
+
+.all {
+    background-color: ghostwhite;
+}
+
+.info-column {
+    margin-left: 30px;
+}
+
+/* ==========================================================================
+   6. ADMIN, TEACHER, STUDENT LAYOUT
+   ========================================================================== */
+
+.wrapper {
+    display: flex;
+    align-items: stretch;
+    width: 100%;
+    height: 100%;
+    background-color: ghostwhite;
+}
+
+#side-title {
+    color: white;
+}
+
+#dashboard-header {
+    text-align: left !important;
+    padding-left: 3rem;
+}
+
+.db-window {
+    margin-left: 20px;
+    width: 100%;
+}
+
+.content {
+    width: 80%;
+}
+
+.table-title {
+    background-color: midnightblue;
+    color: white;
+    text-align: center;
+    outline-style: solid;
+    outline-color: crimson;
+}
+
+.nav-tabs .nav-link {
+    color: midnightblue !important;  /* or another visible color */
+}
+
+.nav-tabs .nav-link.active {
+    color: crimson !important;       /* active tab */
+    font-weight: bold;
+}
+
+.edit-btn-class{
+    background-color: midnightblue;
+    color: white;
+}
+
+.edit-btn-class:hover{
+    background-color: #1856cb;
+    color: white;
+}
+
+.delete-btn{
+    background-color: crimson;
+    color: white;
+}
+
+.delete-btn:hover{
+    background-color: darkred;
+    color: white;
+}
+
+/* USER CREATION TOGGLE */
+.user-toggle-wrapper {
+    max-width: 600px;
+}
+
+.btn-toggle-user {
+    background-color: green;
+    color: white;
+    font-weight: 600;
+    border: none;
+    padding: 10px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background-color 0.3s ease, transform 0.2s ease;
+}
+
+.btn-toggle-user:hover {
+    background-color: darkgreen;
+    transform: scale(1.02);
+}
+
+.user-form-collapsible {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.4s ease;
+}
+
+.user-form-collapsible.show {
+    max-height: 1000px; /* enough for your form */
+}
+
+/* CLASS CREATION FORM TOGGLE*/
+.class-toggle-wrapper {
+    max-width: 600px;
+}
+
+.btn-toggle-class {
+    background-color: green;
+    color: white;
+    font-weight: 600;
+    border: none;
+    padding: 10px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background-color 0.3s ease, transform 0.2s ease;
+}
+
+.btn-toggle-class:hover {
+    background-color: darkgreen;
+    transform: scale(1.02);
+}
+
+.class-form-collapsible {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.4s ease;
+}
+
+.class-form-collapsible.show {
+    max-height: 500px;
+}
+
+
+
+/* ==========================================================================
+   7. LOGIN SCREEN
+   ========================================================================== */
+.login-container {
+    text-align: center;
+    margin: 5rem 40rem 10rem;
+}
+
+.login-container label {
+    display: block;
+    text-align: left;
+    margin-bottom: 0.25rem;
+    font-weight: bold;
+}
+/* ==========================================================================
+   8. THANK YOU SCREEN
+   ========================================================================== */
+
+.return-button {
+    margin-bottom: 4.7rem;
+    padding: 12px 24px;
+    font-size: 1.1rem;
+    background-color: #3b82f6;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+    transition: background-color 0.3s ease, transform 0.2s ease;
+}
+
+.return-button:hover {
+    background-color: #2563eb;
+    transform: scale(1.05);
+}
+
+.return-button:active {
+    transform: scale(0.97);
+}
+
+/* ==========================================================================
+   MEDIA QUERIES FOR TABLETS & PHONES
+   ========================================================================== */
+@media (max-width: 768px) {
+    .navbar-nav {
+        flex-direction: column;
+        gap: 10px;
+        align-items: center;
+        width: 100%;
+    }
+
+    #Navbar_Logo {
+        width: 140px;
+        margin: 10px auto;
+    }
+
+    nav ul li {
+        font-size: 14px;
+        text-align: center;
+    }
+
+    .dropdown-menu {
+        max-height: 0;
+        overflow: hidden;
+        transition: max-height 0.4s ease-out;
+    }
+
+    .dropdown.show .dropdown-menu {
+        max-height: 500px;
+    }
+
+    .demo-notice {
+        flex-direction: column;
+        font-size: 14px;
+        text-align: center;
+    }
+
+    .row-pic,
+    .pageContent,
+    .pageSide {
+        width: 100%;
+        max-width: 100%;
+        padding: 0 1rem;
+        box-sizing: border-box;
+    }
+
+    .Row-Uneven,
+    .Row-Even {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 1rem;
+        margin: 0 auto;
+        width: 100%;
+        box-sizing: border-box;
+        background-color: inherit;
+        position: relative;
+    }
+
+    .Row-Uneven > *,
+    .Row-Even > * {
+        max-width: 100%;
+        width: 100%;
+    }
+
+    .row-pic {
+        width: 100%;
+        max-width: 400px;
+        margin: 0 auto;
+        float: none !important;
+        display: block;
+    }
+
+    .row-text {
+        font-size: 16px;
+        line-height: 1.6;
+        margin-top: 1rem;
+        padding: 0 1rem;
+        color: navy;
+        text-align: center;
+        display: block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        height: auto !important;
+        max-height: unset !important;
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+    }
+
+    .panel-link {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 120px;
+        display: block;
+        z-index: 2;
+    }
+
+    .link-icon {
+        margin-left: 10px;
+        color: crimson;
+        transition: transform 0.3s ease;
+    }
+
+    .icon-button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 36px;
+        height: 36px;
+        margin-left: 12px;
+        background-color: crimson;
+        color: white;
+        border-radius: 50%;
+        font-size: 16px;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        transition: background-color 0.3s, transform 0.2s;
+    }
+
+    .icon-button:hover {
+        background-color: darkred;
+        transform: scale(1.1);
+    }
+
+
+    .footer-container {
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .footer-map,
+    .infotable {
+        width: 100%;
+        margin: 1rem 0;
+    }
+
+    .login-container {
+        max-width: 95vw;
+        margin: 2rem auto;
+        padding: 1rem;
+    }
+
+    .wrapper {
+        flex-direction: column;
+    }
+
+    .db-window,
+    .content {
+        width: 100%;
+        margin-left: 0;
+    }
+
+    table {
+        display: block;
+        width: 100%;
+        overflow-x: auto;
+        border-collapse: collapse;
+        font-size: 15px;
+    }
+
+    table thead {
+        display: none;
+    }
+
+    table tr {
+        display: block;
+        margin-bottom: 1rem;
+        border-bottom: 2px solid #ccc;
+        background: #f9f9f9;
+        padding: 1rem;
+    }
+
+    table td {
+        display: flex;
+        justify-content: space-between;
+        padding: 8px 0;
+        font-size: 15px;
+        border: none;
+    }
+
+    table td::before {
+        content: attr(data-label);
+        font-weight: bold;
+        color: navy;
+    }
+
+    .table-title {
+        font-size: 20px;
+        padding: 12px;
+    }
+
+    .nav-tabs .nav-link {
+        font-size: 14px;
+        padding: 8px;
+    }
+
+    #Title-Image {
+        object-fit: cover;
+        height: auto;
+        max-height: 300px;
+    }
+
+    a.anchor {
+        display: none;
+    }
+
+    .Row-Uneven:empty,
+    .Row-Even:empty {
+        display: none;
+    }
+
+    .teacher-dashboard h3,
+    .admin-dashboard h3,
+    .student-dashboard h3 {
+        text-align: left !important;
+        padding-left: 1rem;
+        font-size: 1.5rem;
+    }
+
+    #dashboard-header {
+        text-align: left !important;
+        padding-left: 1rem;
+    }
+}
+
+
+/* END OF MOBILE/TABLET STYLES */
+
+
+/* Prevent horizontal scroll on all screens */
+body, html {
+    overflow-x: hidden;
+}
+
+@media (min-width: 992px) {
+    #Navbar_Logo {
+        margin-left: 100px;
+    }
+}
+/* ==========================================================================
+   END OF FILE
+   ========================================================================== */

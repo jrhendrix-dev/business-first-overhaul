@@ -1,0 +1,16 @@
+# Enable Apache's rewrite engine
+RewriteEngine On
+
+# Set the base path for all rewrites (adjust if app is in a subdirectory)
+RewriteBase /
+
+# Only rewrite requests that are NOT existing files...
+RewriteCond %{REQUEST_FILENAME} !-f
+
+# ...and NOT existing directories
+RewriteCond %{REQUEST_FILENAME} !-d
+
+# Redirect all other requests to index.php for routing
+# QSA (Query String Append) keeps query strings like ?id=123
+# L (Last) means stop processing other rules if this one matches
+RewriteRule ^(.*)$ index.php [QSA,L]

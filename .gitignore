@@ -1,0 +1,15 @@
+
+public/test.php
+vendor
+
+.idea/
+/composer.json
+/composer.lock
+/doctum.phar
+
+doctum.php
+
+docs/cache/
+
+docs/phpdoc/
+/.qodo/
