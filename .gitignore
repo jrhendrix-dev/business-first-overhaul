@@ -1,15 +1,68 @@
-
-public/test.php
-vendor
-
+# ===================================
+# Global ignores
+.DS_Store
+Thumbs.db
 .idea/
-/composer.json
-/composer.lock
+.vscode/
+*.log
+
+# ===================================
+# Symfony / PHP
+/vendor/
+/var/
+/.env
+.env.local
+.env.*.local
+/legacy/public/bundles/
+/node_modules/
+/phpunit.result.cache
+
+# ===================================
+# Angular / Node
+/frontend/node_modules/
+/frontend/dist/
+/frontend/.angular/
+/frontend/.env
+/frontend/.env.local
+
+# ===================================
+# Docker
+docker/*.pid
+docker/*.sock
+docker/mysql-data/
+docker/logs/
+docker/tmp/
+
+# ===================================
+# Others
+*.swp
+*.bak
+*.tmp
+docs/phpdoc/
+/.qodo/
+
+# ===================================
+# Composer
+legacy/composer.lock
+
+# ===================================
+# Yarn / npm
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+
+
+
+
+legacy/public/test.php
+vendor
+/legacy/composer.json
+/legacy/composer.lock
 /doctum.phar
 
 doctum.php
 
 docs/cache/
 
-docs/phpdoc/
-/.qodo/
+
