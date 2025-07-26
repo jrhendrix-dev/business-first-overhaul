@@ -2,7 +2,7 @@ services:
   mysql:
     image: mysql:8.0
     container_name: bfe_mysql
-    restart: unless-stopped
+    restart: no
     environment:
       MYSQL_ROOT_PASSWORD: root
       MYSQL_DATABASE: bfe_db
@@ -26,6 +26,7 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     container_name: bfe_symfony_backend
+    restart: no
     working_dir: /var/www/app
     volumes:
       - ./backend:/var/www/app
@@ -36,7 +37,7 @@ services:
       - "8000:8000"
     command: >
       bash -c "
-        until mysqladmin ping -h mysql -u symfony -ppassword --silent; do
+        until mysqladmin ping -h mysql -u symfony -password --silent; do
           echo '⏳ Waiting for MySQL...'; sleep 2;
         done &&
         composer install &&
@@ -53,6 +54,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     container_name: bfe_angular_frontend
+    restart: no
     ports:
       - "4200:4200"
     volumes:

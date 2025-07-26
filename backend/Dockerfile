@@ -5,7 +5,6 @@ FROM php:8.3-cli
 RUN apt-get update && apt-get install -y \
     git unzip libicu-dev libonig-dev libzip-dev zip libpq-dev \
     default-mysql-client wget curl \
-
     && docker-php-ext-install intl pdo pdo_mysql pdo_pgsql zip
 
 # Install Composer
