@@ -1,0 +1,68 @@
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: bfe_mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: bfe_db
+      MYSQL_USER: symfony
+      MYSQL_PASSWORD: password
+    volumes:
+      - mysql_data:/var/lib/mysql
+    ports:
+      - "3307:3306"
+    networks:
+      - bfe_network
+    healthcheck:
+      test: [ "CMD", "mysqladmin" ,"ping", "-h", "localhost" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: bfe_symfony_backend
+    working_dir: /var/www/app
+    volumes:
+      - ./backend:/var/www/app
+    depends_on:
+      mysql:
+          condition: service_healthy
+    ports:
+      - "8000:8000"
+    command: >
+      bash -c "
+        until mysqladmin ping -h mysql -u symfony -ppassword --silent; do
+          echo '⏳ Waiting for MySQL...'; sleep 2;
+        done &&
+        composer install &&
+        php bin/console doctrine:database:create --if-not-exists &&
+        php bin/console doctrine:schema:update --force &&
+        symfony server:start --no-tls --port=8000 --allow-http --allow-all-ip
+      "
+
+    networks:
+      - bfe_network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: bfe_angular_frontend
+    ports:
+      - "4200:4200"
+    volumes:
+      - ./frontend:/app
+    working_dir: /app
+    command: npm run start -- --host 0.0.0.0
+networks:
+  bfe_network:
+    driver: bridge
+
+volumes:
+  mysql_data:
+
