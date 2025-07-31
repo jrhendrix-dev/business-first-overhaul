@@ -37,7 +37,7 @@ services:
       - "8000:8000"
     command: >
       bash -c "
-        until mysqladmin ping -h mysql -u symfony -password --silent; do
+        until mysqladmin ping -h mysql -u symfony -ppassword --silent; do
           echo '⏳ Waiting for MySQL...'; sleep 2;
         done &&
         composer install &&
