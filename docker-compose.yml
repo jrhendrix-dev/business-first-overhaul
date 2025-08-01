@@ -1,7 +1,6 @@
 services:
   mysql:
     image: mysql:8.0
-    container_name: bfe_mysql
     restart: no
     environment:
       MYSQL_ROOT_PASSWORD: root
@@ -15,7 +14,7 @@ services:
     networks:
       - bfe_network
     healthcheck:
-      test: [ "CMD", "mysqladmin" ,"ping", "-h", "localhost" ]
+      test: [ "CMD", "mysqladmin" ,"ping", "-h", "mysql" ]
       interval: 10s
       timeout: 5s
       retries: 5

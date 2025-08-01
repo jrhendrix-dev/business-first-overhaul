@@ -21,12 +21,81 @@ class ClassroomRepository extends ServiceEntityRepository
         parent::__construct($registry, Classroom::class);
     }
 
-    //  Ejemplo de metodo personalizado:
-    // public function findUnassigned(): array
-    // {
-    //     return $this->createQueryBuilder('c')
-    //         ->andWhere('c.teacher IS NULL')
-    //         ->getQuery()
-    //         ->getResult();
-    // }
+    /**
+     * Returns all classrooms without a teacher assigned.
+     *
+     * @return Classroom[]
+     */
+    public function findUnassigned(): array
+    {
+        return $this->createQueryBuilder('c')
+            ->andWhere('c.teacher IS NULL')
+            ->getQuery()
+            ->getResult();
+    }
+
+
+    /**
+     * Returns all classrooms assigned to a specific teacher.
+     *
+     * @param int $teacherId The ID of the teacher.
+     *
+     * @return Classroom[]
+     */
+    public function findByTeacher(int $teacherId): array
+    {
+        return $this->createQueryBuilder('c')
+            ->andWhere('c.teacher = :teacherId')
+            ->setParameter('teacherId', $teacherId)
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
+     * Returns all classrooms in which a specific student is enrolled.
+     *
+     * @param int $studentId The ID of the student.
+     *
+     * @return Classroom[]
+     */
+    public function findByStudent(int $studentId): array
+    {
+        return $this->createQueryBuilder('c')
+            ->join('c.students', 's')
+            ->andWhere('s.id = :studentId')
+            ->setParameter('studentId', $studentId)
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
+     * Searches classrooms by name.
+     *
+     * @param string $term The name search term.
+     * @return array<Classroom>
+     */
+    public function searchByName(string $term): array {
+        return $this->createQueryBuilder('c')
+            ->andWhere('c.name LIKE :term')
+            ->setParameter('term', '%' . $term . '%')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
+     * Counts the number of classrooms assigned to a specific teacher.
+     *
+     * @param int $teacherId
+     * @return int
+     */
+    public function countByTeacher(int $teacherId): int {
+        return (int) $this->createQueryBuilder('c')
+            ->select('count(c.id)')
+            ->andWhere('c.teacher = :teacherId')
+            ->setParameter('teacherId', $teacherId)
+            ->getQuery()
+            ->getSingleScalarResult();
+    }
+
+
 }
