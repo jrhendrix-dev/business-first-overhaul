@@ -121,10 +121,8 @@ class Classroom
      * @param User $student
      */
     public function removeStudent(User $student): void {
-        if ($this->students->removeElement($student)) {
-            if ($student->getClassroom() === $this) {
-                $student->setClassroom(null);
-            }
+        if ($this->students->removeElement($student) && $student->getClassroom() === $this) {
+            $student->setClassroom(null);
         }
     }
 

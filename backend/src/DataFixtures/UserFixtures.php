@@ -22,6 +22,17 @@ class UserFixtures extends Fixture
     {
         $faker = Factory::create('es_ES'); //'es_ES' makes it use Spanish-like names
 
+        // Create an admin
+        $admin = new User();
+        $admin->setUsername('admin');
+        $admin->setFirstname($faker->firstName);
+        $admin->setLastname($faker->lastName);
+        $admin->setEmail("admin@example.com");
+        $hashedPassword = $this->passwordHasher->hashPassword($admin, '1234');
+        $admin->setPassword($hashedPassword);
+        $admin->setRole(UserRoleEnum::ADMIN);
+        $manager->persist($admin);
+
         // Create 3 teachers
         for ($i = 1; $i <= 3; $i++) {
             $teacher = new User();
@@ -50,11 +61,11 @@ class UserFixtures extends Fixture
             $students[] = $student;
         }
 
-        // Create 2 classrooms
-        for ($i = 1; $i <= 2; $i++) {
+        // Create 4 classrooms
+        for ($i = 1; $i <= 4; $i++) {
             $classroom = new Classroom();
             $classroom->setName("Classroom $i");
-            // Assign 2 students
+            // Assign 2 studentsdocker compose exec backend bash
             foreach (array_slice($students, ($i - 1) * 2, 2) as $s) {
                 $classroom->addStudent($s);
             }

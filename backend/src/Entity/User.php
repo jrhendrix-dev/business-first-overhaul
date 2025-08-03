@@ -174,6 +174,10 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
 
     public function getRoles(): array
     {
+        if (!$this->isActive) {
+            return [];
+        }
+
         return match ($this->role) {
             UserRoleEnum::ADMIN => ['ROLE_ADMIN'],      // Enum: 0
             UserRoleEnum::TEACHER => ['ROLE_TEACHER'],  // Enum: 1

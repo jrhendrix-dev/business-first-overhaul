@@ -11,7 +11,7 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
-
+use Symfony\Component\Security\Http\Attribute\IsGranted;
 
 
 #[Route('/api/classrooms')]
@@ -23,6 +23,9 @@ class ClassroomController extends AbstractController
         private ClassroomRepository $classroomRepo
     ) {}
 
+
+
+    //                      CLASSROOM ENDPOINTS
     #[Route('', name: 'classroom_list', methods: ['GET'])]
     public function getAllClassrooms(): JsonResponse
     {
@@ -36,7 +39,6 @@ class ClassroomController extends AbstractController
         );
     }
 
-
     #[Route('/unassigned', name: 'classroom_unassigned', methods: ['GET'])]
     public function getUnassigned(): JsonResponse
     {
@@ -44,6 +46,33 @@ class ClassroomController extends AbstractController
         return $this->json($classrooms, 200, [], ['groups' => 'classroom:read']);
 
     }
+
+    #[IsGranted('ROLE_ADMIN')]
+    #[Route('/{id}/unassign-all', name: 'classroom_unassign_all', methods: ['DELETE'])]
+    public function unassignAllFromClassroom(int $id): JsonResponse
+    {
+        $classroom = $this->classroomRepo->find($id);
+
+        if (!$classroom) {
+            return $this->json(['error' => 'Classroom not found'], 404);
+        }
+
+        $this->classroomManager->unassignAll($classroom);
+        // Unassign teacher
+//        $classroom->setTeacher(null);
+//
+//        // Unassign students
+//        foreach ($classroom->getStudents() as $student) {
+//            $student->setClassroom(null);
+//        }
+
+        $this->em->flush();
+
+        return $this->json(['success' => true]);
+
+    }
+
+    //                    TEACHER ENDPOINTS
 
     #[Route('/{id}/assign-teacher', name: 'classroom_assign_teacher', methods: ['POST'])]
     public function assignTeacher(int $id, Request $request): JsonResponse
@@ -67,6 +96,60 @@ class ClassroomController extends AbstractController
 
     }
 
+    #[Route('/taught-by/{id}', name: 'classrooms_taught_by', methods: ['GET'])]
+    public function getTaughtByTeacher(int $id): JsonResponse
+    {
+        $classrooms = $this->classroomRepo->findBy(['teacher' => $id]);
+
+        return $this->json(
+            ['data' => $classrooms],
+            200,
+            [],
+            ['groups' => 'classroom:read']
+        );
+
+    }
+
+    #[Route('/{id}/teacher', name: 'classroom_teacher', methods: ['GET'])]
+    public function getTeacher(int $id): JsonResponse
+    {
+        $classroom = $this->classroomRepo->find($id);
+
+        if (!$classroom) {
+            return $this->json(['error' => 'Classroom not found'], 404);
+        }
+
+        $teacher = $classroom->getTeacher();
+        return $this->json(
+            ['teacher' => $teacher],
+            200,
+            [],
+            ['groups' => 'classroom:read']
+        );
+    }
+
+    #[IsGranted('ROLE_ADMIN')]
+    #[Route('/{id}/unassign-teacher', name: 'classroom_unassign_teacher', methods: ['DELETE'])]
+    public function unassignTeacherFromClassroom(int $id): JsonResponse
+    {
+        $classroom = $this->classroomRepo->find($id);
+
+        if (!$classroom) {
+            return $this->json(['error' => 'Classroom not found'], 404);
+        }
+
+        // Unassign teacher
+        $classroom->setTeacher(null);
+
+        $this->em->flush();
+
+        return $this->json(['success' => true]);
+
+    }
+
+
+    //                  STUDENT ENDPOINTS
+
     #[Route('/{id}/assign-student', name: 'classroom_assign_student', methods: ['POST'])]
     public function assignStudent(int $id, Request $request): JsonResponse
     {
@@ -88,17 +171,64 @@ class ClassroomController extends AbstractController
         return $this->json(['success' => true]);
     }
 
-    #[Route('/taught-by/{id}', name: 'classrooms_taught_by', methods: ['GET'])]
-    public function getTaughtByTeacher(int $id): JsonResponse
+
+    #[Route('/{id}/students', name: 'classroom_students', methods: ['GET'])]
+    public function getStudents(int $id): JsonResponse
     {
-        $classrooms = $this->classroomRepo->findBy(['teacher' => $id]);
+        $classroom = $this->classroomRepo->find($id);
+
+        if (!$classroom) {
+            return $this->json(['error' => 'Classroom not found'], 404);
+        }
+
+        $students = $classroom->getStudents();
 
         return $this->json(
-            ['data' => $classrooms],
+            ['students' => $students],
             200,
             [],
-            ['groups' => 'classroom:read']
+            ['groups' => 'classroom:read'] // This ensures proper serialization
         );
+    }
+
+    #[IsGranted('ROLE_ADMIN')]
+    #[Route('/{id}/unassign-all-students', name: 'classroom_unassign_all_students', methods: ['DELETE'])]
+    public function unassignAllStudentsFromClassroom(int $id): JsonResponse
+    {
+        $classroom = $this->classroomRepo->find($id);
+
+        if (!$classroom) {
+            return $this->json(['error' => 'Classroom not found'], 404);
+        }
+
+        // Unassign students
+        foreach ($classroom->getStudents() as $student) {
+            $student->setClassroom(null);
+        }
+
+        $this->em->flush();
+
+        return $this->json(['success' => true]);
 
     }
+
+    #[IsGranted('ROLE_ADMIN')]
+    #[Route('/{id}/unassign-student', name: 'classroom_unassign_student', methods: ['DELETE'])]
+    public function unassignStudentFromClassroom(int $id): JsonResponse
+    {
+        $classroom = $this->classroomRepo->find($id);
+
+        if (!$classroom) {
+            return $this->json(['error' => 'Classroom not found'], 404);
+        }
+
+
+
+        $this->em->flush();
+
+        return $this->json(['success' => true]);
+
+    }
+
+
 }
