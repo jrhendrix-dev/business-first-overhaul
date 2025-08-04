@@ -3,6 +3,7 @@
 namespace App\Repository;
 
 use App\Entity\Classroom;
+use App\Entity\User;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 
@@ -52,7 +53,7 @@ class ClassroomRepository extends ServiceEntityRepository
     }
 
     /**
-     * Returns all classrooms in which a specific student is enrolled.
+     * Returns the classroom in which a specific student is enrolled.
      *
      * @param int $studentId The ID of the student.
      *
@@ -60,6 +61,7 @@ class ClassroomRepository extends ServiceEntityRepository
      */
     public function findByStudent(int $studentId): array
     {
+
         return $this->createQueryBuilder('c')
             ->join('c.students', 's')
             ->andWhere('s.id = :studentId')

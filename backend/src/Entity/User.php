@@ -196,6 +196,22 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         $this->role = $role;
     }
 
+    public function isStudent(): bool
+    {
+        return $this->role === UserRoleEnum::STUDENT;
+    }
+
+    public function isTeacher(): bool
+    {
+        return $this->role === UserRoleEnum::TEACHER;
+    }
+
+    public function isAdmin(): bool
+    {
+        return $this->role === UserRoleEnum::ADMIN;
+    }
+
+
 
     public function eraseCredentials(): void
     {

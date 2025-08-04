@@ -4,10 +4,10 @@ namespace App\Service;
 
 use App\Entity\Classroom;
 use App\Entity\User;
-use App\Enum\UserRoleEnum;
 use Doctrine\ORM\EntityManagerInterface;
 use App\Repository\ClassroomRepository;
 
+// ADD FUNCTIONS HERE THAT MODIFY THE DB
 /**
  * Service responsible for managing business logic related to Classroom entities.
  */
@@ -32,14 +32,12 @@ class ClassroomManager
      */
     public function assignTeacher(Classroom $classroom, User $teacher): void
     {
-        if ($teacher->getRole() !== UserRoleEnum::TEACHER) {
-            throw new \InvalidArgumentException('User must have TEACHER role');
+        if(!$teacher->isTeacher()){
+            throw new \LogicException('Only teachers can be assigned to a classroom as a teacher');
         }
 
         $classroom->setTeacher($teacher);
-        $teacher->setClassroom($classroom);
 
-        $this->em->persist($teacher);
         $this->em->persist($classroom); // technically optional if already managed
 
         $this->em->flush(); // Assuming classroom is already managed
@@ -55,8 +53,8 @@ class ClassroomManager
      */
     public function assignStudent(Classroom $classroom, User $student): void
     {
-        if ($student->getRole() !== UserRoleEnum::STUDENT) {
-            throw new \LogicException('Only students can be assigned.');
+        if(!$student->isStudent()){
+            throw new \LogicException('Only students can be assigned to a classroom');
         }
 
         $classroom->addStudent($student);
@@ -70,9 +68,15 @@ class ClassroomManager
      */
     public function unassignAll(Classroom $classroom): void
     {
+        // Unassign teacher
         $classroom->setTeacher(null);
-        $classroom->getStudents()->clear();
-        $this->em->flush();
+
+        // Unassign students properly (owning side must be updated)
+        foreach ($classroom->getStudents()->toArray() as $student) {   //->toArray() avoids modifying the collection during iteration, which is safer.
+            $classroom->removeStudent($student);
+        }
+
+        $this->em->flush(); // Persist all changes
     }
 
     /**
@@ -83,5 +87,16 @@ class ClassroomManager
     public function getUnassignedClassrooms(): array
     {
         return $this->classroomRepository->findUnassigned();
+    }
+
+    public function removeStudentFromClassroom(User $student): void
+    {
+        $classroom = $student->getClassroom();
+
+        if ($classroom !== null) {
+            $classroom->removeStudent($student);
+        }
+
+        $this->em->flush();
     }
 }
