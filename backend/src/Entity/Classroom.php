@@ -67,6 +67,10 @@ class Classroom
         $this->students = new ArrayCollection();
     }
 
+    public function setId(?int $id): void {
+        $this->id = $id;
+    }
+
     /**
      * Gets the classroom ID.
      *

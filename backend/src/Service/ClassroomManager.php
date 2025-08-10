@@ -6,16 +6,19 @@ use App\Entity\Classroom;
 use App\Entity\User;
 use Doctrine\ORM\EntityManagerInterface;
 use App\Repository\ClassroomRepository;
+use Symfony\Component\HttpFoundation\JsonResponse;
 
-// ADD FUNCTIONS HERE THAT MODIFY THE DB
 /**
  * Service responsible for managing business logic related to Classroom entities.
+ * Provides methods for classroom creation, assignment, unassignment, and retrieval operations.
  */
 class ClassroomManager
 {
     /**
-     * @param EntityManagerInterface $em Doctrine's entity manager for persistence.
-     * @param ClassroomRepository $classroomRepository Repository for custom classroom queries.
+     * ClassroomManager constructor.
+     *
+     * @param EntityManagerInterface $em The Doctrine entity manager for database operations
+     * @param ClassroomRepository $classroomRepository Repository for classroom data access
      */
     public function __construct(
         private EntityManagerInterface $em,
@@ -25,46 +28,52 @@ class ClassroomManager
     /**
      * Assigns a teacher to a classroom after validating the role.
      *
-     * @param Classroom $classroom The classroom to assign the teacher to.
-     * @param User $teacher The user to assign as teacher.
+     * @param Classroom $classroom The classroom to assign the teacher to
+     * @param User $teacher The user to assign as teacher
      *
-     * @throws \LogicException If the user is not a teacher.
+     * @throws \LogicException If the user is not a teacher
+     * @note Classroom must be managed by the entity manager
      */
     public function assignTeacher(Classroom $classroom, User $teacher): void
     {
-        if(!$teacher->isTeacher()){
+        if (!$teacher->isTeacher()) {
             throw new \LogicException('Only teachers can be assigned to a classroom as a teacher');
         }
 
-        $classroom->setTeacher($teacher);
-
-        $this->em->persist($classroom); // technically optional if already managed
-
-        $this->em->flush(); // Assuming classroom is already managed
+        if ($classroom->getTeacher()?->getId() !== $teacher->getId()) {
+            $classroom->setTeacher($teacher);
+            $this->em->persist($classroom); // technically optional if already managed
+            $this->em->flush(); // Assuming classroom is already managed
+        }
     }
 
     /**
      * Assigns a student to a classroom after validating the role.
      *
-     * @param Classroom $classroom The classroom to assign the student to.
-     * @param User $student The user to assign as student.
+     * @param Classroom $classroom The classroom to assign the student to
+     * @param User $student The user to assign as student
      *
-     * @throws \LogicException If the user is not a student.
+     * @throws \LogicException If the user is not a student
+     * @note Classroom must be managed by the entity manager
      */
     public function assignStudent(Classroom $classroom, User $student): void
     {
-        if(!$student->isStudent()){
+        if (!$student->isStudent()) {
             throw new \LogicException('Only students can be assigned to a classroom');
         }
 
-        $classroom->addStudent($student);
-        $this->em->flush();
+        if ($student->getClassroom()?->getId() !== $classroom->getId()) {
+            $classroom->addStudent($student);
+            $this->em->persist($classroom);
+            $this->em->flush();
+        }
     }
 
     /**
      * Unassigns all teachers and students from a classroom.
      *
-     * @param Classroom $classroom The classroom to reset.
+     * @param Classroom $classroom The classroom to reset
+     * @note Uses toArray() to avoid modifying collection during iteration
      */
     public function unassignAll(Classroom $classroom): void
     {
@@ -80,15 +89,86 @@ class ClassroomManager
     }
 
     /**
+     * Retrieves all classrooms from the database.
+     *
+     * @return Classroom[] Array of Classroom entities
+     */
+    public function findAll(): array
+    {
+        return $this->classroomRepository->findAll();
+    }
+
+    /**
+     * Retrieves classrooms by name search.
+     *
+     * @param string $name The name to search for
+     * @return Classroom[] Array of matching Classroom entities
+     */
+    public function getClassByName(string $name): array
+    {
+        return $this->classroomRepository->searchByName($name);
+    }
+
+    /**
+     * Retrieves a classroom by its ID.
+     *
+     * @param int $id The classroom's unique identifier
+     * @return Classroom|null The found Classroom entity or null if not found
+     */
+    public function getClassById(int $id): ?Classroom
+    {
+        return $this->classroomRepository->find($id);
+    }
+
+    /**
+     * Retrieves classrooms by teacher ID.
+     *
+     * @param int $id The teacher's ID to search for
+     * @return Classroom[]|null Array of classrooms or null if none found
+     */
+    public function getFindByTeacher(int $id): ?array
+    {
+        return $this->classroomRepository->findByTeacher($id);
+    }
+
+    /**
+     * Retrieves classrooms by student ID.
+     *
+     * @param int $id The student's ID to search for
+     * @return Classroom[] Array of classrooms associated with the student
+     */
+    public function getFindByStudent(int $id): array
+    {
+        return $this->classroomRepository->findByStudent($id);
+    }
+
+    /**
+     * Counts classrooms by teacher ID.
+     *
+     * @param int $id The teacher's ID to count for
+     * @return int Number of classrooms associated with the teacher
+     */
+    public function getCountByTeacher(int $id): int
+    {
+        return $this->classroomRepository->countByTeacher($id);
+    }
+
+    /**
      * Retrieves all classrooms without an assigned teacher.
      *
-     * @return Classroom[] List of unassigned classrooms.
+     * @return Classroom[] List of unassigned classrooms
      */
     public function getUnassignedClassrooms(): array
     {
         return $this->classroomRepository->findUnassigned();
     }
 
+    /**
+     * Removes a student from their current classroom.
+     *
+     * @param User $student The student to remove
+     * @note Only works if the student is currently assigned to a classroom
+     */
     public function removeStudentFromClassroom(User $student): void
     {
         $classroom = $student->getClassroom();
@@ -97,6 +177,35 @@ class ClassroomManager
             $classroom->removeStudent($student);
         }
 
+        $this->em->flush();
+    }
+
+    /**
+     * Creates a new classroom with the specified name.
+     *
+     * @param string $name The name of the classroom
+     * @return Classroom The newly created and persisted Classroom entity
+     */
+    public function createClassroom(string $name): Classroom
+    {
+        $classroom = new Classroom();
+        $classroom->setName($name);
+
+        $this->em->persist($classroom);
+        $this->em->flush();
+
+        return $classroom;
+    }
+
+    /**
+     * Deletes a classroom from the database.
+     *
+     * @param Classroom $classroom The classroom to delete
+     * @note This will also remove all associations with students and teachers
+     */
+    public function removeClassroom(Classroom $classroom): void
+    {
+        $this->em->remove($classroom);
         $this->em->flush();
     }
 }

@@ -98,6 +98,4 @@ class ClassroomRepository extends ServiceEntityRepository
             ->getQuery()
             ->getSingleScalarResult();
     }
-
-
 }
