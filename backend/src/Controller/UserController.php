@@ -2,10 +2,11 @@
 
 namespace App\Controller;
 
-use App\Entity\Classroom;
+
 use App\Entity\User;
 use App\Enum\UserRoleEnum;
-use App\Repository\UserRepository;
+use App\DTO\CreateUserDTO;
+
 use App\Service\ClassroomManager;
 use App\Service\UserManager;
 use App\Helper\RoleRequestTrait;
@@ -19,6 +20,8 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
+use Symfony\Component\Validator\Validator\ValidatorInterface;
+
 
 /**
  * UserController handles API endpoints for user management.
@@ -177,7 +180,7 @@ class UserController extends AbstractController
             ], Response::HTTP_BAD_REQUEST);
         }
 
-        $users = $this->userManager->getRecentlyRegisteredUsers($days);
+        $users = $this->userManager->getRecentlyRegistered($days);
         return $this->json($users, Response::HTTP_OK, [], ['groups' => 'user:read']);
     }
 
@@ -397,60 +400,37 @@ class UserController extends AbstractController
      * Requires admin privileges.
      *
      * @param Request $request The HTTP request containing user data
-     * @param UserManager $userManager Service for user creation
-     * @param UserRepository $userRepository Repository for user validation
      * @return JsonResponse JSON response with created user data or error message
-     * @throws \JsonException If request content is invalid JSON
-     * @throws UniqueConstraintViolationException If email is already taken
+     * @throws \JsonException
      */
     #[Route('/create-user', name: 'create_user', methods: ['POST'])]
     #[IsGranted('ROLE_ADMIN')]
-    public function createUser(
-        Request        $request,
-        UserManager    $userManager,
-        UserRepository $userRepository
-    ): JsonResponse {
-        // Parse JSON
+    public function createUser(Request $request, ValidatorInterface $validator): JsonResponse
+    {
+        $dto = new CreateUserDTO();
         $data = json_decode($request->getContent(), true, 512, JSON_THROW_ON_ERROR);
 
-        $first  = trim((string)($data['first_name']  ?? ''));
-        $last   = trim((string)($data['last_name']   ?? ''));
-        $email  = trim((string)($data['email']       ?? ''));
-        $username = trim((string)($data['username'] ?? ''));
-        $pass = (string)($data['password'] ?? '');
-        $role = $data['role'] ?? null;
+        $dto->firstName = trim((string)($data['first_name'] ?? ''));
+        $dto->lastName = trim((string)($data['last_name'] ?? ''));
+        $dto->email = trim((string)($data['email'] ?? ''));
+        $dto->username = trim((string)($data['username'] ?? ''));
+        $dto->password = (string)($data['password'] ?? '');
+        $dto->role = (int)($data['role'] ?? 0);
 
-        if ($first === '' || $last === '' || $email === '' || $pass === '' || $username === '' || $role === null) {
-            return $this->json([
-                'error' => 'first_name, last_name, email, password, username and role are required.'
-            ], Response::HTTP_BAD_REQUEST);
+        $errors = $validator->validate($dto);
+        if (count($errors) > 0) {
+            return $this->json($errors, Response::HTTP_BAD_REQUEST);
         }
 
-        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-            return $this->json(['error' => 'Invalid email format.'], Response::HTTP_BAD_REQUEST);
-        }
+        $user = $this->userManager->createUser(
+            $dto->firstName,
+            $dto->lastName,
+            $dto->email,
+            $dto->username,
+            $dto->password,
+            UserRoleEnum::from($dto->role)
+        );
 
-        if (strlen($pass) < 8) {
-            return $this->json(['error' => 'Password must be at least 8 characters.'], Response::HTTP_BAD_REQUEST);
-        }
-
-        if (!is_numeric($role)) {
-            return $this->json(['error' => 'role must be a number.'], Response::HTTP_BAD_REQUEST);
-        }
-
-        $roleEnum = $this->getRoleEnumFromRequest($request);
-        if (!$roleEnum) {
-            return $this->json([
-                'error'       => 'Invalid or missing role.',
-                'valid_roles' => UserRoleEnum::values(),
-            ], Response::HTTP_BAD_REQUEST);
-        }
-
-        if ($userRepository->findOneBy(['email' => $email])) {
-            return $this->json(['error' => 'Email already in use.'], Response::HTTP_CONFLICT);
-        }
-
-        $user = $userManager->createUser($first, $last, $email, $username, $pass, $roleEnum);
         return $this->json($user, Response::HTTP_CREATED, [], ['groups' => 'user:read']);
     }
 

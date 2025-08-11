@@ -5,6 +5,7 @@ namespace App\Service;
 use App\Entity\Classroom;
 use App\Entity\User;
 use App\Enum\UserRoleEnum;
+use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
 use App\Repository\UserRepository;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
@@ -222,26 +223,41 @@ class UserManager
      * @return User The newly created and persisted User entity
      */
     public function createUser(
-        string       $firstName,
-        string       $lastName,
-        string       $email,
-        string       $username,
-        string       $password,
+        string $firstName,
+        string $lastName,
+        string $email,
+        string $username,
+        string $password,
         UserRoleEnum $role
-    ): User
-    {
-        $user = new User();
+    ): User {
+        // Optional soft checks (good UX, not race-safe)
+        if ($this->userRepository->findByEmail($email)) {
+            throw new \DomainException('email_taken');
+        }
+        if ($this->userRepository->findOneBy(['username' => $username])) {
+            throw new \DomainException('username_taken');
+        }
 
-        $user->setFirstName($firstName);
-        $user->setLastName($lastName);
+        $user = new User();
+        $user->setFirstname($firstName);
+        $user->setLastname($lastName);
         $user->setEmail($email);
         $user->setUsername($username);
-        $hashedPassword = $this->passwordHasher->hashPassword($user, $password);
-        $user->setPassword($hashedPassword);
         $user->setRole($role);
+        $user->setPassword($this->passwordHasher->hashPassword($user, $password));
 
-        $this->em->persist($user);
-        $this->em->flush();
+        try {
+            $this->em->persist($user);
+            $this->em->flush();
+        } catch (UniqueConstraintViolationException $e) {
+            // The DB is the source of truth; map constraint to a friendly domain error.
+            // If you have named constraints, you can inspect $e to distinguish which one.
+            // For now, we check which one exists to return a stable message:
+            if ($this->userRepository->findByEmail($email)) {
+                throw new \DomainException('email_taken');
+            }
+            throw new \DomainException('username_taken');
+        }
 
         return $user;
     }

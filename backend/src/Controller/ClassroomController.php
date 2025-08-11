@@ -2,11 +2,10 @@
 
 namespace App\Controller;
 
-use App\Entity\Classroom;
+
+
 use App\Entity\User;
 use App\Service\ClassroomManager;
-use App\Repository\ClassroomRepository;
-use App\Repository\UserRepository;
 use App\Service\UserManager;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;

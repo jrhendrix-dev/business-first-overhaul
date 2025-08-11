@@ -56,7 +56,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     private UserRoleEnum $role;
 
     #[ORM\ManyToOne(targetEntity: Classroom::class, inversedBy: 'students')]
-    #[ORM\JoinColumn(name: 'class_id', referencedColumnName: 'id', onDelete: 'SET NULL', nullable: true)]
+    #[ORM\JoinColumn(name: 'class_id', referencedColumnName: 'id', nullable: true, onDelete: 'SET NULL')]
     private ?Classroom $classroom = null;
 
     #[ORM\Column(name: 'is_active', type: 'boolean', options: ['default' => true])]
