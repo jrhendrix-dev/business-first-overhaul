@@ -13,7 +13,8 @@
 /phpunit.xml
 /.phpunit.cache/
 ###< phpunit/phpunit ###
-
+backend/.env.test
+.env.test
 ###> symfony/asset-mapper ###
 /public/assets/
 /assets/vendor/
