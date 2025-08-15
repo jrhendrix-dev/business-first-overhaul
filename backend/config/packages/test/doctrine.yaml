@@ -1,10 +1,18 @@
-# config/packages/test/doctrine.yaml
 doctrine:
     dbal:
         url: '%env(resolve:DATABASE_URL)%'
-        # This suffix gives you an isolated DB for tests: bfe_db_test, bfe_db_test_<token>, etc.
         dbname_suffix: '_test%env(default::TEST_TOKEN)%'
+
     orm:
         auto_generate_proxy_classes: true
-        metadata_cache_driver: pool(doctrine.system_cache_pool)
-        query_cache_driver: pool(doctrine.result_cache_pool)
+        entity_managers:
+            default:
+                metadata_cache_driver:
+                    type: pool
+                    pool: doctrine.system_cache_pool
+                query_cache_driver:
+                    type: pool
+                    pool: doctrine.system_cache_pool
+                result_cache_driver:
+                    type: pool
+                    pool: doctrine.result_cache_pool

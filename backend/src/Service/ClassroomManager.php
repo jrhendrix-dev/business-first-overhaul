@@ -6,6 +6,7 @@ use App\Entity\Classroom;
 use App\Entity\User;
 use Doctrine\ORM\EntityManagerInterface;
 use App\Repository\ClassroomRepository;
+use LogicException;
 use Symfony\Component\HttpFoundation\JsonResponse;
 
 /**
@@ -31,19 +32,20 @@ class ClassroomManager
      * @param Classroom $classroom The classroom to assign the teacher to
      * @param User $teacher The user to assign as teacher
      *
-     * @throws \LogicException If the user is not a teacher
+     * @throws LogicException If the user is not a teacher
      * @note Classroom must be managed by the entity manager
      */
     public function assignTeacher(Classroom $classroom, User $teacher): void
     {
         if (!$teacher->isTeacher()) {
-            throw new \LogicException('Only teachers can be assigned to a classroom as a teacher');
+            throw new LogicException('Only teachers can be assigned to a classroom as a teacher');
         }
 
-        if ($classroom->getTeacher()?->getId() !== $teacher->getId()) {
+        // Compare object identity; IDs may be null in unit tests (I used to compare id and it was failing tests)
+        if ($classroom->getTeacher() !== $teacher) {
             $classroom->setTeacher($teacher);
-            $this->em->persist($classroom); // technically optional if already managed
-            $this->em->flush(); // Assuming classroom is already managed
+            $this->em->persist($classroom); // optional if managed
+            $this->em->flush();
         }
     }
 
@@ -53,16 +55,16 @@ class ClassroomManager
      * @param Classroom $classroom The classroom to assign the student to
      * @param User $student The user to assign as student
      *
-     * @throws \LogicException If the user is not a student
+     * @throws LogicException If the user is not a student
      * @note Classroom must be managed by the entity manager
      */
     public function assignStudent(Classroom $classroom, User $student): void
     {
         if (!$student->isStudent()) {
-            throw new \LogicException('Only students can be assigned to a classroom');
+            throw new LogicException('Only students can be assigned to a classroom');
         }
 
-        if ($student->getClassroom()?->getId() !== $classroom->getId()) {
+        if ($student->getClassroom() !== $classroom) {
             $classroom->addStudent($student);
             $this->em->persist($classroom);
             $this->em->flush();

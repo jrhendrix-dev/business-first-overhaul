@@ -26,6 +26,10 @@ services:
       dockerfile: Dockerfile
     container_name: bfe_symfony_backend
     restart: no
+    environment:
+      APP_ENV: dev
+      # Keep Xdebug inert by default
+      XDEBUG_MODE: off
     working_dir: /var/www/app
     volumes:
       - ./backend:/var/www/app
@@ -35,15 +39,19 @@ services:
     ports:
       - "8000:8000"
     command: >
-      bash -c "
-        until mysqladmin ping -h mysql -u symfony -ppassword --silent; do
-          echo '⏳ Waiting for MySQL...'; sleep 2;
-        done &&
-        composer install &&
-        php bin/console doctrine:database:create --if-not-exists &&
-        php bin/console doctrine:schema:update --force &&
-        symfony server:start --no-tls --port=8000 --allow-http --allow-all-ip
-      "
+      sh -lc '
+          until php -r '\''try {
+            new PDO("mysql:host=mysql;port=3306;dbname=bfe_db","symfony","password",
+                    [PDO::ATTR_TIMEOUT=>2]);
+          } catch (Throwable $e) { exit(1); }'\''; do
+            echo "⏳ Waiting for MySQL...";
+            sleep 2;
+          done &&
+          composer install --no-interaction &&
+          php bin/console doctrine:database:create --if-not-exists &&
+          php bin/console doctrine:schema:update --force &&
+          php -S 0.0.0.0:8000 -t public
+        '
 
     networks:
       - bfe_network

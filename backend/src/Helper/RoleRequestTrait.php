@@ -1,42 +1,43 @@
 <?php
-
 namespace App\Helper;
 
-use Symfony\Component\HttpFoundation\Request;
 use App\Enum\UserRoleEnum;
+use Symfony\Component\HttpFoundation\Request;
 
-/**
- * Provides functionality to extract and validate role parameters from HTTP requests.
- */
 trait RoleRequestTrait
 {
-    /**
-     * Extracts a role parameter from the request and converts it to a UserRoleEnum instance.
-     *
-     * The method first attempts to retrieve the role from query parameters. If not found,
-     * it checks the JSON content of the request body. The role can be provided either as
-     * a numeric value (matching UserRoleEnum constants) or as a string representation.
-     *
-     * @param Request $request The HTTP request object to extract the role from
-     *
-     * @return UserRoleEnum|null Returns the corresponding UserRoleEnum instance if the role is valid,
-     *                           null if the role parameter is missing or invalid
-     *
-     * @throws \JsonException If the request content contains invalid JSON
-     */
-    public function getRoleEnumFromRequest(Request $request): ?UserRoleEnum
+    private function getRoleEnumFromRequest(Request $request): ?UserRoleEnum
     {
-        $role = $request->query->get('role');
+        // Prefer ?role=... on query string for GETs
+        $roleParam = $request->query->get('role');
 
-        if(!$role) {
-            $data = json_decode($request->getContent(), true, 512, JSON_THROW_ON_ERROR);
-            $role = $data['role'] ?? null;
+        // If not present on query, try JSON body – but only if non-empty
+        if ($roleParam === null) {
+            $raw = $request->getContent();
+            if (is_string($raw) && trim($raw) !== '') {
+                try {
+                    $data = json_decode($raw, true, 512, JSON_THROW_ON_ERROR);
+                    $roleParam = $data['role'] ?? null;
+                } catch (\JsonException) {
+                    // ignore: treat as missing/invalid role
+                }
+            }
         }
 
-        $roleInt = is_numeric($role) ? (int) $role : null;
+        if ($roleParam === null || $roleParam === '') {
+            return null;
+        }
 
-        return $roleInt !== null && in_array($roleInt, UserRoleEnum::values(), true)
-            ? UserRoleEnum::tryFrom($roleInt)
-            : null;
+        // accept integers or strings that can be cast to int
+        $int = filter_var($roleParam, FILTER_VALIDATE_INT);
+        if ($int === false) {
+            return null;
+        }
+
+        try {
+            return UserRoleEnum::from((int)$int);
+        } catch (\ValueError) {
+            return null;
+        }
     }
 }

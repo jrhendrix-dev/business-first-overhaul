@@ -14,6 +14,16 @@ COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 RUN wget https://get.symfony.com/cli/installer -O - | bash && \
     mv /root/.symfony*/bin/symfony /usr/local/bin/symfony
 
+# --- Code coverage / debug (Xdebug) ---
+# Install and enable the extension (loaded, but inert unless XDEBUG_MODE is set)
+RUN pecl install xdebug \
+    && docker-php-ext-enable xdebug \
+    && { \
+        echo "xdebug.mode=off"; \
+        echo "xdebug.start_with_request=no"; \
+        echo "xdebug.log_level=0"; \
+      } >> /usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini
+
 WORKDIR /var/www/html
 
 COPY . .

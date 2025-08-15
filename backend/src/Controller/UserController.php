@@ -419,7 +419,14 @@ class UserController extends AbstractController
 
         $errors = $validator->validate($dto);
         if (count($errors) > 0) {
-            return $this->json($errors, Response::HTTP_BAD_REQUEST);
+            $normalized = [];
+            foreach ($errors as $violation) {
+                $normalized[] = [
+                    'field'   => $violation->getPropertyPath(),
+                    'message' => $violation->getMessage(),
+                ];
+            }
+            return $this->json(['errors' => $normalized], 400);
         }
 
         $user = $this->userManager->createUser(
