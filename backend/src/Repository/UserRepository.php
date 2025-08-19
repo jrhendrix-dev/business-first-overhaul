@@ -4,6 +4,7 @@ namespace App\Repository;
 
 use App\Entity\User;
 use App\Entity\Classroom;
+use App\Enum\EnrollmentStatusEnum;
 use App\Enum\UserRoleEnum;
 use Doctrine\ORM\EntityManager;
 use Doctrine\ORM\Exception\ORMException;
@@ -186,6 +187,44 @@ class UserRepository extends ServiceEntityRepository
             ->andWhere('u.createdAt >= :date')
             ->setParameter('date', $date)
             ->orderBy('u.createdAt', 'DESC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /** @return User[] */
+    public function findUnassignedStudents(): array
+    {
+        $roleParam = UserRoleEnum::STUDENT instanceof \BackedEnum
+            ? UserRoleEnum::STUDENT->value
+            : UserRoleEnum::STUDENT;
+
+        $activeParam = EnrollmentStatusEnum::ACTIVE instanceof \BackedEnum
+            ? EnrollmentStatusEnum::ACTIVE->value
+            : EnrollmentStatusEnum::ACTIVE;
+
+        return $this->createQueryBuilder('u')
+            ->leftJoin('App\Entity\Enrollment', 'e', 'WITH', 'e.student = u AND e.status = :active')
+            ->andWhere('u.role = :role')
+            ->andWhere('e.id IS NULL')
+            ->setParameter('role', $roleParam)
+            ->setParameter('active', $activeParam)
+            ->getQuery()
+            ->getResult();
+    }
+
+    /** @return User[] */
+    public function findUnassignedTeachers(): array
+    {
+        // If you're using Doctrine enum type, you can pass the enum itself.
+        $roleParam = UserRoleEnum::TEACHER instanceof \BackedEnum
+            ? UserRoleEnum::TEACHER->value
+            : UserRoleEnum::TEACHER;
+
+        return $this->createQueryBuilder('u')
+            ->leftJoin('App\Entity\Classroom', 'c', 'WITH', 'c.teacher = u')
+            ->andWhere('u.role = :role')
+            ->andWhere('c.id IS NULL')
+            ->setParameter('role', $roleParam)
             ->getQuery()
             ->getResult();
     }

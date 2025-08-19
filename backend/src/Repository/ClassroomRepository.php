@@ -6,6 +6,7 @@ use App\Entity\Classroom;
 use App\Entity\User;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
+use App\Entity\Enrollment;
 
 /**
  * @extends ServiceEntityRepository<Classroom>
@@ -61,11 +62,10 @@ class ClassroomRepository extends ServiceEntityRepository
      */
     public function findByStudent(int $studentId): array
     {
-
         return $this->createQueryBuilder('c')
-            ->join('c.students', 's')
-            ->andWhere('s.id = :studentId')
-            ->setParameter('studentId', $studentId)
+            ->innerJoin(Enrollment::class, 'e', 'WITH', 'e.classroom = c')
+            ->andWhere('e.student = :sid')
+            ->setParameter('sid', $studentId)
             ->getQuery()
             ->getResult();
     }
