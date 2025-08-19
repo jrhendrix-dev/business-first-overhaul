@@ -1,0 +1,12 @@
+# config/services_test.yaml
+services:
+    App\Service\EnrollmentManager:
+        public: true
+        autowire: true
+        autoconfigure: true
+
+    App\Service\GradeManager:
+        public: true
+        autowire: true
+        autoconfigure: true
+    App\Service\Contracts\EnrollmentPort: '@App\Service\EnrollmentManager'

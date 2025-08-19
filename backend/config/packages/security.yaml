@@ -29,3 +29,5 @@ security:
         - { path: ^/api/login, roles: IS_AUTHENTICATED_ANONYMOUSLY }
         - { path: ^/api/register, roles: PUBLIC_ACCESS }
         - { path: ^/api,       roles: IS_AUTHENTICATED_FULLY }
+        - { path: ^/api/enrollments, roles: ROLE_USER }  # tighten as desired
+        - { path: ^/api/classes/\d+/students, roles: ROLE_TEACHER }
