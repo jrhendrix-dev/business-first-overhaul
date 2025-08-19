@@ -6,6 +6,7 @@ use App\Entity\Classroom;
 use App\Entity\User;
 use App\Enum\UserRoleEnum;
 use App\Repository\UserRepository;
+use App\Service\Contracts\EnrollmentPort;
 use App\Service\UserManager;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
@@ -155,26 +156,32 @@ final class UserManagerTest extends TestCase
         $u = new User();
         $u->setRole(UserRoleEnum::TEACHER);
 
-        // flush must NOT be called
         $this->em->expects($this->never())->method('flush');
 
-        $this->manager->changeRole($u, UserRoleEnum::TEACHER);
+        $enrollments = $this->createMock(EnrollmentPort::class);
+        $enrollments->expects($this->never())->method('dropAllActiveForStudent');
+
+        // new method signature: changeRole(User $u, UserRoleEnum $to, EnrollmentPort $enrollments)
+        $this->manager->changeRole($u, UserRoleEnum::TEACHER, $enrollments);
+
         self::assertSame(UserRoleEnum::TEACHER, $u->getRole());
     }
 
     #[Test]
-    public function changeRole_from_student_unsets_classroom_and_flushes(): void
+    public function changeRole_from_student_drops_enrollments_and_flushes(): void
     {
-        $classroom = new Classroom();
         $u = new User();
         $u->setRole(UserRoleEnum::STUDENT);
-        $u->setClassroom($classroom);
 
         $this->em->expects($this->once())->method('flush');
 
-        $this->manager->changeRole($u, UserRoleEnum::TEACHER);
+        $enrollments = $this->createMock(EnrollmentPort::class);
+        $enrollments->expects($this->once())
+            ->method('dropAllActiveForStudent')
+            ->with($u);
 
-        self::assertNull($u->getClassroom(), 'student classroom must be cleared');
+        $this->manager->changeRole($u, UserRoleEnum::TEACHER, $enrollments);
+
         self::assertSame(UserRoleEnum::TEACHER, $u->getRole());
     }
 
@@ -262,24 +269,22 @@ final class UserManagerTest extends TestCase
     #[Test]
     public function createUser_maps_unique_violation_to_email_taken_when_email_now_exists(): void
     {
-        // prechecks pass
         $this->repo->expects($this->exactly(2))
             ->method('findByEmail')->with('a@b.com')
             ->willReturnOnConsecutiveCalls(null, new User());
 
         $this->repo->expects($this->once())->method('findOneBy')->with(['username' => 'ann'])->willReturn(null);
 
-        // hashing happens
         $this->hasher->method('hashPassword')->willReturn('HASH');
 
-        // persist OK, flush throws DB unique violation
         $this->em->expects($this->once())->method('persist')->with($this->isInstanceOf(User::class));
         $this->em->expects($this->once())->method('flush')->willThrowException(
             $this->createMock(UniqueConstraintViolationException::class)
         );
 
-        // after catch, service checks if email exists -> return email_taken
-         $this->repo->expects($this->exactly(2))->method('findByEmail')->with('a@b.com')->willReturnOnConsecutiveCalls(null, new User());
+        $this->repo->expects($this->exactly(2))
+            ->method('findByEmail')->with('a@b.com')
+            ->willReturnOnConsecutiveCalls(null, new User());
 
         $this->expectException(\DomainException::class);
         $this->expectExceptionMessage('email_taken');
@@ -290,7 +295,6 @@ final class UserManagerTest extends TestCase
     #[Test]
     public function createUser_maps_unique_violation_to_username_taken_when_email_still_free(): void
     {
-        // prechecks pass
         $this->repo->expects($this->exactly(2))
             ->method('findByEmail')->with('a@b.com')
             ->willReturnOnConsecutiveCalls(null, null);
@@ -304,7 +308,6 @@ final class UserManagerTest extends TestCase
             $this->createMock(UniqueConstraintViolationException::class)
         );
 
-        // after catch: email still not found -> map to username_taken
         $this->repo->expects($this->exactly(2))
             ->method('findByEmail')->with('a@b.com')
             ->willReturnOnConsecutiveCalls(null, null);

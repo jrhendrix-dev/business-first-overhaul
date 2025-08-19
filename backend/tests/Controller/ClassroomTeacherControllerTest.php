@@ -1,5 +1,4 @@
 <?php
-// tests/Controller/ClassroomTeacherControllerTest.php
 
 namespace App\Tests\Controller;
 
@@ -47,9 +46,13 @@ final class ClassroomTeacherControllerTest extends WebTestCase
         return $c;
     }
 
+    /**
+     * @throws \JsonException
+     */
     public function testAssignAndRemoveTeacher(): void
     {
-        $client = static::createClient();
+        $client = self::createClient();
+
 
         $admin   = $this->user(UserRoleEnum::ADMIN, 'a');
         $teacher = $this->user(UserRoleEnum::TEACHER, 't');
@@ -57,25 +60,31 @@ final class ClassroomTeacherControllerTest extends WebTestCase
 
         $token = $this->jwt($admin);
 
-        // PUT assign teacher
-        $client->request('PUT', "/api/classrooms/{$class->getId()}/teacher",
-            server: ['HTTP_AUTHORIZATION' => "Bearer {$token}", 'CONTENT_TYPE' => 'application/json', 'HTTP_ACCEPT' => 'application/json'],
+        // persist headers on client
+        $client->setServerParameter('HTTP_AUTHORIZATION', "Bearer {$token}");
+        $client->setServerParameter('HTTP_ACCEPT', 'application/json');
+        $client->setServerParameter('CONTENT_TYPE', 'application/json');
+
+        // PUT assign
+        $client->request(
+            'PUT',
+            "/api/classrooms/{$class->getId()}/teacher",
+            server: [], // already set on client
             content: json_encode(['teacherId' => $teacher->getId()], JSON_THROW_ON_ERROR)
         );
         self::assertResponseStatusCodeSame(200);
 
-        // GET teacher
+        // GET teacher (protected → still has Authorization from client)
         $client->request('GET', "/api/classrooms/{$class->getId()}/teacher");
         self::assertResponseIsSuccessful();
-        $j = json_decode($client->getResponse()->getContent(), true);
+        $j = json_decode($client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
         self::assertArrayHasKey('teacher', $j);
 
         // DELETE teacher
-        $client->request('DELETE', "/api/classrooms/{$class->getId()}/teacher",
-            server: ['HTTP_AUTHORIZATION' => "Bearer {$token}"]
-        );
+        $client->request('DELETE', "/api/classrooms/{$class->getId()}/teacher");
         self::assertResponseStatusCodeSame(200);
     }
+
 
     protected static function getKernelClass(): string
     {

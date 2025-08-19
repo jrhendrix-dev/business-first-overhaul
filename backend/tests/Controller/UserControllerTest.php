@@ -447,14 +447,23 @@ final class UserControllerTest extends WebTestCase
     public function get_unassigned_students_and_teachers_ok(): void
     {
         $client = static::createClient();
-        $admin  = $this->ensureAdmin(self::ADMIN_EM, self::ADMIN_PW);
-        $token  = $this->jwtFor($admin);
 
-        // we just need it to not 500; the repository handles filtering
-        $client->request('GET', self::BASE.'/get-unassigned-students', server: ['HTTP_Authorization' => 'Bearer '.$token]);
+        // make an admin and get a JWT
+        $admin = $this->ensureAdmin(email: self::ADMIN_EM, plain: self::ADMIN_PW);
+        $token = $this->jwtFor($admin);
+
+        // correct headers (NOTE: HTTP_AUTHORIZATION must be uppercase)
+        $server = [
+            'HTTP_AUTHORIZATION' => 'Bearer '.$token,
+            'HTTP_ACCEPT'        => 'application/json',
+        ];
+
+        // students
+        $client->request('GET', self::BASE.'/get-unassigned-students', server: $server);
         self::assertSame(200, $client->getResponse()->getStatusCode());
 
-        $client->request('GET', self::BASE.'/get-unassigned-teachers', server: ['HTTP_Authorization' => 'Bearer '.$token]);
+        // teachers
+        $client->request('GET', self::BASE.'/get-unassigned-teachers', server: $server);
         self::assertSame(200, $client->getResponse()->getStatusCode());
     }
 

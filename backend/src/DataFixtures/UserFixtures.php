@@ -1,75 +1,99 @@
 <?php
-
-// src/DataFixtures/UserFixtures.php
 namespace App\DataFixtures;
 
 use App\Entity\User;
 use App\Entity\Classroom;
 use App\Enum\UserRoleEnum;
+use App\Service\EnrollmentManager;
+use App\Service\GradeManager;
 use Doctrine\Bundle\FixturesBundle\Fixture;
 use Doctrine\Persistence\ObjectManager;
 use Faker\Factory;
+use Random\RandomException;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
-class UserFixtures extends Fixture
+final class UserFixtures extends Fixture
 {
-    public function __construct(UserPasswordHasherInterface $passwordHasher)
-    {
-        $this->passwordHasher = $passwordHasher;
-    }
+    public function __construct(
+        private UserPasswordHasherInterface $passwordHasher,
+        private EnrollmentManager $enrollmentManager,
+        private GradeManager $gradeManager,
+    ) {}
 
+    /**
+     * @throws RandomException
+     */
     public function load(ObjectManager $manager): void
     {
-        $faker = Factory::create('es_ES'); //'es_ES' makes it use Spanish-like names
+        $faker = Factory::create('es_ES');
+        $faker->unique(true); // reset unique just in case
 
-        // Create an admin
+        // --- Admin ---
         $admin = new User();
         $admin->setUsername('admin');
-        $admin->setFirstname($faker->firstName);
-        $admin->setLastname($faker->lastName);
-        $admin->setEmail("admin@example.com");
-        $hashedPassword = $this->passwordHasher->hashPassword($admin, '1234');
-        $admin->setPassword($hashedPassword);
+        $admin->setFirstname($faker->firstName());
+        $admin->setLastname($faker->lastName());
+        $admin->setEmail('admin@example.com');
         $admin->setRole(UserRoleEnum::ADMIN);
+        $admin->setPassword($this->passwordHasher->hashPassword($admin, '1234'));
         $manager->persist($admin);
 
-        // Create 3 teachers
+        // --- Teachers ---
+        $teachers = [];
         for ($i = 1; $i <= 3; $i++) {
-            $teacher = new User();
-            $teacher->setEmail("teacher$i@example.com");
-            $teacher->setFirstname($faker->firstName);
-            $teacher->setLastname($faker->lastName);
-            $teacher->setUsername($faker->userName);
-            $hashedPassword = $this->passwordHasher->hashPassword($teacher, '1234');
-            $teacher->setPassword($hashedPassword);
-            $teacher->setRole(UserRoleEnum::TEACHER);
-            $manager->persist($teacher);
+            $t = new User();
+            $t->setEmail($faker->unique()->safeEmail());
+            $t->setFirstname($faker->firstName());
+            $t->setLastname($faker->lastName());
+            $t->setUsername($faker->unique()->userName());
+            $t->setRole(UserRoleEnum::TEACHER);
+            $t->setPassword($this->passwordHasher->hashPassword($t, '1234'));
+            $manager->persist($t);
+            $teachers[] = $t;
         }
 
-        // Create 5 students
+        // --- Students ---
         $students = [];
         for ($i = 1; $i <= 5; $i++) {
-            $student = new User();
-            $student->setEmail("student$i@example.com");
-            $student->setFirstname($faker->firstName());
-            $student->setLastname($faker->lastName());
-            $student->setUsername($faker->userName);
-            $hashedPassword = $this->passwordHasher->hashPassword($student, '1234');
-            $student->setPassword($hashedPassword);
-            $student->setRole(UserRoleEnum::STUDENT);
-            $manager->persist($student);
-            $students[] = $student;
+            $s = new User();
+            $s->setEmail($faker->unique()->safeEmail());
+            $s->setFirstname($faker->firstName());
+            $s->setLastname($faker->lastName());
+            $s->setUsername($faker->unique()->userName());
+            $s->setRole(UserRoleEnum::STUDENT);
+            $s->setPassword($this->passwordHasher->hashPassword($s, '1234'));
+            $manager->persist($s);
+            $students[] = $s;
         }
 
-        // Create 4 classrooms
+        // --- Classrooms ---
+        $classes = [];
         for ($i = 1; $i <= 4; $i++) {
-            $classroom = new Classroom();
-            $classroom->setName("Classroom $i");
-            // Assign 2 studentsdocker compose exec backend bash
-            foreach (array_slice($students, ($i - 1) * 2, 2) as $s) {
-                $classroom->addStudent($s);
+            $c = new Classroom();
+            $c->setName("Classroom {$i}");
+            $manager->persist($c);
+            $classes[] = $c;
+        }
+
+        // Have IDs available for EnrollmentManager/GradeManager usage
+        $manager->flush();
+
+        // --- Enrollments + Grades ---
+        foreach ($classes as $idx => $classroom) {
+            $slice = array_slice($students, $idx, 2);
+            foreach ($slice as $student) {
+                // This enforces domain rules (prevents duplicates, etc.)
+                $enrollment = $this->enrollmentManager->enroll($student, $classroom);
+
+                $gradeCount = random_int(1, 3);
+                for ($g = 0; $g < $gradeCount; $g++) {
+                    $component = $faker->randomElement(['Quiz', 'Homework', 'Project', 'Exam']);
+                    $maxScore  = 10.0;
+                    $score     = (float) random_int(5, 10);
+
+                    $this->gradeManager->addGrade($enrollment, $component, $score, $maxScore);
+                }
             }
-            $manager->persist($classroom);
         }
 
         $manager->flush();

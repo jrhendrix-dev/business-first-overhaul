@@ -9,6 +9,7 @@ use App\Repository\ClassroomRepository;
 use App\Service\ClassroomManager;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\TestCase;
+use App\Service\Contracts\EnrollmentPort;
 
 final class ClassroomManagerTest extends TestCase
 {
@@ -16,9 +17,11 @@ final class ClassroomManagerTest extends TestCase
 
     public function test_assignTeacher_throws_forNonTeacherRole(): void
     {
-        $em   = $this->createMock(EntityManagerInterface::class);
-        $repo = $this->createMock(ClassroomRepository::class);
-        $manager = new ClassroomManager($em, $repo);
+        $em          = $this->createMock(EntityManagerInterface::class);
+        $repo        = $this->createMock(ClassroomRepository::class);
+        $enrollments = $this->createMock(EnrollmentPort::class);
+
+        $manager = new ClassroomManager($em, $repo, $enrollments);
 
         $classroom = new Classroom();
         $classroom->setName('A1');
@@ -37,8 +40,10 @@ final class ClassroomManagerTest extends TestCase
         $em->expects($this->once())->method('persist');
         $em->expects($this->once())->method('flush');
 
-        $repo = $this->createMock(ClassroomRepository::class);
-        $manager = new ClassroomManager($em, $repo);
+        $repo        = $this->createMock(ClassroomRepository::class);
+        $enrollments = $this->createMock(EnrollmentPort::class);
+
+        $manager = new ClassroomManager($em, $repo, $enrollments);
 
         $classroom = new Classroom();
         $classroom->setName('A1');
@@ -54,11 +59,12 @@ final class ClassroomManagerTest extends TestCase
     public function test_assignTeacher_same_teacher_is_idempotent_no_flush(): void
     {
         $em = $this->createMock(EntityManagerInterface::class);
-        // first call (when we initially setTeacher below) is not from manager; we only care that manager doesn't flush again
         $em->expects($this->never())->method('flush');
 
-        $repo = $this->createMock(ClassroomRepository::class);
-        $manager = new ClassroomManager($em, $repo);
+        $repo        = $this->createMock(ClassroomRepository::class);
+        $enrollments = $this->createMock(EnrollmentPort::class);
+
+        $manager = new ClassroomManager($em, $repo, $enrollments);
 
         $classroom = new Classroom();
         $classroom->setName('B2');
@@ -66,7 +72,7 @@ final class ClassroomManagerTest extends TestCase
         $teacher = new User();
         $teacher->setRole(UserRoleEnum::TEACHER);
 
-        // Teacher already assigned:
+        // already assigned before calling the manager
         $classroom->setTeacher($teacher);
 
         $manager->assignTeacher($classroom, $teacher);
@@ -74,54 +80,43 @@ final class ClassroomManagerTest extends TestCase
         self::assertSame($teacher, $classroom->getTeacher());
     }
 
-    // --- assignStudent() ---
+    // --- removeStudentFromClassroom() ---
 
-    public function test_assignStudent_throws_if_not_student(): void
+    public function test_removeStudentFromClassroom_delegates_to_enrollments_with_classroom(): void
     {
-        $em   = $this->createMock(EntityManagerInterface::class);
-        $repo = $this->createMock(ClassroomRepository::class);
-        $manager = new ClassroomManager($em, $repo);
+        $em          = $this->createMock(EntityManagerInterface::class);
+        $repo        = $this->createMock(ClassroomRepository::class);
+        $enrollments = $this->createMock(EnrollmentPort::class);
 
-        $classroom = new Classroom();
-        $classroom->setName('C1');
-
-        $notStudent = new User();
-        $notStudent->setRole(UserRoleEnum::TEACHER);
-
-        $this->expectException(\LogicException::class);
-        $manager->assignStudent($classroom, $notStudent);
-    }
-
-    public function test_assignStudent_adds_student_and_flushes(): void
-    {
-        $em = $this->createMock(EntityManagerInterface::class);
-        $em->expects($this->once())->method('persist')->with($this->isInstanceOf(Classroom::class));
-        $em->expects($this->once())->method('flush');
-
-        $repo = $this->createMock(ClassroomRepository::class);
-        $manager = new ClassroomManager($em, $repo);
+        $manager = new ClassroomManager($em, $repo, $enrollments);
 
         $classroom = new Classroom();
         $classroom->setName('C2');
-
-        $student = new User();
+        $student   = new User();
         $student->setRole(UserRoleEnum::STUDENT);
 
-        $manager->assignStudent($classroom, $student);
+        // Expect delegation with both student and classroom
+        $enrollments->expects($this->once())
+            ->method('dropActiveForStudent')
+            ->with($student, $classroom);
 
-        self::assertTrue($classroom->getStudents()->contains($student));
-        self::assertSame($classroom, $student->getClassroom());
+        // Manager itself does not flush here; enrollment service handles persistence.
+        $em->expects($this->never())->method('flush');
+
+        $manager->removeStudentFromClassroom($student, $classroom);
     }
 
     // --- unassignAll() ---
 
-    public function test_unassignAll_clears_teacher_and_students_and_flushes(): void
+    public function test_unassignAll_clears_teacher_and_calls_bulk_drop(): void
     {
         $em = $this->createMock(EntityManagerInterface::class);
         $em->expects($this->once())->method('flush');
 
-        $repo = $this->createMock(ClassroomRepository::class);
-        $manager = new ClassroomManager($em, $repo);
+        $repo        = $this->createMock(ClassroomRepository::class);
+        $enrollments = $this->createMock(EnrollmentPort::class);
+
+        $manager = new ClassroomManager($em, $repo, $enrollments);
 
         $classroom = new Classroom();
         $classroom->setName('R1');
@@ -130,62 +125,17 @@ final class ClassroomManagerTest extends TestCase
         $teacher->setRole(UserRoleEnum::TEACHER);
         $classroom->setTeacher($teacher);
 
-        $s1 = new User();
-        $s1->setRole(UserRoleEnum::STUDENT);
-        $classroom->addStudent($s1);
-
-        $s2 = new User();
-        $s2->setRole(UserRoleEnum::STUDENT);
-        $classroom->addStudent($s2);
+        // Best practice: use the bulk API on the enrollment port
+        $enrollments->expects($this->once())
+            ->method('dropAllActiveForClassroom')
+            ->with($classroom);
 
         $manager->unassignAll($classroom);
 
         self::assertNull($classroom->getTeacher());
-        self::assertCount(0, $classroom->getStudents());
-        self::assertNull($s1->getClassroom());
-        self::assertNull($s2->getClassroom());
     }
 
-    // --- removeStudentFromClassroom() ---
-
-    public function test_removeStudentFromClassroom_when_assigned_removes_and_flushes(): void
-    {
-        $em = $this->createMock(EntityManagerInterface::class);
-        $em->expects($this->once())->method('flush');
-
-        $repo = $this->createMock(ClassroomRepository::class);
-        $manager = new ClassroomManager($em, $repo);
-
-        $classroom = new Classroom();
-        $classroom->setName('R2');
-
-        $student = new User();
-        $student->setRole(UserRoleEnum::STUDENT);
-        $classroom->addStudent($student);
-
-        $manager->removeStudentFromClassroom($student);
-
-        self::assertFalse($classroom->getStudents()->contains($student));
-        self::assertNull($student->getClassroom());
-    }
-
-    public function test_removeStudentFromClassroom_when_not_assigned_just_flushes(): void
-    {
-        $em = $this->createMock(EntityManagerInterface::class);
-        $em->expects($this->once())->method('flush');
-
-        $repo = $this->createMock(ClassroomRepository::class);
-        $manager = new ClassroomManager($em, $repo);
-
-        $student = new User();
-        $student->setRole(UserRoleEnum::STUDENT);
-
-        $manager->removeStudentFromClassroom($student);
-
-        self::assertNull($student->getClassroom());
-    }
-
-    // --- create/remove/find wrappers ---
+    // --- create/remove/find wrappers (unchanged) ---
 
     public function test_createClassroom_persists_and_returns_entity(): void
     {
@@ -193,8 +143,9 @@ final class ClassroomManagerTest extends TestCase
         $em->expects($this->once())->method('persist')->with($this->isInstanceOf(Classroom::class));
         $em->expects($this->once())->method('flush');
 
-        $repo = $this->createMock(ClassroomRepository::class);
-        $manager = new ClassroomManager($em, $repo);
+        $repo        = $this->createMock(ClassroomRepository::class);
+        $enrollments = $this->createMock(EnrollmentPort::class);
+        $manager     = new ClassroomManager($em, $repo, $enrollments);
 
         $c = $manager->createClassroom('Z9');
 
@@ -207,8 +158,9 @@ final class ClassroomManagerTest extends TestCase
         $em->expects($this->once())->method('remove')->with($this->isInstanceOf(Classroom::class));
         $em->expects($this->once())->method('flush');
 
-        $repo = $this->createMock(ClassroomRepository::class);
-        $manager = new ClassroomManager($em, $repo);
+        $repo        = $this->createMock(ClassroomRepository::class);
+        $enrollments = $this->createMock(EnrollmentPort::class);
+        $manager     = new ClassroomManager($em, $repo, $enrollments);
 
         $c = new Classroom();
         $c->setName('ToDelete');
@@ -218,12 +170,15 @@ final class ClassroomManagerTest extends TestCase
 
     public function test_findAll_and_search_methods_delegate_to_repo(): void
     {
-        $em   = $this->createMock(EntityManagerInterface::class);
-        $repo = $this->createMock(ClassroomRepository::class);
-        $manager = new ClassroomManager($em, $repo);
+        $em          = $this->createMock(EntityManagerInterface::class);
+        $repo        = $this->createMock(ClassroomRepository::class);
+        $enrollments = $this->createMock(EnrollmentPort::class);
+        $manager     = new ClassroomManager($em, $repo, $enrollments);
 
-        $c1 = new Classroom(); $c1->setName('A');
-        $c2 = new Classroom(); $c2->setName('B');
+        $c1 = new Classroom();
+        $c1->setName('A');
+        $c2 = new Classroom();
+        $c2->setName('B');
 
         $repo->expects($this->once())->method('findAll')->willReturn([$c1, $c2]);
         self::assertSame([$c1, $c2], $manager->findAll());
