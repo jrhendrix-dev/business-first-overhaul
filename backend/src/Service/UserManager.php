@@ -5,6 +5,7 @@ namespace App\Service;
 use App\Entity\Classroom;
 use App\Entity\User;
 use App\Enum\UserRoleEnum;
+use App\Service\Contracts\EnrollmentPort;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
 use App\Repository\UserRepository;
@@ -69,14 +70,16 @@ class UserManager
      * @param User $user The user to modify
      * @param UserRoleEnum $role The new role to assign
      */
-    public function changeRole(User $user, UserRoleEnum $role): void
+    public function changeRole(User $user, UserRoleEnum $role, EnrollmentPort $enrollments): void
     {
+        // No-op if nothing changes
         if ($user->getRole() === $role) {
             return;
         }
 
+        // If they are moving *away* from STUDENT, make sure they have no active enrollments
         if ($user->getRole() === UserRoleEnum::STUDENT) {
-            $user->setClassroom(null);
+            $enrollments->dropAllActiveForStudent($user);
         }
 
         $user->setRole($role);

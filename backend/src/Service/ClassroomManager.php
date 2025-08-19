@@ -7,6 +7,7 @@ use App\Entity\User;
 use Doctrine\ORM\EntityManagerInterface;
 use App\Repository\ClassroomRepository;
 use LogicException;
+use App\Service\Contracts\EnrollmentPort;
 use Symfony\Component\HttpFoundation\JsonResponse;
 
 /**
@@ -24,6 +25,7 @@ class ClassroomManager
     public function __construct(
         private EntityManagerInterface $em,
         private ClassroomRepository $classroomRepository,
+        private EnrollmentPort $enrollments,
     ) {}
 
     /**
@@ -44,28 +46,6 @@ class ClassroomManager
         // Compare object identity; IDs may be null in unit tests (I used to compare id and it was failing tests)
         if ($classroom->getTeacher() !== $teacher) {
             $classroom->setTeacher($teacher);
-            $this->em->persist($classroom); // optional if managed
-            $this->em->flush();
-        }
-    }
-
-    /**
-     * Assigns a student to a classroom after validating the role.
-     *
-     * @param Classroom $classroom The classroom to assign the student to
-     * @param User $student The user to assign as student
-     *
-     * @throws LogicException If the user is not a student
-     * @note Classroom must be managed by the entity manager
-     */
-    public function assignStudent(Classroom $classroom, User $student): void
-    {
-        if (!$student->isStudent()) {
-            throw new LogicException('Only students can be assigned to a classroom');
-        }
-
-        if ($student->getClassroom() !== $classroom) {
-            $classroom->addStudent($student);
             $this->em->persist($classroom);
             $this->em->flush();
         }
@@ -79,15 +59,20 @@ class ClassroomManager
      */
     public function unassignAll(Classroom $classroom): void
     {
-        // Unassign teacher
         $classroom->setTeacher(null);
+        $this->em->persist($classroom);
 
-        // Unassign students properly (owning side must be updated)
-        foreach ($classroom->getStudents()->toArray() as $student) {   //->toArray() avoids modifying the collection during iteration, which is safer.
-            $classroom->removeStudent($student);
-        }
+        // Delegate to enrollment layer — no direct student collection on Classroom anymore
+        $this->enrollments->dropAllActiveForClassroom($classroom);
 
-        $this->em->flush(); // Persist all changes
+        $this->em->flush();
+    }
+
+    public function unassignTeacher(Classroom $classroom): void
+    {
+        $classroom->setTeacher(null);
+        $this->em->persist($classroom);
+        $this->em->flush();
     }
 
     /**
@@ -98,6 +83,15 @@ class ClassroomManager
     public function findAll(): array
     {
         return $this->classroomRepository->findAll();
+    }
+
+    public function getStudents(int $id): array
+    {
+        $class= $this->getClassById($id);
+        if(!$class){
+            throw new LogicException('class not found');
+        }
+        return $class->getStudents();
     }
 
     /**
@@ -171,15 +165,10 @@ class ClassroomManager
      * @param User $student The student to remove
      * @note Only works if the student is currently assigned to a classroom
      */
-    public function removeStudentFromClassroom(User $student): void
+    public function removeStudentFromClassroom(User $student, Classroom $classroom): void
     {
-        $classroom = $student->getClassroom();
-
-        if ($classroom !== null) {
-            $classroom->removeStudent($student);
-        }
-
-        $this->em->flush();
+        // Drop the enrollment **for this classroom**
+        $this->enrollments->dropActiveForStudent($student, $classroom);
     }
 
     /**
