@@ -1,409 +1,201 @@
 <?php
+// src/Controller/ClassroomController.php
 
 namespace App\Controller;
 
-
-
-use App\Entity\User;
 use App\Service\ClassroomManager;
-use App\Service\UserManager;
-use Doctrine\ORM\EntityManagerInterface;
+use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
-use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
 /**
- * ClassroomController handles API endpoints for classroom management.
- * Provides operations for classroom CRUD, teacher/student assignment, and classroom search.
- * Requires appropriate security roles for certain operations.
+ * ClassroomController exposes read & CRUD endpoints for classrooms.
+ * - Listing/searching classrooms
+ * - Retrieving teacher assigned to a classroom (read-only)
+ * - Creating and deleting classrooms
+ *
+ * Mutations that involve other aggregates are handled elsewhere:
+ * - Teacher assignment/removal: ClassroomTeacherController
+ * - Enrollments (students in classes): EnrollmentController
  */
 #[Route('/api/classrooms')]
-class ClassroomController extends AbstractController
+final class ClassroomController extends AbstractController
 {
-    /**
-     * Controller constructor.
-     *
-     * @param EntityManagerInterface $em Doctrine entity manager for database operations
-     * @param UserManager $userManager Service for user-related operations
-     * @param ClassroomManager $classroomManager Service for classroom management
-     */
     public function __construct(
-        private EntityManagerInterface $em,
-        private UserManager $userManager,
-        private ClassroomManager $classroomManager,
+        private readonly ClassroomManager $classrooms
     ) {}
 
     /**
-     * Returns a list of all classrooms.
+     * List all classrooms.
      *
-     * @return JsonResponse JSON response containing classroom data
-     * @throws \JsonException If serialization fails
+     * @return JsonResponse
      */
     #[Route('', name: 'classroom_list', methods: ['GET'])]
-    public function getAllClassrooms(): JsonResponse
+    public function list(): JsonResponse
     {
-        $classrooms = $this->classroomManager->findAll();
+        $items = $this->classrooms->findAll();
 
-        return $this->json(
-            $classrooms,
-            200,
-            [],
-            ['groups' => 'classroom:read']
-        );
+        return $this->json($items, Response::HTTP_OK, [], ['groups' => 'classroom:read']);
     }
 
     /**
-     * Returns a list of unassigned classrooms.
+     * Get a single classroom by ID.
      *
-     * @return JsonResponse JSON response containing unassigned classroom data
-     * @throws \JsonException If serialization fails
+     * @param int $id
+     * @return JsonResponse
+     */
+    #[Route('/{id}', name: 'classroom_get', methods: ['GET'])]
+    public function getOne(int $id): JsonResponse
+    {
+        $class = $this->classrooms->getClassById($id);
+        if (!$class) {
+            return $this->json(['error' => 'Classroom not found'], Response::HTTP_NOT_FOUND);
+        }
+
+        return $this->json($class, Response::HTTP_OK, [], ['groups' => 'classroom:read']);
+    }
+
+    /**
+     * List all classrooms without an assigned teacher.
+     *
+     * @return JsonResponse
      */
     #[Route('/unassigned', name: 'classroom_unassigned', methods: ['GET'])]
-    public function getUnassigned(): JsonResponse
+    public function unassigned(): JsonResponse
     {
-        $classrooms = $this->classroomManager->getUnassignedClassrooms();
-        return $this->json($classrooms, 200, [], ['groups' => 'classroom:read']);
+        $items = $this->classrooms->getUnassignedClassrooms();
+
+        return $this->json($items, Response::HTTP_OK, [], ['groups' => 'classroom:read']);
     }
 
     /**
-     * Searches classrooms by name.
+     * Search classrooms by (partial) name.
+     * Query param: ?name=<needle>
      *
-     * @param Request $request The HTTP request containing the search name parameter
-     * @return JsonResponse JSON response with search results or error message
+     * @param Request $request
+     * @return JsonResponse
      */
-    #[Route('/search-class-by-name', name: 'classroom_name_search', methods: ['GET'])]
-    public function searchClassByName(Request $request): JsonResponse
+    #[Route('/search', name: 'classroom_search_by_name', methods: ['GET'])]
+    public function searchByName(Request $request): JsonResponse
     {
-        $name = $request->query->get('name');
-
-        if (!$name) {
-            return $this->json(['error' => 'Name parameter is required'], 400);
+        $name = trim((string) $request->query->get('name', ''));
+        if ($name === '') {
+            return $this->json(['error' => 'Query parameter "name" is required'], Response::HTTP_BAD_REQUEST);
         }
 
-        $classroom = $this->classroomManager->getClassByName($name);
-
-        if (!$classroom) {
-            return $this->json(['error' => "No classroom with the name \"$name\" found"], 404);
+        $items = $this->classrooms->getClassByName($name);
+        if (!$items) {
+            return $this->json(['error' => "No classroom with the name \"$name\" found"], Response::HTTP_NOT_FOUND);
         }
 
-        return $this->json($classroom, 200, [], ['groups' => 'classroom:read']);
+        return $this->json($items, Response::HTTP_OK, [], ['groups' => 'classroom:read']);
     }
 
     /**
-     * Unassigns all users (teacher and students) from a classroom.
+     * Get all classrooms taught by a specific teacher.
      *
-     * @param int $id The classroom ID to unassign users from
-     * @return JsonResponse JSON response indicating success or error
-     */
-    #[IsGranted('ROLE_ADMIN')]
-    #[Route('/{id}/unassign-all', name: 'classroom_unassign_all', methods: ['DELETE'])]
-    public function unassignAllFromClassroom(int $id): JsonResponse
-    {
-        $classroom = $this->classroomManager->getClassById($id);
-
-        if (!$classroom) {
-            return $this->json(['error' => 'Classroom not found'], 404);
-        }
-
-        $this->classroomManager->unassignAll($classroom);
-        $this->em->flush();
-
-        return $this->json(['success' => true]);
-    }
-
-    /**
-     * Assigns a teacher to a classroom.
-     *
-     * @param int $id The classroom ID
-     * @param Request $request The HTTP request containing the teacher_id parameter
-     * @return JsonResponse JSON response indicating success or error
-     */
-    #[Route('/{id}/assign-teacher', name: 'classroom_assign_teacher', methods: ['POST'])]
-    public function assignTeacher(int $id, Request $request): JsonResponse
-    {
-        $classroom = $this->classroomManager->getClassById($id);
-        $data = json_decode($request->getContent(), true);
-
-        if (!isset($data['teacher_id']) || !is_numeric($data['teacher_id'])) {
-            return $this->json(['error' => 'Invalid teacher ID'], 400);
-        }
-
-        $teacherId = (int) $data['teacher_id'];
-        $teacher = $this->em->getRepository(User::class)->find($teacherId);
-
-        if (!$classroom || !$teacher) {
-            return $this->json(['error' => 'Classroom or Teacher not found'], 404);
-        }
-
-        if (!$teacher->isTeacher()) {
-            return $this->json(['error' => 'User is not a teacher'], 400);
-        }
-
-        $this->classroomManager->assignTeacher($classroom, $teacher);
-        return $this->json(['success' => true]);
-    }
-
-    /**
-     * Retrieves classrooms taught by a specific teacher.
-     *
-     * @param int $id The teacher's ID
-     * @return JsonResponse JSON response containing classroom data
-     * @throws \JsonException If serialization fails
+     * @param int $id Teacher ID
+     * @return JsonResponse
      */
     #[Route('/taught-by/{id}', name: 'classrooms_taught_by', methods: ['GET'])]
-    public function getTaughtByTeacher(int $id): JsonResponse
+    public function taughtBy(int $id): JsonResponse
     {
-        $classrooms = $this->classroomManager->getFindByTeacher($id);
+        $items = $this->classrooms->getFindByTeacher($id);
 
-        return $this->json(
-            ['data' => $classrooms],
-            200,
-            [],
-            ['groups' => 'classroom:read']
-        );
+        return $this->json(['data' => $items], Response::HTTP_OK, [], ['groups' => 'classroom:read']);
     }
 
     /**
-     * Counts classrooms taught by a specific teacher.
+     * Count classrooms taught by a specific teacher.
      *
-     * @param int $id The teacher's ID
-     * @return JsonResponse JSON response with the count
+     * @param int $id Teacher ID
+     * @return JsonResponse
      */
     #[Route('/taught-by-count/{id}', name: 'classrooms_taught_by_count', methods: ['GET'])]
-    public function getTaughtByTeacherCount(int $id): JsonResponse
+    public function taughtByCount(int $id): JsonResponse
     {
-        $count = $this->classroomManager->getCountByTeacher($id);
+        $count = $this->classrooms->getCountByTeacher($id);
 
-        return $this->json(
-            ['count' => $count]
-        );
+        return $this->json(['count' => $count], Response::HTTP_OK);
     }
 
     /**
-     * Retrieves the teacher assigned to a classroom.
+     * Get the currently assigned teacher for a classroom (read-only).
      *
-     * @param int $id The classroom ID
-     * @return JsonResponse JSON response containing teacher data
-     * @throws \JsonException If serialization fails
+     * @param int $id Classroom ID
+     * @return JsonResponse
      */
     #[Route('/{id}/teacher', name: 'classroom_teacher', methods: ['GET'])]
-    public function getTeacher(int $id): JsonResponse
+    public function teacher(int $id): JsonResponse
     {
-        $classroom = $this->classroomManager->getClassById($id);
-
-        if (!$classroom) {
-            return $this->json(['error' => 'Classroom not found'], 404);
+        $class = $this->classrooms->getClassById($id);
+        if (!$class) {
+            return $this->json(['error' => 'Classroom not found'], Response::HTTP_NOT_FOUND);
         }
 
-        $teacher = $classroom->getTeacher();
-        return $this->json(
-            ['teacher' => $teacher],
-            200,
-            [],
-            ['groups' => 'classroom:read']
-        );
+        return $this->json(['teacher' => $class->getTeacher()], Response::HTTP_OK, [], ['groups' => 'classroom:read']);
     }
 
     /**
-     * Unassigns the teacher from a classroom.
+     * Create a new classroom.
+     * Body: { "name": "A1" }
      *
-     * @param int $id The classroom ID
-     * @return JsonResponse JSON response indicating success or error
+     * @param Request $request
+     * @return JsonResponse
+     * @throws \JsonException
      */
     #[IsGranted('ROLE_ADMIN')]
-    #[Route('/{id}/unassign-teacher', name: 'classroom_unassign_teacher', methods: ['DELETE'])]
-    public function unassignTeacherFromClassroom(int $id): JsonResponse
+    #[Route('', name: 'classroom_create', methods: ['POST'])]
+    public function create(Request $request): JsonResponse
     {
-        $classroom = $this->classroomManager->getClassById($id);
+        $data = json_decode($request->getContent() ?: '{}', true, 512, JSON_THROW_ON_ERROR);
+        $name = trim((string)($data['name'] ?? ''));
 
-        if (!$classroom) {
-            return $this->json(['error' => 'Classroom not found'], 404);
+        if ($name === '') {
+            return $this->json(['error' => 'Field "name" is required'], Response::HTTP_BAD_REQUEST);
         }
 
-        $classroom->setTeacher(null);
-        $this->em->flush();
+        $class = $this->classrooms->createClassroom($name);
 
-        return $this->json(['success' => true]);
+        return $this->json(['id' => $class->getId()], Response::HTTP_CREATED);
     }
 
     /**
-     * Assigns a student to a classroom.
+     * Delete a classroom.
      *
-     * @param int $id The classroom ID
-     * @param Request $request The HTTP request containing the student_id parameter
-     * @return JsonResponse JSON response indicating success or error
+     * @param int $id Classroom ID
+     * @return JsonResponse
      */
-    #[Route('/{id}/assign-student', name: 'classroom_assign_student', methods: ['POST'])]
-    public function assignStudent(int $id, Request $request): JsonResponse
+    #[IsGranted('ROLE_ADMIN')]
+    #[Route('/{id}', name: 'classroom_delete', methods: ['DELETE'])]
+    public function delete(int $id): JsonResponse
     {
-        $classroom = $this->classroomManager->getClassById($id);
-        $data = json_decode($request->getContent(), true);
-
-        if (!isset($data['student_id']) || !is_numeric($data['student_id'])) {
-            return $this->json(['error' => 'Invalid student ID'], 400);
+        $class = $this->classrooms->getClassById($id);
+        if (!$class) {
+            return $this->json(['error' => 'Classroom not found'], Response::HTTP_NOT_FOUND);
         }
 
-        $studentId = (int) $data['student_id'];
-        $student = $this->userManager->getUserById($studentId);
+        $payload = ['success' => true, 'id' => $class->getId(), 'name' => $class->getName()];
+        $this->classrooms->removeClassroom($class);
 
-        if (!$classroom || !$student) {
-            return $this->json(['error' => 'Classroom or Student not found'], 404);
-        }
-
-        if (!$student->isStudent()) {
-            return $this->json(['error' => 'User is not a student'], 400);
-        }
-
-        $this->classroomManager->assignStudent($classroom, $student);
-        return $this->json(['success' => true]);
+        return $this->json($payload, Response::HTTP_OK);
     }
 
     /**
-     * Retrieves students assigned to a classroom.
+     * Get all classrooms a student is enrolled in.
+     * Result type is Classroom[], so it belongs here (repo joins Enrollment under the hood).
      *
-     * @param int $id The classroom ID
-     * @return JsonResponse JSON response containing student data
-     * @throws \JsonException If serialization fails
-     */
-    #[Route('/{id}/students', name: 'classroom_students', methods: ['GET'])]
-    public function getStudents(int $id): JsonResponse
-    {
-        $classroom = $this->classroomManager->getClassById($id);
-
-        if (!$classroom) {
-            return $this->json(['error' => 'Classroom not found'], 404);
-        }
-
-        $students = $classroom->getStudents();
-
-        return $this->json(
-            ['students' => $students],
-            200,
-            [],
-            ['groups' => 'classroom:read']
-        );
-    }
-
-    /**
-     * Retrieves classrooms a student is enrolled in.
-     *
-     * @param int $id The student's ID
-     * @return JsonResponse JSON response containing classroom data
+     * @param int $id Student ID
+     * @return JsonResponse
      */
     #[Route('/enrolled-in/{id}', name: 'classroom_enrolled_in', methods: ['GET'])]
-    public function getStudentEnrolledIn(int $id): JsonResponse
+    public function enrolledIn(int $id): JsonResponse
     {
-        $classrooms = $this->classroomManager->getFindByStudent($id);
+        $classes = $this->classrooms->getFindByStudent($id);
 
-        return $this->json(
-            ['class' => $classrooms],
-            200,
-            [],
-            ['groups' => 'classroom:read']
-        );
-    }
-
-    /**
-     * Unassigns all students from a classroom.
-     *
-     * @param int $id The classroom ID
-     * @return JsonResponse JSON response with success status and affected count
-     */
-    #[IsGranted('ROLE_ADMIN')]
-    #[Route('/{id}/unassign-all-students', name: 'classroom_unassign_all_students', methods: ['DELETE'])]
-    public function unassignAllStudentsFromClassroom(int $id): JsonResponse
-    {
-        $classroom = $this->classroomManager->getClassById($id);
-        if (!$classroom) {
-            return $this->json(['error' => 'Classroom not found'], 404);
-        }
-
-        $affected = $this->userManager->unassignAllStudentsFromClassroom($classroom);
-
-        return $this->json(['success' => true, 'unassigned' => $affected], 200);
-    }
-
-    /**
-     * Unassigns a specific student from a classroom.
-     *
-     * @param int $id The classroom ID
-     * @param Request $request The HTTP request containing the studentId parameter
-     * @return JsonResponse JSON response indicating success or error
-     */
-    #[IsGranted('ROLE_ADMIN')]
-    #[Route('/{id}/unassign-student', name: 'classroom_unassign_student', methods: ['DELETE'])]
-    public function unassignStudentFromClassroom(int $id, Request $request): JsonResponse
-    {
-        $classroom = $this->classroomManager->getClassById($id);
-
-        if (!$classroom) {
-            return $this->json(['error' => 'Classroom not found'], 404);
-        }
-
-        $data = json_decode($request->getContent(), true);
-        $studentId = $data['studentId'] ?? null;
-
-        if (!$studentId) {
-            return $this->json(['error' => 'Missing studentId in request body'], 400);
-        }
-
-        $student = $this->userManager->getUserInClassroom($studentId, $id);
-
-        if (!$student) {
-            return $this->json(['error' => 'Student not found'], 404);
-        }
-
-        if ($student->getClassroom()?->getId() !== $classroom->getId()) {
-            return $this->json(['error' => 'Student is not assigned to this classroom'], 400);
-        }
-
-        $this->classroomManager->removeStudentFromClassroom($student);
-        $this->em->persist($student);
-        $this->em->flush();
-
-        return $this->json(['success' => true]);
-    }
-
-    /**
-     * Creates a new classroom.
-     *
-     * @param Request $request The HTTP request containing the classroom name
-     * @return JsonResponse JSON response with the new classroom ID
-     * @throws \JsonException If request content is invalid JSON
-     */
-    #[IsGranted('ROLE_ADMIN')]
-    #[Route('/create-classroom', name: 'classroom_create', methods: ['POST'])]
-    public function createClassroom(Request $request): JsonResponse
-    {
-        $data = json_decode($request->getContent(), true, 512, JSON_THROW_ON_ERROR);
-        $classroom = $this->classroomManager->createClassroom($data['name']);
-        return new JsonResponse(['id' => $classroom->getId()], Response::HTTP_CREATED);
-    }
-
-    /**
-     * Deletes a classroom and its associations.
-     *
-     * @param int $id The classroom ID to delete
-     * @return JsonResponse JSON response with success status and deleted classroom info
-     */
-    #[IsGranted('ROLE_ADMIN')]
-    #[Route('/{id}/delete-classroom', name: 'classroom_delete', methods: ['DELETE'])]
-    public function deleteClassroom(int $id): JsonResponse
-    {
-        $classroom = $this->classroomManager->getClassById($id);
-        if (!$classroom) {
-            return $this->json(['error' => 'Classroom not found'], 404);
-        }
-
-        $this->classroomManager->removeClassroom($classroom);
-
-        return $this->json([
-            'success' => true,
-            'id' => $classroom->getId(),
-            'name' => $classroom->getName()
-        ]);
+        return $this->json(['class' => $classes], Response::HTTP_OK, [], ['groups' => 'classroom:read']);
     }
 }

@@ -7,7 +7,9 @@ use App\Entity\User;
 use App\Enum\UserRoleEnum;
 use App\DTO\CreateUserDTO;
 
+use App\Repository\UserRepository;
 use App\Service\ClassroomManager;
+use App\Service\EnrollmentManager;
 use App\Service\UserManager;
 use App\Helper\RoleRequestTrait;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
@@ -41,9 +43,10 @@ class UserController extends AbstractController
      * @param ClassroomManager $classroomManager Service for classroom-related operations
      */
     public function __construct(
-        private EntityManagerInterface $em,
         private UserManager $userManager,
         private ClassroomManager $classroomManager,
+        private UserRepository $userRepository,
+
     )
     {
     }
@@ -193,8 +196,16 @@ class UserController extends AbstractController
     #[Route('/get-unassigned-students', name: 'user_get_unassigned_students', methods: ['GET'])]
     public function getStudentsUnassigned(): JsonResponse
     {
-        $users = $this->userManager->getStudentsWithoutClassroom();
-        return $this->json($users, Response::HTTP_OK, [], ['groups' => 'user:read']);
+        $rows = array_map(
+            static fn(User $u) => [
+                'id'       => $u->getId(),
+                'username' => $u->getUsername(),
+                'email'    => $u->getEmail(),
+            ],
+            $this->userRepository->findUnassignedStudents()
+        );
+
+        return $this->json($rows, Response::HTTP_OK);
     }
 
     /**
@@ -206,8 +217,16 @@ class UserController extends AbstractController
     #[Route('/get-unassigned-teachers', name: 'user_get_unassigned_teachers', methods: ['GET'])]
     public function getTeachersUnassigned(): JsonResponse
     {
-        $users = $this->userManager->getTeachersWithoutClassroom();
-        return $this->json($users, Response::HTTP_OK, [], ['groups' => 'user:read']);
+        $rows = array_map(
+            static fn(User $u) => [
+                'id'       => $u->getId(),
+                'username' => $u->getUsername(),
+                'email'    => $u->getEmail(),
+            ],
+            $this->userRepository->findUnassignedTeachers()
+        );
+
+        return $this->json($rows, Response::HTTP_OK);
     }
 
     /**
@@ -359,40 +378,68 @@ class UserController extends AbstractController
      */
     #[Route('/change-role/{id}', name: 'change_role', methods: ['POST'])]
     #[IsGranted('ROLE_ADMIN')]
-    public function changeRole(int $id, Request $request): JsonResponse
+    public function changeRole(int $id, Request $request, EnrollmentManager $enrollments): JsonResponse
     {
-        $targetId = $id;
-
-        if (!$targetId) {
-            return $this->json(['error' => 'user_id is required.'], Response::HTTP_BAD_REQUEST);
-        }
-
+        // Parse/validate role
         $roleEnum = $this->getRoleEnumFromRequest($request);
         if (!$roleEnum) {
             return $this->json([
-                'error'       => 'Invalid or missing role.',
-                'hint'        => 'Pass the role as a query param, e.g. ?role=1',
+                'error'     => 'Invalid or missing role.',
+                'hint'      => 'Send ?role=<value> or {"role": "<value>"}',
                 'valid_roles' => UserRoleEnum::values(),
             ], Response::HTTP_BAD_REQUEST);
         }
 
-        $target = $this->userManager->getUserById($targetId);
-
+        // Find target user
+        $target = $this->userManager->getUserById($id);
         if (!$target) {
             return $this->json(['error' => 'Target user not found.'], Response::HTTP_NOT_FOUND);
         }
 
+        // No-op if same role
         if ($target->getRole() === $roleEnum) {
-            return $this->json(['message' => 'User already has that role.'], Response::HTTP_OK);
+            return $this->json([
+                'message'  => 'User already has that role.',
+                'user_id'  => $target->getId(),
+                'role'     => $roleEnum->value,
+            ], Response::HTTP_OK);
         }
 
-        $this->userManager->changeRole($target, $roleEnum);
+        // Change the role (will drop active enrollments when moving away from STUDENT)
+        $this->userManager->changeRole($target, $roleEnum, $enrollments);
 
         return $this->json([
             'message'  => 'Role updated.',
             'user_id'  => $target->getId(),
             'new_role' => $roleEnum->value,
         ], Response::HTTP_OK);
+    }
+
+    /**
+     * Return unassigned students and teachers (no entity serialization, scalars only).
+     */
+    #[Route('/unassigned', name: 'users_unassigned', methods: ['GET'])]
+    public function getUnassigned(): JsonResponse
+    {
+        $students = array_map(
+            static fn(User $u) => [
+                'id'       => $u->getId(),
+                'username' => $u->getUsername(),
+                'email'    => $u->getEmail(),
+            ],
+            $this->userRepository->findUnassignedStudents()
+        );
+
+        $teachers = array_map(
+            static fn(User $u) => [
+                'id'       => $u->getId(),
+                'username' => $u->getUsername(),
+                'email'    => $u->getEmail(),
+            ],
+            $this->userRepository->findUnassignedTeachers()
+        );
+
+        return $this->json(['students' => $students, 'teachers' => $teachers], Response::HTTP_OK);
     }
 
     /**
