@@ -4,6 +4,8 @@ namespace App\Entity;
 
 use App\Enum\UserRoleEnum;
 use App\Repository\UserRepository;
+use Doctrine\Common\Collections\Collection;
+use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Security\Core\User\UserInterface;
 use Symfony\Bridge\Doctrine\Validator\Constraints\UniqueEntity;
@@ -55,12 +57,17 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(type: 'integer', enumType: UserRoleEnum::class)]
     private UserRoleEnum $role;
 
-    #[ORM\ManyToOne(targetEntity: Classroom::class, inversedBy: 'students')]
-    #[ORM\JoinColumn(name: 'class_id', referencedColumnName: 'id', nullable: true, onDelete: 'SET NULL')]
-    private ?Classroom $classroom = null;
 
     #[ORM\Column(name: 'is_active', type: 'boolean', options: ['default' => true])]
     private bool $isActive = true;
+
+    #[ORM\OneToMany(
+        targetEntity: Enrollment::class,
+        mappedBy: 'student',
+        cascade: ['remove'],   // optional, remove student's enrollments when deleting user
+        orphanRemoval: false   // keep false if you don’t want deletes when detaching
+    )]
+    private Collection $enrollments;
 
     /**
      * User constructor.
@@ -69,6 +76,30 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function __construct()
     {
         $this->createdAt = new \DateTimeImmutable();
+        $this->enrollments = new ArrayCollection();
+    }
+
+    /** @return Collection<int, Enrollment> */
+    public function getEnrollments(): Collection
+    {
+        return $this->enrollments;
+    }
+
+    public function addEnrollment(Enrollment $enrollment): self
+    {
+        if (!$this->enrollments->contains($enrollment)) {
+            $this->enrollments->add($enrollment);
+            $enrollment->setStudent($this);
+        }
+        return $this;
+    }
+
+    public function removeEnrollment(Enrollment $enrollment): self
+    {
+        if ($this->enrollments->removeElement($enrollment) && $enrollment->getStudent() === $this) {
+            $enrollment->setStudent(null);
+        }
+        return $this;
     }
 
     /**
@@ -209,28 +240,6 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function setCreatedAt(\DateTimeImmutable $createdAt): void
     {
         $this->createdAt = $createdAt;
-    }
-
-    /**
-     * Gets the classroom this user is associated with.
-     *
-     * @return Classroom|null The associated classroom (null if not a student)
-     */
-    public function getClassroom(): ?Classroom
-    {
-        return $this->classroom;
-    }
-
-    /**
-     * Sets the classroom for this user.
-     *
-     * @param Classroom|null $classroom The classroom to associate with this user
-     *
-     * @note This is a bidirectional association - classroom should update its student collection
-     */
-    public function setClassroom(?Classroom $classroom): void
-    {
-        $this->classroom = $classroom;
     }
 
     /**

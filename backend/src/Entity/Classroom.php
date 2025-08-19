@@ -40,14 +40,34 @@ class Classroom
     #[ORM\Column(name: "name", type: "string", length: 45)]
     private string $name;
 
-    /**
-     * Collection of student users assigned to this classroom.
-     *
-     * @var Collection<int, User>
-     */
-    #[ORM\OneToMany(mappedBy: "classroom", targetEntity: User::class)]
-    #[MaxDepth(1)]
-    private Collection $students;
+    #[ORM\OneToMany(
+        targetEntity: Enrollment::class,
+        mappedBy: 'classroom',
+        cascade: ['persist', 'remove'],
+        orphanRemoval: false
+    )]
+    private Collection $enrollments;
+
+    public function __construct()
+    {
+        $this->enrollments = new ArrayCollection();
+    }
+
+    /** @return Collection<int, Enrollment> */
+    public function getEnrollments(): Collection
+    {
+        return $this->enrollments;
+    }
+
+    // a quick read-only list of students:
+    /** @return array<\App\Entity\User> */
+    public function getStudents(): array
+    {
+        return array_map(
+            static fn (Enrollment $e) => $e->getStudent(),
+            $this->enrollments->toArray()
+        );
+    }
 
     /**
      * The teacher assigned to the classroom.
@@ -60,12 +80,7 @@ class Classroom
     #[MaxDepth(1)]
     private ?User $teacher = null;
 
-    /**
-     * Classroom constructor. Initializes the student collection.
-     */
-    public function __construct() {
-        $this->students = new ArrayCollection();
-    }
+
 
     public function setId(?int $id): void {
         $this->id = $id;
@@ -98,37 +113,6 @@ class Classroom
         $this->name = $name;
     }
 
-    /**
-     * Gets the collection of students in this classroom.
-     *
-     * @return Collection<int, User>
-     */
-    public function getStudents(): Collection {
-        return $this->students;
-    }
-
-    /**
-     * Adds a student to the classroom if they are not already assigned.
-     *
-     * @param User $student
-     */
-    public function addStudent(User $student): void {
-        if (!$this->students->contains($student)) {
-            $this->students->add($student);
-            $student->setClassroom($this);
-        }
-    }
-
-    /**
-     * Removes a student from the classroom and clears the back-reference if necessary.
-     *
-     * @param User $student
-     */
-    public function removeStudent(User $student): void {
-        if ($this->students->removeElement($student) && $student->getClassroom() === $this) {
-            $student->setClassroom(null);
-        }
-    }
 
     /**
      * Gets the teacher assigned to this classroom.
