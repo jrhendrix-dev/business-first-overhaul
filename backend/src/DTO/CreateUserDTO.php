@@ -28,6 +28,7 @@ class CreateUserDTO
     public string $password;
 
     #[Assert\NotNull]
+    #[Assert\NotBlank]
     #[Assert\Type(type: 'integer')]
     public int $role; // Will be converted to UserRoleEnum in the manager
 }
