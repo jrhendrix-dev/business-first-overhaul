@@ -11,6 +11,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use App\Repository\UserRepository;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Security\Core\Validator\Constraints\UserPassword;
+use App\DTO\UpdateUserDTO;
 
 /**
  * Service responsible for managing business logic related to User entities.
@@ -261,6 +262,30 @@ class UserManager
             }
             throw new \DomainException('username_taken');
         }
+
+        return $user;
+    }
+
+    /**
+     * Apply a partial update. Only non-null DTO fields are applied.
+     *
+     */
+    public function updateUser(User $user, UpdateUserDTO $dto): User
+    {
+        if ($dto->firstName !== null) { $user->setFirstName($dto->firstName); }
+        if ($dto->lastName  !== null) { $user->setLastName($dto->lastName);   }
+        if ($dto->email     !== null) { $user->setEmail($dto->email);         }
+        if ($dto->username  !== null) { $user->setUsername($dto->username);   }
+
+        if ($dto->password !== null) {
+            $user->setPassword($this->passwordHasher->hashPassword($user, $dto->password));
+        }
+
+        if ($dto->role !== null) {
+            $user->setRole(UserRoleEnum::from($dto->role));
+        }
+
+        $this->em->flush();
 
         return $user;
     }

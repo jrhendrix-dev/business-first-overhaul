@@ -2,129 +2,66 @@
 
 namespace App\Service;
 
-use App\Repository\ClassroomRepository;
-use App\Entity\{Enrollment, User, Classroom};
+use App\Entity\Classroom;
+use App\Entity\Enrollment;
+use App\Entity\User;
 use App\Enum\EnrollmentStatusEnum;
 use App\Repository\EnrollmentRepository;
-use Doctrine\ORM\EntityManagerInterface;
-use LogicException;
-use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
-use DomainException;
 use App\Service\Contracts\EnrollmentPort;
+use Doctrine\ORM\EntityManagerInterface;
 
 /**
- * Application service responsible for Enrollment operations and policies.
- * Supports both soft-drops (status changes) and hard-deletes.
+ * Coordinates enrollment use-cases while delegating reads to EnrollmentRepository.
+ *
+ * Design goals:
+ * - Idempotent "enroll" (PUT semantics).
+ * - Never violate the (student_id, classroom_id) unique index.
+ * - Prefer repository methods over ad-hoc queries.
  */
 final class EnrollmentManager implements EnrollmentPort
 {
     public function __construct(
-        private readonly EnrollmentRepository   $enrollments,
-        private readonly UserManager            $userManager,
-        private readonly ClassroomRepository    $classrooms,
         private readonly EntityManagerInterface $em,
+        private readonly EnrollmentRepository $enrollments,
     ) {}
 
     /**
-     * Hard-delete a specific enrollment by student & classroom ids.
+     * Ensure the student is ACTIVE in the classroom (idempotent).
      *
-     * @throws NotFoundHttpException if the enrollment does not exist
-     */
-    public function dropByIds(int $studentId, int $classId): void
-    {
-        $enrollment = $this->enrollments->findOneByStudentIdAndClassId($studentId, $classId)
-            ?? throw new NotFoundHttpException('Enrollment not found.');
-
-        $this->drop($enrollment);
-    }
-
-    /**
-     * Soft-drop the ACTIVE enrollment for a student (optionally filtered by classroom).
+     * Flow:
+     *  - If ACTIVE exists -> return it (no DB writes).
+     *  - Else if any enrollment for this pair exists (e.g., DROPPED) -> reactivate the same row.
+     *  - Else -> create a new ACTIVE enrollment.
      *
-     * @throws NotFoundHttpException when no ACTIVE enrollment is found
+     * @param Classroom $classroom
+     * @param User      $student
+     * @return Enrollment ACTIVE enrollment row after the operation.
      */
-    public function dropActiveForStudent(User $student, ?Classroom $classroom = null): void
+    public function enrollByIds(Classroom $classroom, User $student): Enrollment
     {
-        $en = $this->getActiveEnrollmentForStudent($student, $classroom)
-            ?? throw new NotFoundHttpException('Enrollment not found.');
-
-        $en->setStatus(EnrollmentStatusEnum::DROPPED);
-        $en->setDroppedAt(new \DateTimeImmutable());
-        $this->em->flush();
-    }
-
-    /**
-     * Soft-drop all ACTIVE enrollments for a student.
-     */
-    public function dropAllActiveForStudent(User $student): void
-    {
-        $enrollments = $this->enrollments->findBy([
-            'student' => $student,
-            'status'  => EnrollmentStatusEnum::ACTIVE,
-        ]);
-
-        foreach ($enrollments as $en) {
-            $en->setStatus(EnrollmentStatusEnum::DROPPED);
-            $en->setDroppedAt(new \DateTimeImmutable());
+        // 1) Already ACTIVE?
+        if ($active = $this->enrollments->findActiveOneByStudentAndClassroom($student, $classroom)) {
+            return $active;
         }
 
-        $this->em->flush();
-    }
+        // 2) Reactivate existing historical row (avoids unique index violation)
+        if ($existing = $this->enrollments->findAnyOneByStudentAndClassroom($student, $classroom)) {
+            $existing->setStatus(EnrollmentStatusEnum::ACTIVE);
+            $existing->setDroppedAt(null);
+            // Optional: update enrolledAt if you want the reactivation date
+            // $existing->setEnrolledAt(new \DateTimeImmutable());
+            $this->em->flush();
 
-    /**
-     * Hard-delete the ACTIVE enrollment for a student (optionally filtered by classroom).
-     *
-     * @throws NotFoundHttpException when none exists
-     */
-    public function deleteActiveForStudent(User $student, ?Classroom $classroom = null): void
-    {
-        $en = $this->getActiveEnrollmentForStudent($student, $classroom)
-            ?? throw new NotFoundHttpException('Enrollment not found.');
-
-        $this->em->remove($en);
-        $this->em->flush();
-    }
-
-    /**
-     * Core domain operation: enroll a student into a classroom.
-     *
-     * @throws LogicException   if the User is not a student
-     * @throws DomainException  if already enrolled
-     */
-    /**
-     * Core domain operation: enroll a student into a classroom.
-     *
-     * @throws LogicException   if the User is not a student or is not persisted
-     * @throws DomainException  if already enrolled
-     */
-    public function enroll(User $student, Classroom $classroom): Enrollment
-    {
-        if (!$student->isStudent()) {
-            throw new LogicException('Only students can be assigned to a classroom');
+            return $existing;
         }
 
-        // Enforce persistence to avoid unintended cascade INSERTs for User/Classroom
-        if (null === $student->getId()) {
-            throw new LogicException('Student must be persisted before enrollment.');
-        }
-        if (null === $classroom->getId()) {
-            throw new LogicException('Classroom must be persisted before enrollment.');
-        }
-
-        // Re-attach as managed references (no SELECT needed)
-        /** @var User $managedStudent */
-        $managedStudent = $this->em->getReference(User::class, $student->getId());
-        /** @var Classroom $managedClassroom */
-        $managedClassroom = $this->em->getReference(Classroom::class, $classroom->getId());
-
-        $existing = $this->enrollments->findOneByStudentAndClassroom($managedStudent, $managedClassroom);
-        if ($existing !== null) {
-            throw new DomainException('Student is already enrolled in this class.');
-        }
-
+        // 3) Create fresh row
         $enrollment = new Enrollment();
-        $enrollment->setStudent($managedStudent);
-        $enrollment->setClassroom($managedClassroom);
+        $enrollment
+            ->setClassroom($classroom)
+            ->setStudent($student)
+            ->setStatus(EnrollmentStatusEnum::ACTIVE)
+            ->setEnrolledAt(new \DateTimeImmutable());
 
         $this->em->persist($enrollment);
         $this->em->flush();
@@ -133,88 +70,81 @@ final class EnrollmentManager implements EnrollmentPort
     }
 
     /**
-     * Lookup by enrollment id (repository convenience).
-     */
-    public function getEnrollmentById(int $id): ?Enrollment
-    {
-        return $this->enrollments->findEnrollmentById($id);
-    }
-
-    /**
-     * Convenience: ids → entities → enroll().
+     * Soft drop the ACTIVE enrollment, if present. No-op if not currently active.
      *
-     * @throws NotFoundHttpException when student or classroom is missing
+     * @param Classroom $classroom
+     * @param User      $student
      */
-    public function enrollByIds(int $studentId, int $classId): Enrollment
+    public function softDropByIds(Classroom $classroom, User $student): void
     {
-        $student = $this->userManager->getUserById($studentId)
-            ?? throw new NotFoundHttpException('Student not found.');
-
-        $classroom = $this->classrooms->find($classId)
-            ?? throw new NotFoundHttpException('Classroom not found.');
-
-        return $this->enroll($student, $classroom);
-    }
-
-    /**
-     * Retrieve an existing enrollment by student & classroom ids or fail.
-     *
-     * @throws NotFoundHttpException on any missing piece
-     */
-    public function getByIdsOrFail(int $studentId, int $classId): Enrollment
-    {
-        $student = $this->userManager->getUserById($studentId)
-            ?? throw new NotFoundHttpException('User not found.');
-
-        $classroom = $this->classrooms->find($classId)
-            ?? throw new NotFoundHttpException('Classroom not found.');
-
-        $enrollment = $this->enrollments->findOneByStudentIdAndClassId($studentId, $classId)
-            ?? throw new NotFoundHttpException('Enrollment not found.');
-
-        return $enrollment;
-    }
-
-    /**
-     * Return the ACTIVE enrollment for a student (optionally for a specific classroom).
-     */
-    public function getActiveEnrollmentForStudent(User $student, ?Classroom $classroom = null): ?Enrollment
-    {
-        $criteria = [
-            'student' => $student,
-            'status'  => EnrollmentStatusEnum::ACTIVE,
-        ];
-        if ($classroom !== null) {
-            $criteria['classroom'] = $classroom;
+        $active = $this->enrollments->findActiveOneByStudentAndClassroom($student, $classroom);
+        if (!$active) {
+            return;
         }
 
-        return $this->em->getRepository(Enrollment::class)->findOneBy($criteria);
-    }
+        $active
+            ->setStatus(EnrollmentStatusEnum::DROPPED)
+            ->setDroppedAt(new \DateTimeImmutable());
 
-    /**
-     * Hard delete an enrollment.
-     */
-    public function drop(Enrollment $enrollment): void
-    {
-        $this->em->remove($enrollment);
+        // Keep classroom link for history; do NOT null it out.
         $this->em->flush();
     }
 
     /**
-     * Soft-drop all ACTIVE enrollments in a classroom.
+     * Shortcut for “is currently enrolled (ACTIVE)”.
+     *
+     * @param Classroom $classroom
+     * @param User      $student
+     * @return bool
      */
+    public function isEnrolled(Classroom $classroom, User $student): bool
+    {
+        // Delegates to repo method you already have.
+        return $this->enrollments->isEnrolled($student, $classroom);
+    }
+
+    /**
+     * @return Enrollment[] ACTIVE enrollments for the class ordered by enrolledAt ASC.
+     */
+    public function getActiveEnrollmentsForClassroom(Classroom $classroom): array
+    {
+        return $this->enrollments->findActiveByClassroom($classroom);
+    }
+
+    public function getAnyEnrollmentForClassroom(Classroom $classroom): array
+    {
+        return $this->enrollments->findAnyByClassroom($classroom);
+    }
+
+
+    /** Port implementation: bulk drop all ACTIVE enrollments for the classroom */
     public function dropAllActiveForClassroom(Classroom $classroom): void
     {
-        $enrollments = $this->enrollments->findBy([
-            'classroom' => $classroom,
-            'status'    => EnrollmentStatusEnum::ACTIVE,
-        ]);
+        $this->enrollments->softDropAllActiveByClassroom($classroom);
+    }
 
-        foreach ($enrollments as $en) {
-            $en->setStatus(EnrollmentStatusEnum::DROPPED);
-            $en->setDroppedAt(new \DateTimeImmutable());
+
+    public function enroll(User $student, Classroom $classroom): Enrollment
+    {
+        return $this->enrollByIds($classroom, $student);
+    }
+
+    public function dropActiveForStudent(User $student, ?Classroom $classroom = null): void
+    {
+        if ($classroom === null) {
+            $this->dropAllActiveForStudent($student);
+            return;
         }
+        $this->softDropByIds($classroom, $student);
+    }
 
-        $this->em->flush();
+    public function dropAllActiveForStudent(User $student): void
+    {
+        $this->enrollments->softDropAllActiveByStudent($student);
+    }
+
+    public function getEnrollmentById(int $enrollmentId): Enrollment
+    {
+        return $this->enrollments->findEnrollmentById($enrollmentId);
     }
 }

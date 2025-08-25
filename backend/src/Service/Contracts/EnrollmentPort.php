@@ -16,4 +16,5 @@ interface EnrollmentPort
 
 
     public function dropAllActiveForClassroom(Classroom $classroom): void;
+
 }
