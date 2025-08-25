@@ -2,42 +2,31 @@
 
 namespace App\Entity;
 
-use App\Repository\ClassroomRepository;
+use App\Enum\UserRoleEnum;
+use App\Entity\Enrollment;
 use App\Entity\User;
+use App\Repository\ClassroomRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
-use App\Enum\UserRoleEnum;
+use Symfony\Bridge\Doctrine\Validator\Constraints\UniqueEntity;
 use Symfony\Component\Serializer\Annotation\Groups;
 use Symfony\Component\Serializer\Annotation\MaxDepth;
 
-/**
- * Represents a classroom within the Business First English Academy system.
- *
- * Each classroom can have a name, a teacher, and multiple student users assigned to it.
- */
 #[ORM\Entity(repositoryClass: ClassroomRepository::class)]
-#[ORM\Table(name: "classes")]
+#[ORM\Table(name: 'classes')]
+#[ORM\UniqueConstraint(name: "uniq_class_name", columns: ["name"])]
+#[UniqueEntity(fields: ['name'], message: 'A classroom with this name already exists.')]
 class Classroom
 {
-    /**
-     * Unique identifier for the classroom.
-     *
-     * @var int|null
-     */
     #[Groups(['classroom:read'])]
     #[ORM\Id]
     #[ORM\GeneratedValue]
-    #[ORM\Column(name: "id", type: "integer")]
+    #[ORM\Column(name: 'id', type: 'integer')]
     private ?int $id = null;
 
-    /**
-     * Name of the classroom.
-     *
-     * @var string
-     */
     #[Groups(['classroom:read'])]
-    #[ORM\Column(name: "name", type: "string", length: 45)]
+    #[ORM\Column(name: "name", type: "string", length: 45, unique: true)]
     private string $name;
 
     #[ORM\OneToMany(
@@ -48,10 +37,18 @@ class Classroom
     )]
     private Collection $enrollments;
 
+    #[Groups(['classroom:read'])]
+    #[ORM\ManyToOne(targetEntity: User::class)]
+    #[ORM\JoinColumn(name: 'teacher_id', referencedColumnName: 'id', nullable: true, onDelete: 'SET NULL')]
+    #[MaxDepth(1)]
+    private ?User $teacher = null;
+
     public function __construct()
     {
         $this->enrollments = new ArrayCollection();
     }
+
+    // ---------- Collections ----------
 
     /** @return Collection<int, Enrollment> */
     public function getEnrollments(): Collection
@@ -59,8 +56,26 @@ class Classroom
         return $this->enrollments;
     }
 
-    // a quick read-only list of students:
-    /** @return array<\App\Entity\User> */
+    /** @return self */
+    public function addEnrollment(Enrollment $enrollment): self
+    {
+        if (!$this->enrollments->contains($enrollment)) {
+            $this->enrollments->add($enrollment);
+            $enrollment->setClassroom($this);
+        }
+        return $this;
+    }
+
+    /** @return self */
+    public function removeEnrollment(Enrollment $enrollment): self
+    {
+        if ($this->enrollments->removeElement($enrollment) && $enrollment->getClassroom() === $this) {
+            $enrollment->setClassroom(null);
+        }
+        return $this;
+    }
+
+    /** @return array<User> quick read-only list of students */
     public function getStudents(): array
     {
         return array_map(
@@ -69,73 +84,46 @@ class Classroom
         );
     }
 
-    /**
-     * The teacher assigned to the classroom.
-     *
-     * @var User|null
-     */
-    #[Groups(['classroom:read'])]
-    #[ORM\ManyToOne(targetEntity: User::class)]
-    #[ORM\JoinColumn(name: "teacher_id", referencedColumnName: "id", nullable: true, onDelete: "SET NULL")]
-    #[MaxDepth(1)]
-    private ?User $teacher = null;
+    // ---------- Scalar fields ----------
 
-
-
-    public function setId(?int $id): void {
-        $this->id = $id;
-    }
-
-    /**
-     * Gets the classroom ID.
-     *
-     * @return int|null
-     */
-    public function getId(): ?int {
+    public function getId(): ?int
+    {
         return $this->id;
     }
 
-    /**
-     * Gets the classroom name.
-     *
-     * @return string
-     */
-    public function getName(): string {
+    // (Generally you should not set ID manually; keeping typeless setter out.)
+    // If you really need it for tests, change to: public function setId(?int $id): self { $this->id = $id; return $this; }
+
+    public function getName(): string
+    {
         return $this->name;
     }
 
-    /**
-     * Sets the classroom name.
-     *
-     * @param string $name
-     */
-    public function setName(string $name): void {
+    /** @return self */
+    public function setName(string $name): self
+    {
         $this->name = $name;
+        return $this;
     }
 
 
-    /**
-     * Gets the teacher assigned to this classroom.
-     *
-     * @return User|null
-     */
-    public function getTeacher(): ?User {
+    // ---------- Associations ----------
+
+    public function getTeacher(): ?User
+    {
         return $this->teacher;
     }
 
     /**
-     * Assigns a teacher to the classroom, validating their role.
-     *
-     * @param User|null $user
-     *
      * @throws \LogicException if the assigned user is not a teacher
+     * @return self
      */
-    public function setTeacher(?User $user): void {
+    public function setTeacher(?User $user): self
+    {
         if ($user !== null && $user->getRole() !== UserRoleEnum::TEACHER) {
             throw new \LogicException('Assigned user is not a teacher.');
         }
         $this->teacher = $user;
+        return $this;
     }
-
-
 }
