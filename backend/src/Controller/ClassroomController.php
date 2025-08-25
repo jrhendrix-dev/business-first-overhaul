@@ -3,7 +3,12 @@
 
 namespace App\Controller;
 
+use App\Entity\Classroom;
+use App\Enum\UserRoleEnum;
+use App\Repository\ClassroomRepository;
 use App\Service\ClassroomManager;
+use App\Service\UserManager;
+use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -25,8 +30,11 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 final class ClassroomController extends AbstractController
 {
     public function __construct(
-        private readonly ClassroomManager $classrooms
+        private readonly ClassroomManager $classrooms,
+        private readonly UserManager $users,
+        private readonly ClassroomRepository $classroomRepository
     ) {}
+
 
     /**
      * List all classrooms.
@@ -42,12 +50,12 @@ final class ClassroomController extends AbstractController
     }
 
     /**
-     * Get a single classroom by ID.
+     * Get a single classroom by ID. Includes that classrooms teacher if any.
      *
      * @param int $id
      * @return JsonResponse
      */
-    #[Route('/{id}', name: 'classroom_get', methods: ['GET'])]
+    #[Route('/{id}', name: 'classroom_get', requirements: ['id' => '\d+'], methods: ['GET'])]
     public function getOne(int $id): JsonResponse
     {
         $class = $this->classrooms->getClassById($id);
@@ -88,7 +96,7 @@ final class ClassroomController extends AbstractController
 
         $items = $this->classrooms->getClassByName($name);
         if (!$items) {
-            return $this->json(['error' => "No classroom with the name \"$name\" found"], Response::HTTP_NOT_FOUND);
+            return $this->json(['error' => "No classroom with the name '$name' found"], Response::HTTP_NOT_FOUND);
         }
 
         return $this->json($items, Response::HTTP_OK, [], ['groups' => 'classroom:read']);
@@ -100,9 +108,24 @@ final class ClassroomController extends AbstractController
      * @param int $id Teacher ID
      * @return JsonResponse
      */
-    #[Route('/taught-by/{id}', name: 'classrooms_taught_by', methods: ['GET'])]
+    #[Route('/taught-by/{id}', name: 'classrooms_taught_by',requirements: ['id' => '\d+'], methods: ['GET'])]
     public function taughtBy(int $id): JsonResponse
     {
+        $user = $this->users->getUserById($id);
+        if (!$user) {
+            return $this->json(
+                ['error' => "User {$id} does not exist"],
+                Response::HTTP_NOT_FOUND
+            );
+        }
+
+        if ($user->getRole() !== UserRoleEnum::TEACHER) {
+            return $this->json(
+                ['error' => "User {$id} is not a teacher"],
+                Response::HTTP_BAD_REQUEST
+            );
+        }
+
         $items = $this->classrooms->getFindByTeacher($id);
 
         return $this->json(['data' => $items], Response::HTTP_OK, [], ['groups' => 'classroom:read']);
@@ -114,30 +137,30 @@ final class ClassroomController extends AbstractController
      * @param int $id Teacher ID
      * @return JsonResponse
      */
-    #[Route('/taught-by-count/{id}', name: 'classrooms_taught_by_count', methods: ['GET'])]
+    #[Route('/taught-by-count/{id}', name: 'classrooms_taught_by_count', requirements: ['id' => '\d+'], methods: ['GET'])]
     public function taughtByCount(int $id): JsonResponse
     {
+
+        $user = $this->users->getUserById($id);
+        if (!$user) {
+            return $this->json(
+                ['error' => "User {$id} does not exist"],
+                Response::HTTP_NOT_FOUND
+            );
+        }
+
+        if ($user->getRole() !== UserRoleEnum::TEACHER) {
+            return $this->json(
+                ['error' => "User {$id} is not a teacher"],
+                Response::HTTP_BAD_REQUEST
+            );
+        }
+
         $count = $this->classrooms->getCountByTeacher($id);
 
         return $this->json(['count' => $count], Response::HTTP_OK);
     }
 
-    /**
-     * Get the currently assigned teacher for a classroom (read-only).
-     *
-     * @param int $id Classroom ID
-     * @return JsonResponse
-     */
-    #[Route('/{id}/teacher', name: 'classroom_teacher', methods: ['GET'])]
-    public function teacher(int $id): JsonResponse
-    {
-        $class = $this->classrooms->getClassById($id);
-        if (!$class) {
-            return $this->json(['error' => 'Classroom not found'], Response::HTTP_NOT_FOUND);
-        }
-
-        return $this->json(['teacher' => $class->getTeacher()], Response::HTTP_OK, [], ['groups' => 'classroom:read']);
-    }
 
     /**
      * Create a new classroom.
@@ -151,16 +174,77 @@ final class ClassroomController extends AbstractController
     #[Route('', name: 'classroom_create', methods: ['POST'])]
     public function create(Request $request): JsonResponse
     {
-        $data = json_decode($request->getContent() ?: '{}', true, 512, JSON_THROW_ON_ERROR);
-        $name = trim((string)($data['name'] ?? ''));
+        try {
+            $data = json_decode($request->getContent() ?: '{}', true, 512, JSON_THROW_ON_ERROR);
+            $raw  = (string)($data['name'] ?? '');
+            $name = $this->classrooms->normalizeName($raw);
 
-        if ($name === '') {
-            return $this->json(['error' => 'Field "name" is required'], Response::HTTP_BAD_REQUEST);
+            if ($name === '') {
+                return $this->json(['error' => 'Field "name" is required'], Response::HTTP_BAD_REQUEST);
+            }
+
+            // Fast UX pre-check (DB unique index still protects races)
+            if ($this->classroomRepository->findOneBy(['name' => $name])) {
+                return $this->json(['error' => 'Classroom name already exists'], Response::HTTP_CONFLICT);
+            }
+
+            $class = $this->classrooms->createClassroom($name);
+
+            return $this->json(
+                ['id' => $class->getId(), 'name' => $class->getName()],
+                Response::HTTP_CREATED
+            );
+        } catch (\DomainException $e) {
+            // From service (validation/duplicate)
+            return $this->json(['error' => $e->getMessage()], Response::HTTP_CONFLICT);
+        } catch (UniqueConstraintViolationException) {
+            // Rare concurrent duplicate that slipped past the pre-check
+            return $this->json(['error' => 'Classroom name already exists'], Response::HTTP_CONFLICT);
+        } catch (\Throwable) {
+            return $this->json(['error' => 'Unable to create classroom'], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    #[
+        IsGranted('ROLE_ADMIN'),
+        Route('/{id}', name: 'classroom_rename', requirements: ['id' => '\d+'], methods: ['PUT'])
+    ]
+    public function rename(int $id, Request $request): JsonResponse
+    {
+        /** @var Classroom|null $class */
+        $class = $this->classroomRepository->find($id);
+        if (!$class) {
+            return $this->json(['error' => 'Classroom not found'], Response::HTTP_NOT_FOUND);
         }
 
-        $class = $this->classrooms->createClassroom($name);
+        try {
+            $data = json_decode($request->getContent() ?: '{}', true, 512, JSON_THROW_ON_ERROR);
+            $raw  = (string)($data['name'] ?? '');
+            $name = $this->classrooms->normalizeName($raw);
 
-        return $this->json(['id' => $class->getId()], Response::HTTP_CREATED);
+            if ($name === '') {
+                return $this->json(['error' => 'Field "name" is required'], Response::HTTP_BAD_REQUEST);
+            }
+
+            // UX pre-check: if a *different* classroom already has this name
+            $existing = $this->classroomRepository->findOneBy(['name' => $name]);
+            if ($existing && $existing->getId() !== $class->getId()) {
+                return $this->json(['error' => 'Classroom name already exists'], Response::HTTP_CONFLICT);
+            }
+
+            $this->classrooms->rename($class, $name);
+
+            return $this->json(
+                ['id' => $class->getId(), 'name' => $class->getName()],
+                Response::HTTP_OK
+            );
+        } catch (\DomainException $e) {
+            return $this->json(['error' => $e->getMessage()], Response::HTTP_CONFLICT);
+        } catch (UniqueConstraintViolationException) {
+            return $this->json(['error' => 'Classroom name already exists'], Response::HTTP_CONFLICT);
+        } catch (\Throwable) {
+            return $this->json(['error' => 'Unable to rename classroom'], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
     }
 
     /**
@@ -170,7 +254,7 @@ final class ClassroomController extends AbstractController
      * @return JsonResponse
      */
     #[IsGranted('ROLE_ADMIN')]
-    #[Route('/{id}', name: 'classroom_delete', methods: ['DELETE'])]
+    #[Route('/{id}', name: 'classroom_delete', requirements: ['id' => '\d+'], methods: ['DELETE'])]
     public function delete(int $id): JsonResponse
     {
         $class = $this->classrooms->getClassById($id);

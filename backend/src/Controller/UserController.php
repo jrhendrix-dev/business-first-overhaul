@@ -12,6 +12,8 @@ use App\Service\ClassroomManager;
 use App\Service\EnrollmentManager;
 use App\Service\UserManager;
 use App\Helper\RoleRequestTrait;
+use Doctrine\DBAL\Exception\ConstraintViolationException;
+use Doctrine\DBAL\Exception\DriverException;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\SecurityBundle\Security;
@@ -23,7 +25,10 @@ use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
-
+use App\DTO\UpdateUserDTO;
+use Doctrine\DBAL\Exception\ConstraintViolationException as DbalConstraintViolation;
+use Doctrine\DBAL\Exception\UniqueConstraintViolationException as DbalUniqueViolation;
+use Doctrine\DBAL\Exception\DriverException as DbalDriverException;
 
 /**
  * UserController handles API endpoints for user management.
@@ -146,7 +151,16 @@ class UserController extends AbstractController
     public function getUserById(Request $request): JsonResponse
     {
         $id = $request->query->get('id');
+        if(!$id){
+            return $this->json(['error' => 'Must give an id'], 400);
+        }
+        if(!is_int((int)$id)){
+            return $this->json(['error' => 'The id must be an integer'], 406);
+        }
         $user = $this->userManager->getUserById($id);
+        if(!$user){
+            return $this->json(['error' => 'User not found'], 404);
+        }
         return $this->json($user, Response::HTTP_OK, [], ['groups' => 'user:read']);
     }
 
@@ -362,6 +376,15 @@ class UserController extends AbstractController
             return $this->json(['error' => 'Password is incorrect.'], Response::HTTP_UNAUTHORIZED);
         }
 
+        //Check if email already is in use
+        $exists = $this->userRepository->findOneBy(['email' => $email]);
+        if ($exists && $exists->getId() !== $user->getId()) {
+            return $this->json(
+                ['error' => 'Email is already in use.'],
+                Response::HTTP_CONFLICT
+            );
+        }
+
         $this->userManager->changeEmail($user, $email);
         return $this->json(['message' => 'Email updated successfully.'], Response::HTTP_OK);
     }
@@ -486,6 +509,86 @@ class UserController extends AbstractController
         );
 
         return $this->json($user, Response::HTTP_CREATED, [], ['groups' => 'user:read']);
+    }
+
+    /**
+     * @throws \JsonException
+     */
+    #[Route('/{id}', name: 'user_update', methods: ['PATCH'])]
+    public function updateUser(
+        int $id,
+        Request $request,
+        ValidatorInterface $validator
+    ): JsonResponse {
+        /** @var User|null $user */
+        $user = $this->userManager->getUserById($id);
+        if (!$user) {
+            return $this->json(['error' => 'User not found.'], Response::HTTP_NOT_FOUND);
+        }
+
+        // AuthZ: admin can update anyone; non-admin can only update self (and not change role).
+        /** @var User|null $actor */
+        $actor = $this->getUser();
+        if (!$actor) {
+            return $this->json(['error' => 'Unauthorized'], Response::HTTP_UNAUTHORIZED);
+        }
+        $isAdmin = $actor->getRole()->value === UserRoleEnum::ADMIN->value;
+        if (!$isAdmin && $actor->getId() !== $user->getId()) {
+            return $this->json(['error' => 'Forbidden'], Response::HTTP_FORBIDDEN);
+        }
+
+        $data = json_decode($request->getContent(), true, 512, JSON_THROW_ON_ERROR);
+
+        $dto = new UpdateUserDTO();
+        $dto->firstName = $data['first_name'] ?? null;
+        $dto->lastName  = $data['last_name']  ?? null;
+        $dto->email     = $data['email']      ?? null;
+        $dto->username  = $data['username']   ?? null;
+        $dto->password  = $data['password']   ?? null;
+        $dto->role      = $data['role']       ?? null;
+
+        // Non-admins cannot change role
+        if (!$isAdmin) { $dto->role = null; }
+
+        $errors = $validator->validate($dto);
+        if (count($errors) > 0) {
+            $out = [];
+            foreach ($errors as $v) { $out[] = ['field' => $v->getPropertyPath(), 'message' => $v->getMessage()]; }
+            return $this->json(['errors' => $out], Response::HTTP_BAD_REQUEST);
+        }
+
+        try {
+            $updated = $this->userManager->updateUser($user, $dto);
+        } catch (
+        UniqueConstraintViolationException |
+        ConstraintViolationException |
+        DriverException |
+        \PDOException $e
+        ) {
+            // Normalize SQLSTATE check for DriverException/PDOException
+            if (method_exists($e, 'getSQLState') && $e->getSQLState() === '23000') {
+                return $this->json(
+                    ['error' => 'Email or username already in use.'],
+                    Response::HTTP_CONFLICT
+                );
+            }
+
+            if ($e instanceof \PDOException && $e->getCode() === '23000') {
+                return $this->json(
+                    ['error' => 'Email or username already in use.'],
+                    Response::HTTP_CONFLICT
+                );
+            }
+
+            return $this->json(
+                ['error' => 'Unable to update user.'],
+                Response::HTTP_INTERNAL_SERVER_ERROR
+            );
+        } catch (\Throwable $e) {
+            return $this->json(['error' => 'Unable to update user.'], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+
+        return $this->json($updated, Response::HTTP_OK, [], ['groups' => 'user:read']);
     }
 
     /**

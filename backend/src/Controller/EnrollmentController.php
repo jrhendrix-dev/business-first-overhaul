@@ -2,27 +2,31 @@
 // src/Controller/EnrollmentController.php
 namespace App\Controller;
 
+use App\Entity\Classroom;
+use App\Entity\User;
 use App\Repository\ClassroomRepository;
 use App\Repository\EnrollmentRepository;
 use App\Repository\UserRepository;
 use App\Service\ClassroomManager;
 use App\Service\EnrollmentManager;
 use App\Service\UserManager;
+use App\Service\RequestEntityResolver;
 use DomainException;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
+use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
+use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
 #[Route('/api')]
 final class EnrollmentController extends AbstractController
 {
     public function __construct(
         private readonly EnrollmentManager $enrollmentManager,
-        private readonly EnrollmentRepository $enrollments,
         private readonly ClassroomManager $classroomManager,
-        private readonly ClassroomRepository $classrooms,
+        private readonly RequestEntityResolver $resolver,
     ) {}
 
     /**
@@ -33,24 +37,69 @@ final class EnrollmentController extends AbstractController
      * @return JsonResponse
      */
     #[IsGranted('ROLE_ADMIN')]
-    #[Route('/classes/{classId}/students/{studentId}', name: 'enrollments_enroll', methods: ['PUT'])]
+    #[Route('/classes/{classId}/students/{studentId}',
+        name: 'enrollments_enroll',
+        requirements: ['classId' => '\d+', 'studentId' => '\d+'],
+        methods: ['PUT']
+    )]
     public function enroll(int $classId, int $studentId): JsonResponse
     {
+        $class=$this->resolver->requireClassroom($classId);
+        $student=$this->resolver->requireStudent($studentId);
+
         try {
-            $en = $this->enrollmentManager->enrollByIds($studentId,$classId);
+            $en = $this->enrollmentManager->enrollByIds($class, $student);
+
+            $isReactivation = $en->getEnrolledAt() !== null  // optional heuristic
+                && $en->getStatus() === \App\Enum\EnrollmentStatusEnum::ACTIVE
+                && $en->getDroppedAt() === null
+                && $en->getId() !== null; // always true, but we’ll switch status by comparing pre/post if you kept it
+
+            return $this->json([
+                'id'        => $en->getId(),
+                'studentId' => $studentId,
+                'classId'   => $classId,
+                'status'    => $en->getStatus()?->value ?? 'ACTIVE',
+            ], $isReactivation ? 200 : 201);
         } catch (NotFoundHttpException $e) {
             return $this->json(['error' => $e->getMessage()], 404);
         } catch (DomainException $e) {
-            // e.g. "Student is already enrolled in this class."
+            // still used for the "already active" case
             return $this->json(['error' => $e->getMessage()], 409);
         }
+    }
 
-        return $this->json([
-            'id'        => $en->getId(),
-            'studentId' => $en->getStudent()->getId(),
-            'classId'   => $en->getClassroom()->getId(),
-            'status'    => $en->getStatus()?->value ?? 'ACTIVE',
-        ], 201);
+    /**
+     * Soft-drop the ACTIVE enrollment for a student in a classroom.
+     *
+     * - 204 No Content: dropped successfully
+     * - 404 Not Found: classroom | user | active enrollment not found
+     * - 400 Bad Request: user isn’t a student
+     */
+    #[IsGranted('ROLE_ADMIN')]
+    #[Route(
+        '/classes/{classId}/students/{studentId}',
+        name: 'enrollments_soft_drop',
+        requirements: ['classId' => '\d+', 'studentId' => '\d+'],
+        methods: ['DELETE']
+    )]
+    public function softDrop(int $classId, int $studentId): JsonResponse
+    {
+        $class=$this->resolver->requireClassroom($classId);
+        $student=$this->resolver->requireStudent($studentId);
+
+        // Delegate to the domain layer (this wraps EnrollmentManager::dropActiveForStudent)
+        try {
+            $this->classroomManager->removeStudentFromClassroom($student, $class);
+        } catch (NotFoundHttpException) {
+            // Thrown when no ACTIVE enrollment exists for this student in this class
+            return $this->json(
+                ['error' => 'Active enrollment not found for this student in the specified classroom'],
+                Response::HTTP_NOT_FOUND
+            );
+        }
+
+        return new JsonResponse(null, Response::HTTP_NO_CONTENT);
     }
 
     /**
@@ -61,11 +110,18 @@ final class EnrollmentController extends AbstractController
      * @return JsonResponse
      */
     #[IsGranted('ROLE_ADMIN')]
-    #[Route('/classes/{classId}/students/{studentId}', name: 'enrollments_drop', methods: ['DELETE'])]
+    #[Route('/classes/{classId}/students/{studentId}/hard',
+        name: 'enrollments_drop',
+        requirements: ['classId' => '\d+', 'studentId' => '\d+'],
+        methods: ['DELETE']
+    )]
     public function drop(int $classId, int $studentId): JsonResponse
     {
+        $class=$this->resolver->requireClassroom($classId);
+        $student=$this->resolver->requireStudent($studentId);
+
         try {
-            $this->enrollmentManager->dropByIds($studentId, $classId);
+            $this->enrollmentManager->softDropByIds($class, $student);
         } catch (NotFoundHttpException $e) {
             return $this->json(['error' => $e->getMessage()], 404);
         }
@@ -79,13 +135,10 @@ final class EnrollmentController extends AbstractController
      * @return JsonResponse
      */
     #[IsGranted('ROLE_ADMIN')]
-    #[Route('/classes/{classId}/enrollments', name: 'enrollments_drop_all', methods: ['DELETE'])]
+    #[Route('/classes/{classId}/enrollments', name: 'enrollments_drop_all', requirements: ['classId' => '\d+'], methods: ['DELETE'])]
     public function dropAllInClass(int $classId): JsonResponse
     {
-        $class = $this->classroomManager->getClassById($classId);
-        if (!$class) {
-            return $this->json(['error' => 'Classroom not found'], 404);
-        }
+        $class=$this->resolver->requireClassroom($classId);
         $this->enrollmentManager->dropAllActiveForClassroom($class);
         return new JsonResponse(null, 204);
     }
@@ -96,30 +149,39 @@ final class EnrollmentController extends AbstractController
      * @param int $classId
      * @return JsonResponse
      */
-    #[Route('/classes/{classId}/enrollments', name: 'enrollments_list', methods: ['GET'])]
+    #[Route('/classes/{classId}/enrollments', name: 'enrollments_list', requirements: ['classId' => '\d+'], methods: ['GET'])]
     public function list(int $classId): JsonResponse
     {
-        $class = $this->classroomManager->getClassById($classId);
-        if (!$class) {
-            return $this->json(['error' => 'Classroom not found'], 404);
-        }
+        $class=$this->resolver->requireClassroom($classId);
+        $items = $this->enrollmentManager->getAnyEnrollmentForClassroom($class);
 
-        $items = $this->enrollments->findByClassroomId($classId);
-
-        return $this->json([
-            'items' => array_map(static function ($e) {
-                return [
-                    'enrollmentId' => $e->getId(),
-                    'student' => [
-                        'id'        => $e->getStudent()->getId(),
-                        'firstName' => $e->getStudent()->getFirstname(),
-                        'lastName'  => $e->getStudent()->getLastname(),
-                        'email'     => $e->getStudent()->getEmail(),
-                    ],
-                    'enrolledAt' => $e->getEnrolledAt()->format(DATE_ATOM),
-                    'status'     => $e->getStatus()?->value ?? 'ACTIVE',
-                ];
-            }, $items),
-        ]);
+        return $this->json(
+            $items,
+            Response::HTTP_OK,
+            [],
+            ['groups' => ['classroom:enrollments', 'user:mini']]
+        );
     }
+
+    /**
+     * List active enrollments (with student projection) for a classroom.
+     *
+     * @param int $classId
+     * @return JsonResponse
+     */
+    #[Route('/classes/{classId}/active-enrollments', name: 'active_enrollments_list', requirements: ['classId' => '\d+'], methods: ['GET'])]
+    public function listActive(int $classId): JsonResponse
+    {
+        $class=$this->resolver->requireClassroom($classId);
+
+        $items = $this->enrollmentManager->getActiveEnrollmentsForClassroom($class);
+
+        return $this->json(
+            $items,
+            Response::HTTP_OK,
+            [],
+            ['groups' => ['classroom:enrollments', 'user:mini']]
+        );
+    }
+
 }

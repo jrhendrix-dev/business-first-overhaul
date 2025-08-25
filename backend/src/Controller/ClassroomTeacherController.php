@@ -49,6 +49,14 @@ final class ClassroomTeacherController extends AbstractController
             return $this->json(['error' => 'Teacher not found'], 404);
         }
 
+        if ($class->getTeacher() && $class->getTeacher()->getId() === $teacher->getId()) {
+            return $this->json([
+                'message'     => 'Teacher already assigned',
+                'classroomId' => $class->getId(),
+                'teacherId'   => $teacher->getId(),
+            ], 200);
+        }
+
         $this->classroomManager->assignTeacher($class, $teacher);
         return $this->json([
             'message'     => 'Teacher assigned',
@@ -70,6 +78,6 @@ final class ClassroomTeacherController extends AbstractController
         // Only remove teacher; do NOT drop enrollments here.
         $this->classroomManager->unassignTeacher($class);
 
-        return $this->json(['message' => 'Teacher unassigned'], 200);
+        return new JsonResponse(null, 204); // idempotent
     }
 }

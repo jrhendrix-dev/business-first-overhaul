@@ -42,9 +42,6 @@ final class GradeController extends AbstractController
     public function add(int $enrollmentId, Request $request): JsonResponse
     {
         $enrollment = $this->enrollmentManager->getEnrollmentById($enrollmentId);
-        if (!$enrollment) {
-            return $this->json(['error' => 'Enrollment not found'], 404);
-        }
 
         $payload = json_decode($request->getContent() ?: '{}', true, 512, JSON_THROW_ON_ERROR);
         $dto     = AddGradeDTO::fromArray($payload);
@@ -85,6 +82,21 @@ final class GradeController extends AbstractController
         $grade = $this->gradeRepo->find($id);
         if (!$grade) {
             return $this->json(['error' => 'Grade not found'], 404);
+        }
+
+        $raw = trim((string) $request->getContent());
+        if ($raw === '') {
+            return $this->json(
+                ['error' => 'Request body is empty. Provide at least one of: score, maxScore, component.'],
+                400
+            );
+        }
+
+        try {
+            /** @var array<string,mixed> $body */
+            $body = json_decode($raw, true, 512, JSON_THROW_ON_ERROR);
+        } catch (\JsonException $e) {
+            return $this->json(['error' => 'Invalid JSON payload.'], 400);
         }
 
         $body = json_decode($request->getContent() ?: '{}', true, 512, JSON_THROW_ON_ERROR);
