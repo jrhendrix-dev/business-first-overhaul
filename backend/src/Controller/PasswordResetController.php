@@ -6,11 +6,15 @@ use App\Entity\User;
 use App\Repository\UserRepository;
 use App\Service\PasswordResetManager;
 use App\Service\ResetPasswordMailer;
+use Symfony\Bridge\Twig\Mime\TemplatedEmail;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\Mailer\Exception\TransportExceptionInterface;
+use Symfony\Component\Mailer\MailerInterface;
+use Symfony\Component\Mime\Email;
 use Symfony\Component\RateLimiter\RateLimiterFactory;
 use Symfony\Component\Routing\Attribute\Route;
 
@@ -94,4 +98,22 @@ final class PasswordResetController extends AbstractController
 
         return $this->json(['message' => 'Password updated.']);
     }
+
+    /**
+     * @throws TransportExceptionInterface
+     */
+    #[Route('/dev/test-mail', methods: ['POST'])]
+    public function testMail(MailerInterface $mailer): JsonResponse
+    {
+        $email = (new Email())
+            ->from('no-reply@businessfirstacademy.net')
+            ->to('test@example.com')
+            ->subject('Mailpit smoke test')
+            ->text('Hello from Symfony Mailer ✅');
+
+        $mailer->send($email);
+
+        return $this->json(['ok' => true]);
+    }
+
 }

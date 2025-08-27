@@ -7,6 +7,7 @@ use App\Enum\UserRoleEnum;
 use Doctrine\ORM\EntityManagerInterface;
 use Lexik\Bundle\JWTAuthenticationBundle\Services\JWTTokenManagerInterface;
 use PHPUnit\Framework\Attributes\Test;
+use Random\RandomException;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
@@ -23,16 +24,19 @@ final class UserControllerTest extends WebTestCase
     #[Test]
     public function list_requires_auth_401(): void
     {
-        $client = static::createClient();
+        $client = self::createClient();
         $client->request('GET', self::BASE);
 
         self::assertSame(401, $client->getResponse()->getStatusCode(), $client->getResponse()->getContent());
     }
 
+    /**
+     * @throws \JsonException
+     */
     #[Test]
     public function list_returns_200_and_expected_structure_when_authorized(): void
     {
-        $client = static::createClient();
+        $client = self::createClient();
 
         $admin  = $this->ensureAdmin(self::ADMIN_EM, self::ADMIN_PW);
         $token  = $this->jwtFor($admin);
@@ -64,7 +68,7 @@ final class UserControllerTest extends WebTestCase
     #[Test]
     public function get_recently_registered_rejects_non_positive_days(): void
     {
-        $client = static::createClient();
+        $client = self::createClient();
 
         $admin = $this->ensureAdmin(self::ADMIN_EM, self::ADMIN_PW);
         $token = $this->jwtFor($admin);
@@ -76,10 +80,13 @@ final class UserControllerTest extends WebTestCase
         self::assertSame(400, $client->getResponse()->getStatusCode());
     }
 
+    /**
+     * @throws \JsonException
+     */
     #[Test]
     public function get_user_by_name_returns_404_when_not_found(): void
     {
-        $client = static::createClient();
+        $client = self::createClient();
 
         $admin = $this->ensureAdmin(self::ADMIN_EM, self::ADMIN_PW);
         $token = $this->jwtFor($admin);
@@ -97,10 +104,13 @@ final class UserControllerTest extends WebTestCase
     // Create (POST)
     // -------------
 
+    /**
+     * @throws \JsonException
+     */
     #[Test]
     public function create_user_validation_error_400(): void
     {
-        $client = static::createClient();
+        $client = self::createClient();
         $admin  = $this->ensureAdmin(self::ADMIN_EM, self::ADMIN_PW);
         $token  = $this->jwtFor($admin);
 
@@ -114,10 +124,13 @@ final class UserControllerTest extends WebTestCase
         self::assertSame(400, $client->getResponse()->getStatusCode(), $client->getResponse()->getContent());
     }
 
+    /**
+     * @throws \JsonException
+     */
     #[Test]
     public function create_user_success_201(): void
     {
-        $client = static::createClient();
+        $client = self::createClient();
         $admin  = $this->ensureAdmin(self::ADMIN_EM, self::ADMIN_PW);
         $token  = $this->jwtFor($admin);
 
@@ -153,7 +166,7 @@ final class UserControllerTest extends WebTestCase
     #[Test]
     public function change_role_missing_role_param_400(): void
     {
-        $client = static::createClient();
+        $client = self::createClient();
         $admin  = $this->ensureAdmin(self::ADMIN_EM, self::ADMIN_PW);
         $token  = $this->jwtFor($admin);
 
@@ -168,10 +181,13 @@ final class UserControllerTest extends WebTestCase
         self::assertSame(400, $client->getResponse()->getStatusCode(), $client->getResponse()->getContent());
     }
 
+    /**
+     * @throws \JsonException
+     */
     #[Test]
     public function change_role_success_200(): void
     {
-        $client = static::createClient();
+        $client = self::createClient();
         $admin  = $this->ensureAdmin(self::ADMIN_EM, self::ADMIN_PW);
         $token  = $this->jwtFor($admin);
 
@@ -199,10 +215,13 @@ final class UserControllerTest extends WebTestCase
     // Change password/email
     // --------------------
 
+    /**
+     * @throws \JsonException
+     */
     #[Test]
     public function change_password_blocks_bad_confirm_or_length_and_handles_success(): void
     {
-        $client  = static::createClient();
+        $client  = self::createClient();
         $admin   = $this->ensureAdmin(self::ADMIN_EM, self::ADMIN_PW);
         $token   = $this->jwtFor($admin);
 
@@ -246,10 +265,13 @@ final class UserControllerTest extends WebTestCase
         self::assertSame(200, $client->getResponse()->getStatusCode(), $client->getResponse()->getContent());
     }
 
+    /**
+     * @throws \JsonException
+     */
     #[Test]
     public function change_email_validates_and_updates(): void
     {
-        $client = static::createClient();
+        $client = self::createClient();
         $admin  = $this->ensureAdmin(self::ADMIN_EM, self::ADMIN_PW);
         $token  = $this->jwtFor($admin);
 
@@ -289,7 +311,7 @@ final class UserControllerTest extends WebTestCase
     #[Test]
     public function remove_user_self_delete_blocked_400(): void
     {
-        $client = static::createClient();
+        $client = self::createClient();
         $admin  = $this->ensureAdmin(self::ADMIN_EM, self::ADMIN_PW);
         $token  = $this->jwtFor($admin);
 
@@ -305,7 +327,7 @@ final class UserControllerTest extends WebTestCase
     #[Test]
     public function remove_user_success_204(): void
     {
-        $client = static::createClient();
+        $client = self::createClient();
         $admin  = $this->ensureAdmin(self::ADMIN_EM, self::ADMIN_PW);
         $token  = $this->jwtFor($admin);
 
@@ -337,12 +359,14 @@ final class UserControllerTest extends WebTestCase
     private function ensureUser(string $username, string $email, string $plain, UserRoleEnum $role): User
     {
         /** @var EntityManagerInterface $em */
-        $em   = static::getContainer()->get(EntityManagerInterface::class);
+        $em   = self::getContainer()->get(EntityManagerInterface::class);
         $repo = $em->getRepository(User::class);
 
         /** @var User|null $user */
         $user = $repo->findOneBy(['email' => $email]);
-        if ($user) return $user;
+        if ($user) {
+            return $user;
+        }
 
         $user = new User();
         $user->setUsername($username);
@@ -352,7 +376,7 @@ final class UserControllerTest extends WebTestCase
         $user->setRole($role);
 
         /** @var UserPasswordHasherInterface $hasher */
-        $hasher = static::getContainer()->get(UserPasswordHasherInterface::class);
+        $hasher = self::getContainer()->get(UserPasswordHasherInterface::class);
         $user->setPassword($hasher->hashPassword($user, $plain));
 
         $em->persist($user);
@@ -363,10 +387,13 @@ final class UserControllerTest extends WebTestCase
 
     // --- More list/read endpoints ---
 
+    /**
+     * @throws \JsonException
+     */
     #[Test]
     public function students_list_200_and_structure(): void
     {
-        $client = static::createClient();
+        $client = self::createClient();
         $admin  = $this->ensureAdmin(self::ADMIN_EM, self::ADMIN_PW);
         $token  = $this->jwtFor($admin);
 
@@ -387,7 +414,7 @@ final class UserControllerTest extends WebTestCase
     #[Test]
     public function teachers_list_200_and_structure(): void
     {
-        $client = static::createClient();
+        $client = self::createClient();
         $admin  = $this->ensureAdmin(self::ADMIN_EM, self::ADMIN_PW);
         $token  = $this->jwtFor($admin);
 
@@ -397,10 +424,13 @@ final class UserControllerTest extends WebTestCase
         self::assertSame(200, $client->getResponse()->getStatusCode());
     }
 
+    /**
+     * @throws \JsonException
+     */
     #[Test]
     public function get_user_by_id_200(): void
     {
-        $client = static::createClient();
+        $client = self::createClient();
         $admin  = $this->ensureAdmin(self::ADMIN_EM, self::ADMIN_PW);
         $token  = $this->jwtFor($admin);
 
@@ -413,10 +443,13 @@ final class UserControllerTest extends WebTestCase
         self::assertSame($u->getId(), $data['id']);
     }
 
+    /**
+     * @throws \JsonException
+     */
     #[Test]
     public function get_user_by_email_200(): void
     {
-        $client = static::createClient();
+        $client = self::createClient();
         $admin  = $this->ensureAdmin(self::ADMIN_EM, self::ADMIN_PW);
         $token  = $this->jwtFor($admin);
 
@@ -433,7 +466,7 @@ final class UserControllerTest extends WebTestCase
     #[Test]
     public function get_recently_registered_default_days_ok(): void
     {
-        $client = static::createClient();
+        $client = self::createClient();
         $admin  = $this->ensureAdmin(self::ADMIN_EM, self::ADMIN_PW);
         $token  = $this->jwtFor($admin);
 
@@ -446,7 +479,7 @@ final class UserControllerTest extends WebTestCase
     #[Test]
     public function get_unassigned_students_and_teachers_ok(): void
     {
-        $client = static::createClient();
+        $client = self::createClient();
 
         // make an admin and get a JWT
         $admin = $this->ensureAdmin(email: self::ADMIN_EM, plain: self::ADMIN_PW);
@@ -470,7 +503,7 @@ final class UserControllerTest extends WebTestCase
     #[Test]
     public function get_count_by_role_ok_and_bad_role(): void
     {
-        $client = static::createClient();
+        $client = self::createClient();
         $admin  = $this->ensureAdmin(self::ADMIN_EM, self::ADMIN_PW);
         $token  = $this->jwtFor($admin);
 
@@ -487,7 +520,7 @@ final class UserControllerTest extends WebTestCase
     #[Test]
     public function change_role_noop_when_same_role_returns_200(): void
     {
-        $client = static::createClient();
+        $client = self::createClient();
         $admin  = $this->ensureAdmin(self::ADMIN_EM, self::ADMIN_PW);
         $token  = $this->jwtFor($admin);
 
@@ -504,10 +537,13 @@ final class UserControllerTest extends WebTestCase
         self::assertArrayHasKey('message', $data);
     }
 
+    /**
+     * @throws \JsonException
+     */
     #[Test]
     public function patch_user_updates_selected_fields_200(): void
     {
-        $client = static::createClient();
+        $client = self::createClient();
         $admin  = $this->ensureAdmin(self::ADMIN_EM, self::ADMIN_PW);
         $token  = $this->jwtFor($admin);
 
@@ -528,10 +564,13 @@ final class UserControllerTest extends WebTestCase
         self::assertSame($payload['email'], $data['email']);
     }
 
+    /**
+     * @throws \JsonException
+     */
     #[Test]
     public function patch_user_conflict_409_on_duplicate_email(): void
     {
-        $client = static::createClient();
+        $client = self::createClient();
         $admin  = $this->ensureAdmin(self::ADMIN_EM, self::ADMIN_PW);
         $token  = $this->jwtFor($admin);
 
@@ -558,10 +597,13 @@ final class UserControllerTest extends WebTestCase
     private function jwtFor(User $user): string
     {
         /** @var JWTTokenManagerInterface $jwt */
-        $jwt = static::getContainer()->get(JWTTokenManagerInterface::class);
+        $jwt = self::getContainer()->get(JWTTokenManagerInterface::class);
         return $jwt->create($user);
     }
 
+    /**
+     * @throws RandomException
+     */
     private function uniqueSlug(int $len = 6): string
     {
         return bin2hex(random_bytes($len));

@@ -11,7 +11,10 @@ Thumbs.db
 /vendor/
 /var/
 /.env
-.env.local
+/.env.local
+/.env.dev
+/.env.test
+/.env.prod
 .env.*.local
 /legacy/public/bundles/
 /node_modules/
@@ -68,3 +71,5 @@ docs/cache/
 
 
 backend/.env.test
+
+backend/.env

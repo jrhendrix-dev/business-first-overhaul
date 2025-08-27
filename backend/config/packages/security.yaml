@@ -29,10 +29,16 @@ security:
             jwt: ~
 
     access_control:
-        - { path: ^/api/login, roles: IS_AUTHENTICATED_ANONYMOUSLY }
-        - { path: ^/api/register, roles: PUBLIC_ACCESS }
-        - { path: ^/api,       roles: IS_AUTHENTICATED_FULLY }
-        - { path: ^/api/enrollments, roles: ROLE_USER }  # tighten as desired
+        # most specific FIRST
+        - { path: ^/api/dev/test-mail$, roles: PUBLIC_ACCESS }
+        - { path: ^/api/password/forgot$, roles: PUBLIC_ACCESS }
+        - { path: ^/api/password/reset$,  roles: PUBLIC_ACCESS }
+        - { path: ^/api/register$,       roles: PUBLIC_ACCESS }
+        - { path: ^/api/login$,          roles: IS_AUTHENTICATED_ANONYMOUSLY }
+
+        # any other specific exceptions (role-based)
         - { path: ^/api/classes/\d+/students, roles: ROLE_TEACHER }
-        - { path: ^/api/password/forgot, roles: PUBLIC_ACCESS }
-        - { path: ^/api/password/reset,  roles: PUBLIC_ACCESS }
+        - { path: ^/api/enrollments,          roles: ROLE_USER }
+
+        # catch-all for the rest of /api
+        - { path: ^/api, roles: IS_AUTHENTICATED_FULLY }

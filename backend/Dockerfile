@@ -1,35 +1,54 @@
 # backend/Dockerfile
 FROM php:8.3-cli
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
-    git unzip libicu-dev libonig-dev libzip-dev zip libpq-dev \
-    default-mysql-client wget curl \
-    && docker-php-ext-install intl pdo pdo_mysql pdo_pgsql zip
+# System deps
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git unzip wget curl zip \
+    libicu-dev libzip-dev libpq-dev default-mysql-client \
+ && rm -rf /var/lib/apt/lists/*
 
-# Install Composer
+# PHP extensions
+# - intl, pdo_mysql, zip as before
+# - pcntl enabled (required for messenger:consume signals)
+RUN docker-php-ext-install -j"$(nproc)" intl pdo_mysql zip \
+ && docker-php-ext-configure pcntl --enable-pcntl \
+ && docker-php-ext-install -j"$(nproc)" pcntl
+
+# Composer
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
-# ✅ Install Symfony CLI
-RUN wget https://get.symfony.com/cli/installer -O - | bash && \
-    mv /root/.symfony*/bin/symfony /usr/local/bin/symfony
+# Symfony CLI
+RUN wget -qO- https://get.symfony.com/cli/installer | bash \
+ && mv /root/.symfony*/bin/symfony /usr/local/bin/symfony
 
-# --- Code coverage / debug (Xdebug) ---
-# Install and enable the extension (loaded, but inert unless XDEBUG_MODE is set)
+# Xdebug (loaded but inert unless XDEBUG_MODE is set)
 RUN pecl install xdebug \
-    && docker-php-ext-enable xdebug \
-    && { \
-        echo "xdebug.mode=off"; \
-        echo "xdebug.start_with_request=no"; \
-        echo "xdebug.log_level=0"; \
-      } >> /usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini
+ && docker-php-ext-enable xdebug \
+ && { \
+      echo "xdebug.mode=off"; \
+      echo "xdebug.start_with_request=no"; \
+      echo "xdebug.log_level=0"; \
+    } > /usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini
 
-WORKDIR /var/www/html
+# Match docker-compose working dir
+WORKDIR /var/www/app
 
+# (Optional) install deps at build for faster cold starts
+# You can keep composer install at runtime in docker-compose if you prefer.
+COPY composer.json composer.lock ./
+RUN composer install --no-interaction --no-scripts --prefer-dist || true
+
+# Copy the rest of the app (after deps for better layer caching)
 COPY . .
 
-# Install PHP dependencies
-RUN composer install
+# Finalize PHP config (ensure pcntl not disabled)
+RUN { \
+      echo "memory_limit=512M"; \
+      echo "post_max_size=32M"; \
+      echo "upload_max_filesize=32M"; \
+      echo "max_execution_time=60"; \
+      echo "opcache.enable=0"; \
+    } > /usr/local/etc/php/conf.d/app.ini
 
+# Default command (overridden by docker-compose)
 CMD ["symfony", "server:start", "--no-tls", "--port=8000", "--allow-http", "--allow-all-ip"]
-

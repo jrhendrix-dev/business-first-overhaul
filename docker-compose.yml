@@ -1,7 +1,17 @@
 services:
+
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      - "8025:8025"   # web UI
+      - "1025:1025"   # smtp
+    restart: unless-stopped
+    networks:
+      - bfe_network
+
   mysql:
     image: mysql:8.0
-    restart: no
+    restart: unless-stopped
     environment:
       MYSQL_ROOT_PASSWORD: root
       MYSQL_DATABASE: bfe_db
@@ -14,20 +24,27 @@ services:
     networks:
       - bfe_network
     healthcheck:
-      test: [ "CMD", "mysqladmin" ,"ping", "-h", "mysql" ]
+      test: [ "CMD", "mysqladmin" ,"ping", "-h", "127.0.0.1" ]
       interval: 10s
       timeout: 5s
       retries: 5
-
 
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
     container_name: bfe_symfony_backend
-    restart: no
+    restart: unless-stopped
     environment:
       APP_ENV: dev
+
+      # DSNs (you can also set these in .env.local — see below)
+      MAILER_DSN: 'smtp://mailpit:1025'
+      MESSENGER_TRANSPORT_DSN: 'doctrine://default?auto_setup=1'
+
+      MAILER_FROM: 'no-reply@businessfirstacademy.net'
+      FRONTEND_RESET_URL: 'http://localhost:4200/reset-password'
+
       # Keep Xdebug inert by default
       XDEBUG_MODE: off
     working_dir: /var/www/app
@@ -35,43 +52,65 @@ services:
       - ./backend:/var/www/app
     depends_on:
       mysql:
-          condition: service_healthy
+        condition: service_healthy
+      mailpit:
+        condition: service_started
     ports:
       - "8000:8000"
     command: >
       sh -lc '
-          until php -r '\''try {
-            new PDO("mysql:host=mysql;port=3306;dbname=bfe_db","symfony","password",
-                    [PDO::ATTR_TIMEOUT=>2]);
-          } catch (Throwable $e) { exit(1); }'\''; do
-            echo "⏳ Waiting for MySQL...";
-            sleep 2;
-          done &&
-          composer install --no-interaction &&
-          php bin/console doctrine:database:create --if-not-exists &&
-          php bin/console doctrine:schema:update --force &&
-          php -S 0.0.0.0:8000 -t public
-        '
-
+        until php -r '\''try {
+          new PDO("mysql:host=mysql;port=3306;dbname=bfe_db","symfony","password",
+                  [PDO::ATTR_TIMEOUT=>2]);
+        } catch (Throwable $e) { exit(1); }'\''; do
+          echo "⏳ Waiting for MySQL...";
+          sleep 2;
+        done &&
+        composer install --no-interaction &&
+        php bin/console doctrine:database:create --if-not-exists &&
+        php bin/console doctrine:schema:update --force &&
+        php -S 0.0.0.0:8000 -t public
+      '
     networks:
       - bfe_network
+
+  # Messenger worker (consumes async queue so emails actually send)
+  consumer:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    depends_on:
+      - backend
+    restart: unless-stopped
+    working_dir: /var/www/app
+    environment:
+      APP_ENV: dev
+      MESSENGER_TRANSPORT_DSN: 'doctrine://default?auto_setup=1'
+    command: php bin/console messenger:consume async -vv --no-reset --keepalive
+    volumes:
+      - ./backend:/var/www/app
+    networks:
+      - bfe_network
+
 
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
     container_name: bfe_angular_frontend
-    restart: no
+    restart: unless-stopped
     ports:
       - "4200:4200"
     volumes:
       - ./frontend:/app
     working_dir: /app
     command: npm run start -- --host 0.0.0.0
+    networks:
+      - bfe_network
+
 networks:
   bfe_network:
     driver: bridge
 
 volumes:
   mysql_data:
-
