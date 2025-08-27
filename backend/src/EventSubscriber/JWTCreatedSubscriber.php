@@ -1,27 +1,33 @@
 <?php
-
+// src/EventSubscriber/JWTCreatedSubscriber.php
 namespace App\EventSubscriber;
 
-use Lexik\Bundle\JWTAuthenticationBundle\Event\JWTDecodedEvent;
+use Lexik\Bundle\JWTAuthenticationBundle\Event\JWTCreatedEvent;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 
-class JWTCreatedSubscriber implements EventSubscriberInterface
+/**
+ * Adds custom claims (e.g., roles) to the JWT at creation time.
+ */
+final class JWTCreatedSubscriber implements EventSubscriberInterface
 {
     public static function getSubscribedEvents(): array
     {
         return [
-            JWTDecodedEvent::class => 'onJWTDecoded',
+            JWTCreatedEvent::class => 'onJWTCreated',
         ];
     }
 
-    public function onJWTDecoded(JWTDecodedEvent $event): void
+    /**
+     * @param JWTCreatedEvent $event
+     */
+    public function onJWTCreated(JWTCreatedEvent $event): void
     {
-        $payload = $event->getPayload();
+        $data = $event->getData();              // current payload
+        $user = $event->getUser();
 
-        if (!isset($payload['roles'])) {
-            return;
-        }
+        // Ensure roles claim is present (adjust key name as your frontend expects)
+        $data['roles'] = $user?->getRoles() ?? [];
 
-        $event->getToken()->setAttribute('roles', $payload['roles']);
+        $event->setData($data);
     }
 }

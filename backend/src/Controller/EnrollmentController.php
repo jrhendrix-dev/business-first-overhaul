@@ -2,14 +2,8 @@
 // src/Controller/EnrollmentController.php
 namespace App\Controller;
 
-use App\Entity\Classroom;
-use App\Entity\User;
-use App\Repository\ClassroomRepository;
-use App\Repository\EnrollmentRepository;
-use App\Repository\UserRepository;
 use App\Service\ClassroomManager;
 use App\Service\EnrollmentManager;
-use App\Service\UserManager;
 use App\Service\RequestEntityResolver;
 use DomainException;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -18,7 +12,7 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
-use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
+
 
 #[Route('/api')]
 final class EnrollmentController extends AbstractController

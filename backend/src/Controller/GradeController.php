@@ -5,7 +5,6 @@ namespace App\Controller;
 use App\DTO\AddGradeDTO;
 use App\DTO\UpdateGradeDTO;
 use App\Http\ValidationResponder;
-use App\Repository\EnrollmentRepository;
 use App\Repository\GradeRepository;
 use App\Service\EnrollmentManager;
 use App\Service\GradeManager;
