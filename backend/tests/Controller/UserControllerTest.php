@@ -504,6 +504,50 @@ final class UserControllerTest extends WebTestCase
         self::assertArrayHasKey('message', $data);
     }
 
+    #[Test]
+    public function patch_user_updates_selected_fields_200(): void
+    {
+        $client = static::createClient();
+        $admin  = $this->ensureAdmin(self::ADMIN_EM, self::ADMIN_PW);
+        $token  = $this->jwtFor($admin);
+
+        $u = $this->ensureUser('patch_'.$this->uniq(), 'patch'.$this->uniq().'@ex.com', 'Pass12345', UserRoleEnum::STUDENT);
+
+        $payload = ['first_name' => 'NewFirst', 'email' => 'new'.$this->uniq().'@ex.com'];
+
+        $client->request(
+            'PATCH',
+            self::BASE.'/'.$u->getId(),
+            server: ['HTTP_Authorization' => 'Bearer '.$token, 'CONTENT_TYPE' => 'application/json'],
+            content: json_encode($payload, JSON_THROW_ON_ERROR)
+        );
+
+        self::assertSame(200, $client->getResponse()->getStatusCode(), $client->getResponse()->getContent());
+        $data = json_decode($client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        self::assertSame('NewFirst', $data['firstname']);
+        self::assertSame($payload['email'], $data['email']);
+    }
+
+    #[Test]
+    public function patch_user_conflict_409_on_duplicate_email(): void
+    {
+        $client = static::createClient();
+        $admin  = $this->ensureAdmin(self::ADMIN_EM, self::ADMIN_PW);
+        $token  = $this->jwtFor($admin);
+
+        $a = $this->ensureUser('a_'.$this->uniq(), 'a'.$this->uniq().'@ex.com', 'Pass12345', UserRoleEnum::STUDENT);
+        $b = $this->ensureUser('b_'.$this->uniq(), 'b'.$this->uniq().'@ex.com', 'Pass12345', UserRoleEnum::STUDENT);
+
+        $client->request(
+            'PATCH',
+            self::BASE.'/'.$a->getId(),
+            server: ['HTTP_Authorization' => 'Bearer '.$token, 'CONTENT_TYPE' => 'application/json'],
+            content: json_encode(['email' => $b->getEmail()], JSON_THROW_ON_ERROR)
+        );
+
+        self::assertSame(409, $client->getResponse()->getStatusCode(), $client->getResponse()->getContent());
+    }
+
 // ---- helper for unique suffixes without uniqid() ----
     private function uniq(): string
     {
