@@ -9,6 +9,9 @@ security:
                 class: App\Entity\User
                 property: email
     firewalls:
+        dev:
+            pattern: ^/(_(profiler|wdt)|css|images|js)/
+            security: false
         login:
             pattern:  ^/api/login
             stateless: true
@@ -31,3 +34,5 @@ security:
         - { path: ^/api,       roles: IS_AUTHENTICATED_FULLY }
         - { path: ^/api/enrollments, roles: ROLE_USER }  # tighten as desired
         - { path: ^/api/classes/\d+/students, roles: ROLE_TEACHER }
+        - { path: ^/api/password/forgot, roles: PUBLIC_ACCESS }
+        - { path: ^/api/password/reset,  roles: PUBLIC_ACCESS }
