@@ -1,4 +1,6 @@
 {
+    "name": "jrhendrix/business-first-overhaul",
+    "description": "Business First English Academy backend in Symfony 7 with Docker, PHPUnit and coverage",
     "type": "project",
     "license": "proprietary",
     "minimum-stability": "stable",
@@ -89,8 +91,8 @@
             "@auto-scripts"
         ],
 
-        "test": "APP_ENV=test php vendor/bin/phpunit",
-        "test:cov": "APP_ENV=test XDEBUG_MODE=coverage php -d xdebug.mode=coverage vendor/bin/phpunit -c phpunit.coverage.xml",
+        "test": "APP_ENV=test php vendor/bin/phpunit -c phpunit.dist.xml",
+        "test:cov": "APP_ENV=test XDEBUG_MODE=coverage php -d xdebug.mode=coverage vendor/bin/phpunit -c phpunit.dist.xml --coverage-html var/coverage-html --coverage-clover var/coverage.xml --coverage-text",
         "test:cov:clover": "APP_ENV=test XDEBUG_MODE=coverage php -d xdebug.mode=coverage vendor/bin/phpunit -c phpunit.coverage.xml --coverage-clover var/coverage/clover.xml",
         "test:cov:text": "APP_ENV=test XDEBUG_MODE=coverage php -d xdebug.mode=coverage vendor/bin/phpunit -c phpunit.coverage.xml --coverage-text"
 

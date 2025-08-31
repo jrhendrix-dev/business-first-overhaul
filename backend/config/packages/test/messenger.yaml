@@ -1,0 +1,6 @@
+framework:
+    messenger:
+        transports:
+            sync: 'in-memory://'
+        routing:
+            'App\Message\ContactMessage': 'sync'   # handle immediately in tests

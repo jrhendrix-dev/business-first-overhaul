@@ -34,3 +34,4 @@ framework:
 
             # Example: route your own messages
             # 'App\Message\YourMessage': async
+            App\Message\ContactMessage: async

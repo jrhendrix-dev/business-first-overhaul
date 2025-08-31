@@ -30,6 +30,15 @@ RUN pecl install xdebug \
       echo "xdebug.log_level=0"; \
     } > /usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini
 
+# --- Fast code coverage: pcov ---
+RUN pecl install pcov \
+ && docker-php-ext-enable pcov \
+ && { \
+      echo "pcov.enabled=1"; \
+      echo "pcov.directory=/var/www/app"; \
+      echo "pcov.exclude='#/vendor/#'"; \
+    } > /usr/local/etc/php/conf.d/pcov.ini
+
 # Match docker-compose working dir
 WORKDIR /var/www/app
 
@@ -41,7 +50,7 @@ RUN composer install --no-interaction --no-scripts --prefer-dist || true
 # Copy the rest of the app (after deps for better layer caching)
 COPY . .
 
-# Finalize PHP config (ensure pcntl not disabled)
+# Finalize PHP config (ensure sane defaults; opcache off for dev)
 RUN { \
       echo "memory_limit=512M"; \
       echo "post_max_size=32M"; \

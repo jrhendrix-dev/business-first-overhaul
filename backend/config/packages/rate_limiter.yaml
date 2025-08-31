@@ -1,10 +1,21 @@
+# config/packages/rate_limiter.yaml
 framework:
     rate_limiter:
-        forgot_ip:
+        contact_form:
             policy: fixed_window
             limit: 5
-            interval: '10 minutes'
+            interval: '1 minute'
+
+        forgot_ip:
+            policy: sliding_window
+            limit: 5
+            interval: '15 minutes'
+
         forgot_email:
             policy: fixed_window
-            limit: 1
+            limit: 3
             interval: '10 minutes'
+services:
+    App\Controller\ContactController:
+        arguments:
+            $contactLimiter: '@limiter.contact_form'

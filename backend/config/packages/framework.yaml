@@ -8,6 +8,11 @@ framework:
     #esi: true
     #fragments: true
 
+    mailer:
+        dsn: '%env(MAILER_DSN)%'
+        envelope:
+            sender: '%env(MAILER_FROM)%'
+
 when@test:
     framework:
         test: true

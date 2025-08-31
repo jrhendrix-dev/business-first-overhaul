@@ -19,6 +19,7 @@ Thumbs.db
 /legacy/public/bundles/
 /node_modules/
 /phpunit.result.cache
+**/jwt/*.pem
 
 # ===================================
 # Angular / Node
