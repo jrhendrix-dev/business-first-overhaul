@@ -82,15 +82,20 @@
             "assets:install %PUBLIC_DIR%": "symfony-cmd",
             "importmap:install": "symfony-cmd"
         },
-        "post-install-cmd": ["@auto-scripts"],
-        "post-update-cmd": ["@auto-scripts"],
+        "post-install-cmd": [
+            "@auto-scripts"
+        ],
+        "post-update-cmd": [
+            "@auto-scripts"
+        ],
 
         "test": "APP_ENV=test php vendor/bin/phpunit",
-        "test:cov": "APP_ENV=test XDEBUG_MODE=coverage php vendor/bin/phpunit --coverage-html var/coverage"
-    }
+        "test:cov": "APP_ENV=test XDEBUG_MODE=coverage php -d xdebug.mode=coverage vendor/bin/phpunit -c phpunit.coverage.xml",
+        "test:cov:clover": "APP_ENV=test XDEBUG_MODE=coverage php -d xdebug.mode=coverage vendor/bin/phpunit -c phpunit.coverage.xml --coverage-clover var/coverage/clover.xml",
+        "test:cov:text": "APP_ENV=test XDEBUG_MODE=coverage php -d xdebug.mode=coverage vendor/bin/phpunit -c phpunit.coverage.xml --coverage-text"
 
-,
 
+    },
     "conflict": {
         "symfony/symfony": "*"
     },
@@ -105,6 +110,7 @@
         "doctrine/doctrine-fixtures-bundle": "^4.1",
         "fakerphp/faker": "^1.24",
         "phpunit/phpunit": "^12.2",
+        "roave/security-advisories": "dev-latest",
         "symfony/browser-kit": "7.3.*",
         "symfony/css-selector": "7.3.*",
         "symfony/debug-bundle": "7.3.*",
