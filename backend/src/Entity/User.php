@@ -215,11 +215,15 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
             return [];
         }
 
-        return match ($this->role) {
-            UserRoleEnum::ADMIN   => ['ROLE_ADMIN'],
-            UserRoleEnum::TEACHER => ['ROLE_TEACHER'],
-            UserRoleEnum::STUDENT => ['ROLE_STUDENT'],
+        $roles = ['ROLE_USER']; // baseline for every authenticated user
+
+        $roles[] = match ($this->role) {
+            UserRoleEnum::ADMIN   => 'ROLE_ADMIN',
+            UserRoleEnum::TEACHER => 'ROLE_TEACHER',
+            UserRoleEnum::STUDENT => 'ROLE_STUDENT',
         };
+
+        return array_values(array_unique($roles));
     }
 
     /** @return UserRoleEnum */

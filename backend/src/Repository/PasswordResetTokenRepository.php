@@ -32,4 +32,20 @@ final class PasswordResetTokenRepository extends ServiceEntityRepository
             ->getQuery()
             ->execute();
     }
+
+    /**
+     * Find a usable (unused, not expired) token for the given user and hash.
+     */
+    public function findUsable(User $user, string $tokenHash): ?PasswordResetToken
+    {
+        /** @var PasswordResetToken|null $row */
+        $row = $this->createQueryBuilder('t')
+            ->andWhere('t.user = :u')->setParameter('u', $user)
+            ->andWhere('t.tokenHash = :h')->setParameter('h', $tokenHash)
+            ->andWhere('t.usedAt IS NULL')
+            ->getQuery()
+            ->getOneOrNullResult();
+
+        return $row && $row->isUsable() ? $row : null;
+    }
 }

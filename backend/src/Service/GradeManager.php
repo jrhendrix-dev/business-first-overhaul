@@ -1,5 +1,6 @@
 <?php
-// src/Service/GradeManager.php
+declare(strict_types=1);
+
 namespace App\Service;
 
 use App\Entity\Enrollment;
@@ -7,13 +8,17 @@ use App\Entity\Grade;
 use App\Repository\GradeRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use DomainException;
+use App\Service\Contracts\EnrollmentPort; // ← use the port
 
+/**
+ * Coordinates grade operations and delegates enrollment lookups.
+ */
 final class GradeManager
 {
     public function __construct(
         private EntityManagerInterface $em,
         private GradeRepository $grades,
-        private EnrollmentManager $enrollments
+        private EnrollmentPort $enrollments, // ← depend on the port
     ) {}
 
     public function addGrade(Enrollment $enrollment, string $component, float $score, float $maxScore = 10.0): Grade
@@ -30,7 +35,6 @@ final class GradeManager
         $g->setComponent($component);
         $g->setScore($score);
         $g->setMaxScore($maxScore);
-
 
         $this->em->persist($g);
         $this->em->flush();
@@ -68,5 +72,3 @@ final class GradeManager
         return $this->averagePercentForEnrollment($enrollment);
     }
 }
-
-

@@ -9,6 +9,7 @@ use App\Enum\EnrollmentStatusEnum;
 use App\Repository\EnrollmentRepository;
 use App\Service\Contracts\EnrollmentPort;
 use Doctrine\ORM\EntityManagerInterface;
+use RuntimeException;
 
 /**
  * Coordinates enrollment use-cases while delegating reads to EnrollmentRepository.
@@ -146,5 +147,32 @@ final class EnrollmentManager implements EnrollmentPort
     public function getEnrollmentById(int $enrollmentId): Enrollment
     {
         return $this->enrollments->findEnrollmentById($enrollmentId);
+    }
+
+    /**
+     * Fetch the Enrollment for a given (studentId, classId) pair or throw if none found.
+     *
+     * @param int $studentId
+     * @param int $classId
+     * @return Enrollment
+     *
+     * @throws RuntimeException if no matching enrollment is found.
+     */
+    public function getByIdsOrFail(int $studentId, int $classId): Enrollment
+    {
+        $enrollment = $this->enrollments->findOneBy([
+            'student'   => $studentId,
+            'classroom' => $classId,
+        ]);
+
+        if (!$enrollment) {
+            throw new RuntimeException(sprintf(
+                'Enrollment not found for studentId=%d and classId=%d',
+                $studentId,
+                $classId
+            ));
+        }
+
+        return $enrollment;
     }
 }

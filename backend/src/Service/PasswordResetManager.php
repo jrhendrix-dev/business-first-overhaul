@@ -4,7 +4,7 @@ namespace App\Service;
 
 use App\Entity\PasswordResetToken;
 use App\Entity\User;
-use App\Repository\PasswordResetTokenRepository;
+use App\Service\Contracts\PasswordResetTokenPort;
 use Doctrine\ORM\EntityManagerInterface;
 use Random\RandomException;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
@@ -16,9 +16,9 @@ final class PasswordResetManager
 {
     public function __construct(
         private readonly EntityManagerInterface $em,
-        private readonly PasswordResetTokenRepository $tokens,
+        private readonly PasswordResetTokenPort $tokens,
         private readonly UserPasswordHasherInterface $hasher,
-        private readonly int $ttlSeconds = 3600, // 1 hour
+        private readonly int $ttlSeconds = 3600,
     ) {}
 
     /**
@@ -63,19 +63,11 @@ final class PasswordResetManager
     {
         $hash = hash('sha256', $plainToken);
 
-        /** @var PasswordResetToken|null $row */
-        $row = $this->tokens->createQueryBuilder('t')
-            ->andWhere('t.user = :u')->setParameter('u', $user)
-            ->andWhere('t.tokenHash = :h')->setParameter('h', $hash)
-            ->andWhere('t.usedAt IS NULL')
-            ->getQuery()
-            ->getOneOrNullResult();
-
-        if (!$row || !$row->isUsable()) {
+        $row = $this->tokens->findUsable($user, $hash);
+        if (!$row) {
             throw new \RuntimeException('Invalid or expired token.');
         }
 
-        // Update password
         $user->setPassword($this->hasher->hashPassword($user, $newPassword));
         $row->setUsedAt(new \DateTime());
 
