@@ -1,44 +1,113 @@
 <?php
+declare(strict_types=1);
 
 namespace App\Tests\Service;
 
+use App\Entity\PasswordResetToken;
 use App\Entity\User;
-use App\Enum\UserRoleEnum;
+use App\Repository\PasswordResetTokenRepository;
+use App\Service\Contracts\PasswordResetTokenPort;
 use App\Service\PasswordResetManager;
+use DateInterval;
+use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
-use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\MockObject\MockObject;
+use PHPUnit\Framework\TestCase;
+use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
-final class PasswordResetManagerTest extends KernelTestCase
+#[CoversClass(PasswordResetManager::class)]
+final class PasswordResetManagerTest extends TestCase
 {
-    private function em(): EntityManagerInterface
+    /** @var EntityManagerInterface&MockObject */
+    private EntityManagerInterface $em;
+
+    /** @var PasswordResetTokenPort&MockObject */
+    private PasswordResetTokenPort $tokens;
+
+    /** @var UserPasswordHasherInterface&MockObject */
+    private UserPasswordHasherInterface $hasher;
+
+    private PasswordResetManager $sut;
+
+    protected function setUp(): void
     {
-        self::bootKernel();
-        return self::getContainer()->get('doctrine')->getManager();
+        $this->em     = $this->createMock(EntityManagerInterface::class);
+        $this->tokens = $this->createMock(PasswordResetTokenPort::class);
+        $this->hasher = $this->createMock(UserPasswordHasherInterface::class);
+
+        $this->sut = new PasswordResetManager($this->em, $this->tokens, $this->hasher, 3600);
     }
 
-    public function test_issue_and_consume(): void
+    #[Test]
+    public function issue_invalidates_previous_tokens_persists_and_returns_plain_hex(): void
     {
-        self::bootKernel();
-        $em = $this->em();
+        $user = (new User())->setEmail('a@b.c');
 
-        $user = new User();
-        $user->setFirstName('F'); $user->setLastName('L');
-        $user->setEmail('r'.uniqid().'@e.com');
-        $user->setUsername('u'.uniqid());
-        $user->setPassword('x');
-        $user->setRole(UserRoleEnum::STUDENT);
-        $em->persist($user); $em->flush();
+        $this->tokens->expects($this->once())
+            ->method('invalidateAllForUser')
+            ->with($user);
 
-        /** @var PasswordResetManager $mgr */
-        $mgr = self::getContainer()->get(PasswordResetManager::class);
+        $this->em->expects($this->once())
+            ->method('persist')
+            ->with(self::callback(function ($entity) use ($user) {
+                \assert($entity instanceof PasswordResetToken);
+                self::assertSame($user, $entity->getUser());
+                self::assertNotEmpty($entity->getTokenHash());
+                self::assertInstanceOf(DateTimeImmutable::class, $entity->getCreatedAt());
+                self::assertInstanceOf(DateTimeImmutable::class, $entity->getExpiresAt());
+                self::assertGreaterThan($entity->getCreatedAt(), $entity->getExpiresAt());
+                return true;
+            }));
 
-        $plain = $mgr->issue($user, '127.0.0.1');
-        self::assertIsString($plain);
-        self::assertGreaterThanOrEqual(64, strlen($plain));
+        $this->em->expects($this->once())->method('flush');
 
-        $mgr->consume($user, $plain, 'New-Secret-1');
-        // If we call again with the same token it must fail
+        $plain = $this->sut->issue($user, '127.0.0.1');
+
+        self::assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $plain);
+    }
+
+    #[Test]
+    public function consume_hashes_password_marks_token_used_and_flushes(): void
+    {
+        $user = (new User())->setEmail('a@b.c');
+
+        $token = new PasswordResetToken();
+        $token->setUser($user);
+        $token->setTokenHash(hash('sha256', 'plain-token'));
+        $now = new DateTimeImmutable();
+        $token->setCreatedAt($now);
+        $token->setExpiresAt($now->add(new DateInterval('PT2H'))); // valid
+
+        $this->tokens->expects($this->once())
+            ->method('findUsable')
+            ->with($user, hash('sha256', 'plain-token'))
+            ->willReturn($token);
+
+        $this->hasher->expects($this->once())
+            ->method('hashPassword')
+            ->with($user, 'NEW_PASS')
+            ->willReturn('HASHED');
+
+        $this->em->expects($this->once())->method('flush');
+
+        $this->sut->consume($user, 'plain-token', 'NEW_PASS');
+
+        self::assertSame('HASHED', $user->getPassword());
+        self::assertNotNull($token->getUsedAt());
+    }
+
+    #[Test]
+    public function consume_throws_when_token_invalid_or_expired(): void
+    {
+        $user = (new User())->setEmail('a@b.c');
+
+        $this->tokens->method('findUsable')->willReturn(null);
+
         $this->expectException(\RuntimeException::class);
-        $mgr->consume($user, $plain, 'Other');
+        $this->expectExceptionMessage('Invalid or expired token.');
+
+        $this->sut->consume($user, 'whatever', 'pass');
     }
 }
