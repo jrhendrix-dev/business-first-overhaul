@@ -28,14 +28,14 @@ jobs:
           APP_ENV=test
           APP_SECRET=test
           # points to the Compose service hostname "db"
-          DATABASE_URL=mysql://app:app@db:3306/app
+           DATABASE_URL=mysql://symfony:password@mysql:3306/bfe_db?serverVersion=8.0
           MAILER_DSN=null://null
           EOF
 
           # IMPORTANT: use a dedicated test DB, disable mailer
           cat > .env.test <<'EOF'
           APP_ENV=test
-          DATABASE_URL=mysql://app:app@db:3306/app_test?serverVersion=8.0
+           DATABASE_URL=mysql://symfony:password@mysql:3306/app_test?serverVersion=8.0
           MAILER_DSN=null://null
           EOF
 
@@ -61,7 +61,7 @@ jobs:
       - name: Build and start containers
         run: |
           docker compose -f docker-compose.yml build
-          docker compose -f docker-compose.yml up -d db backend
+          docker compose -f docker-compose.yml up -d mysql backend
 
       # Ensure env files exist inside the running container
       - name: Copy env files into backend container
@@ -74,22 +74,21 @@ jobs:
       - name: Wait for MySQL healthy
         shell: bash
         run: |
-          set -e
-          DB_CID="$(docker compose ps -q db)"
+                set -e
+          DB_CID="$(docker compose ps -q mysql)"
           echo "DB container: $DB_CID"
           for i in {1..60}; do
-            STATUS="$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{end}}' "$DB_CID")"
-            echo "MySQL health: ${STATUS:-unknown}"
-            if [ "$STATUS" = "healthy" ]; then
-              echo "MySQL is healthy"
-              break
-            fi
-            if [ $i -eq 60 ]; then
-              echo "MySQL did not become healthy in time" >&2
-              docker compose logs db >&2 || true
-              exit 1
-            fi
-            sleep 2
+          STATUS="$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{end}}' "$DB_CID")"
+          echo "MySQL health: ${STATUS:-unknown}"
+          if [ "$STATUS" = "healthy" ]; then
+          echo "MySQL is healthy"; break
+          fi
+          if [ $i -eq 60 ]; then
+          echo "MySQL did not become healthy in time" >&2
+          docker compose logs mysql >&2 || true
+          exit 1
+          fi
+          sleep 2
           done
 
       # Create & migrate the test database
