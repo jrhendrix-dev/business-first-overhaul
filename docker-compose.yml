@@ -37,7 +37,7 @@ services:
     restart: unless-stopped
     environment:
       APP_ENV: dev
-
+      DATABASE_URL: "mysql://symfony:symfony@db:3306/app_test?serverVersion=8.0"
       # DSNs (you can also set these in .env.local — see below)
       MAILER_DSN: 'smtp://mailpit:1025'
       MESSENGER_TRANSPORT_DSN: 'doctrine://default?auto_setup=1'

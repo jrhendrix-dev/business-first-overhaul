@@ -27,12 +27,16 @@ jobs:
           cat > .env <<'EOF'
           APP_ENV=test
           APP_SECRET=test
+          # points to the Compose service hostname "db"
           DATABASE_URL=mysql://app:app@db:3306/app
           MAILER_DSN=null://null
           EOF
 
+          # IMPORTANT: use a dedicated test DB, disable mailer
           cat > .env.test <<'EOF'
           APP_ENV=test
+          DATABASE_URL=mysql://app:app@db:3306/app_test?serverVersion=8.0
+          MAILER_DSN=null://null
           EOF
 
       - name: Cache Composer downloads
@@ -48,23 +52,51 @@ jobs:
         env:
           COMPOSER_MEMORY_LIMIT: -1
         run: composer install --no-ansi --no-interaction --no-progress --prefer-dist --optimize-autoloader
-        # If you ever still hit cache:clear/env issues, uncomment the next line to skip Flex scripts:
-        # run: composer install --no-ansi --no-interaction --no-progress --prefer-dist --optimize-autoloader --no-scripts
+        # If env/script issues appear, try: --no-scripts
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      # Build and start ONLY the services needed for tests
       - name: Build and start containers
         run: |
           docker compose -f docker-compose.yml build
-          docker compose -f docker-compose.yml up -d
+          docker compose -f docker-compose.yml up -d db backend
 
-      # Belt-and-suspenders: ensure env files exist inside the running container path
+      # Ensure env files exist inside the running container
       - name: Copy env files into backend container
         run: |
           docker compose cp backend/.env backend:/var/www/app/.env
           docker compose cp backend/.env.test backend:/var/www/app/.env.test
           docker compose exec -T backend ls -la /var/www/app | grep -E '\.env$|\.env\.test$'
+
+      # Wait for MySQL to be healthy (requires a healthcheck on the db service)
+      - name: Wait for MySQL healthy
+        shell: bash
+        run: |
+          set -e
+          DB_CID="$(docker compose ps -q db)"
+          echo "DB container: $DB_CID"
+          for i in {1..60}; do
+            STATUS="$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{end}}' "$DB_CID")"
+            echo "MySQL health: ${STATUS:-unknown}"
+            if [ "$STATUS" = "healthy" ]; then
+              echo "MySQL is healthy"
+              break
+            fi
+            if [ $i -eq 60 ]; then
+              echo "MySQL did not become healthy in time" >&2
+              docker compose logs db >&2 || true
+              exit 1
+            fi
+            sleep 2
+          done
+
+      # Create & migrate the test database
+      - name: Prepare test DB (create + migrate)
+        run: |
+          docker compose exec -T backend php bin/console doctrine:database:create --env=test --if-not-exists
+          docker compose exec -T backend php bin/console doctrine:migrations:migrate --env=test -n || true
 
       - name: Run PHPUnit with coverage inside backend container
         run: |
