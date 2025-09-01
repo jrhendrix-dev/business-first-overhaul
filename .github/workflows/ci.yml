@@ -20,6 +20,21 @@ jobs:
           coverage: xdebug
           tools: composer
 
+      # ⬇️ Create the env files BEFORE composer so Flex auto-scripts can read them
+      - name: Create test env files
+        working-directory: backend
+        run: |
+          cat > .env <<'EOF'
+          APP_ENV=test
+          APP_SECRET=test
+          DATABASE_URL=mysql://app:app@db:3306/app
+          MAILER_DSN=null://null
+          EOF
+
+          cat > .env.test <<'EOF'
+          APP_ENV=test
+          EOF
+
       - name: Cache Composer downloads
         uses: actions/cache@v4
         with:
@@ -33,24 +48,8 @@ jobs:
         env:
           COMPOSER_MEMORY_LIMIT: -1
         run: composer install --no-ansi --no-interaction --no-progress --prefer-dist --optimize-autoloader
-
-      # ── Create env files that Symfony expects ──────────────────────────────────
-      # Dotenv always loads .env first; then it overlays .env.test for APP_ENV=test.
-      - name: Create test env files
-        working-directory: backend
-        run: |
-          # Base .env (required by Symfony bootstrap)
-          cat > .env <<'EOF'
-          APP_ENV=test
-          APP_SECRET=test
-          DATABASE_URL=mysql://app:app@db:3306/app
-          MAILER_DSN=null://null
-          EOF
-
-          # Optional overlay used when APP_ENV=test
-          cat > .env.test <<'EOF'
-          APP_ENV=test
-          EOF
+        # If you ever still hit cache:clear/env issues, uncomment the next line to skip Flex scripts:
+        # run: composer install --no-ansi --no-interaction --no-progress --prefer-dist --optimize-autoloader --no-scripts
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -60,8 +59,7 @@ jobs:
           docker compose -f docker-compose.yml build
           docker compose -f docker-compose.yml up -d
 
-      # Ensure the env files are definitely present inside the running container
-      # (useful if your compose file doesn't bind-mount ./backend to /var/www/app).
+      # Belt-and-suspenders: ensure env files exist inside the running container path
       - name: Copy env files into backend container
         run: |
           docker compose cp backend/.env backend:/var/www/app/.env
