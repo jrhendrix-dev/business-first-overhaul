@@ -90,19 +90,28 @@ jobs:
             sleep 2
           done
 
-      # Create & migrate the test database
+      # Create & migrate the test database (force test DSN via env vars)
       - name: Prepare test DB (create + migrate)
         run: |
-          docker compose exec -T backend php bin/console doctrine:database:create --env=test --if-not-exists
-          docker compose exec -T backend php bin/console doctrine:migrations:migrate --env=test -n || true
+          docker compose exec -T \
+            -e APP_ENV=test \
+            -e DATABASE_URL="mysql://symfony:password@mysql:3306/app_test?serverVersion=8.0" \
+            backend php bin/console doctrine:database:create --env=test --if-not-exists
+          docker compose exec -T \
+            -e APP_ENV=test \
+            -e DATABASE_URL="mysql://symfony:password@mysql:3306/app_test?serverVersion=8.0" \
+            backend php bin/console doctrine:migrations:migrate --env=test -n || true
 
       - name: Run PHPUnit with coverage inside backend container
         run: |
-          docker compose exec -T backend \
-            sh -lc "APP_ENV=test XDEBUG_MODE=coverage php -d xdebug.mode=coverage vendor/bin/phpunit \
-                   -c phpunit.dist.xml \
-                   --coverage-clover var/coverage.xml \
-                   --coverage-text"
+          docker compose exec -T \
+            -e APP_ENV=test \
+            -e XDEBUG_MODE=coverage \
+            -e DATABASE_URL="mysql://symfony:password@mysql:3306/app_test?serverVersion=8.0" \
+            backend sh -lc 'php -d xdebug.mode=coverage vendor/bin/phpunit \
+              -c phpunit.dist.xml \
+              --coverage-clover var/coverage.xml \
+              --coverage-text'
 
       - name: Upload coverage artifact
         uses: actions/upload-artifact@v4
