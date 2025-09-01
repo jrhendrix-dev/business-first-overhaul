@@ -29,11 +29,26 @@ jobs:
           restore-keys: |
             composer-${{ runner.os }}-
 
+      # IMPORTANT: skip Composer scripts so cache:clear doesn't try to read .env
       - name: Install Composer (dev) deps on host
         working-directory: backend
         env:
           COMPOSER_MEMORY_LIMIT: -1
-        run: composer install --no-ansi --no-interaction --no-progress --prefer-dist --optimize-autoloader
+        run: |
+          composer install \
+            --no-ansi --no-interaction --no-progress --prefer-dist \
+            --optimize-autoloader --no-scripts
+
+      # Provide Symfony test env so commands inside the container have what they need
+      - name: Create .env.test.local
+        working-directory: backend
+        run: |
+          cat > .env.test.local <<'EOF'
+          APP_ENV=test
+          APP_SECRET=ci_test_secret
+          DATABASE_URL=sqlite:///%kernel.project_dir%/var/test.db
+          MAILER_DSN=null://null
+          EOF
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
