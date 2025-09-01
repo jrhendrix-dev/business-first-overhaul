@@ -13,7 +13,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # PHP just for running Composer on the runner (not inside Docker)
       - name: Set up PHP
         uses: shivammathur/setup-php@v2
         with:
@@ -29,25 +28,28 @@ jobs:
           restore-keys: |
             composer-${{ runner.os }}-
 
-      # IMPORTANT: skip Composer scripts so cache:clear doesn't try to read .env
       - name: Install Composer (dev) deps on host
         working-directory: backend
         env:
           COMPOSER_MEMORY_LIMIT: -1
-        run: |
-          composer install \
-            --no-ansi --no-interaction --no-progress --prefer-dist \
-            --optimize-autoloader --no-scripts
+        run: composer install --no-ansi --no-interaction --no-progress --prefer-dist --optimize-autoloader
 
-      # Provide Symfony test env so commands inside the container have what they need
-      - name: Create .env.test.local
+      # ── Create env files that Symfony expects ──────────────────────────────────
+      # Dotenv always loads .env first; then it overlays .env.test for APP_ENV=test.
+      - name: Create test env files
         working-directory: backend
         run: |
-          cat > .env.test.local <<'EOF'
+          # Base .env (required by Symfony bootstrap)
+          cat > .env <<'EOF'
           APP_ENV=test
-          APP_SECRET=ci_test_secret
-          DATABASE_URL=sqlite:///%kernel.project_dir%/var/test.db
+          APP_SECRET=test
+          DATABASE_URL=mysql://app:app@db:3306/app
           MAILER_DSN=null://null
+          EOF
+
+          # Optional overlay used when APP_ENV=test
+          cat > .env.test <<'EOF'
+          APP_ENV=test
           EOF
 
       - name: Set up Docker Buildx
@@ -57,6 +59,14 @@ jobs:
         run: |
           docker compose -f docker-compose.yml build
           docker compose -f docker-compose.yml up -d
+
+      # Ensure the env files are definitely present inside the running container
+      # (useful if your compose file doesn't bind-mount ./backend to /var/www/app).
+      - name: Copy env files into backend container
+        run: |
+          docker compose cp backend/.env backend:/var/www/app/.env
+          docker compose cp backend/.env.test backend:/var/www/app/.env.test
+          docker compose exec -T backend ls -la /var/www/app | grep -E '\.env$|\.env\.test$'
 
       - name: Run PHPUnit with coverage inside backend container
         run: |
@@ -72,7 +82,6 @@ jobs:
           name: coverage
           path: backend/var/coverage.xml
 
-      # Codecov (optional; keep if you already connected repo)
       - name: Upload to Codecov
         uses: codecov/codecov-action@v4
         with:
