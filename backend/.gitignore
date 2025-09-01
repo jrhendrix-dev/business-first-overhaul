@@ -27,3 +27,8 @@ backend/.env.test
 .env.local
 .env.test
 .env.dev
+# ignore all env files
+.env
+.env.*
+# but keep the example
+!.env.example
