@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, Backend ]
   pull_request:
 
 jobs:
@@ -13,6 +13,28 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # PHP just for running Composer on the runner (not inside Docker)
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          coverage: xdebug
+          tools: composer
+
+      - name: Cache Composer downloads
+        uses: actions/cache@v4
+        with:
+          path: ~/.composer/cache
+          key: composer-${{ runner.os }}-${{ hashFiles('backend/composer.lock') }}
+          restore-keys: |
+            composer-${{ runner.os }}-
+
+      - name: Install Composer (dev) deps on host
+        working-directory: backend
+        env:
+          COMPOSER_MEMORY_LIMIT: -1
+        run: composer install --no-ansi --no-interaction --no-progress --prefer-dist --optimize-autoloader
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -21,25 +43,13 @@ jobs:
           docker compose -f docker-compose.yml build
           docker compose -f docker-compose.yml up -d
 
-      - name: Install Composer dev dependencies inside backend container
-        run: |
-          docker compose exec -T backend sh -lc '
-            set -e
-            cd /var/www/app
-            COMPOSER_ALLOW_SUPERUSER=1 composer install --prefer-dist --no-progress --no-interaction
-          '
-
       - name: Run PHPUnit with coverage inside backend container
         run: |
-          docker compose exec -T backend sh -lc '
-            set -e
-            cd /var/www/app
-            APP_ENV=test XDEBUG_MODE=coverage php -d xdebug.mode=coverage vendor/bin/phpunit \
-              -c phpunit.dist.xml \
-              --coverage-clover var/coverage.xml \
-              --coverage-text
-          '
-
+          docker compose exec -T backend \
+            sh -lc "APP_ENV=test XDEBUG_MODE=coverage php -d xdebug.mode=coverage vendor/bin/phpunit \
+                   -c phpunit.dist.xml \
+                   --coverage-clover var/coverage.xml \
+                   --coverage-text"
 
       - name: Upload coverage artifact
         uses: actions/upload-artifact@v4
@@ -47,7 +57,8 @@ jobs:
           name: coverage
           path: backend/var/coverage.xml
 
-      - name: Upload coverage to Codecov
+      # Codecov (optional; keep if you already connected repo)
+      - name: Upload to Codecov
         uses: codecov/codecov-action@v4
         with:
           files: backend/var/coverage.xml
