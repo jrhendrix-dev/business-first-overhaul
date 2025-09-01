@@ -21,13 +21,25 @@ jobs:
           docker compose -f docker-compose.yml build
           docker compose -f docker-compose.yml up -d
 
+      - name: Install Composer dev dependencies inside backend container
+        run: |
+          docker compose exec -T backend sh -lc '
+            set -e
+            cd /var/www/app
+            COMPOSER_ALLOW_SUPERUSER=1 composer install --prefer-dist --no-progress --no-interaction
+          '
+
       - name: Run PHPUnit with coverage inside backend container
         run: |
-          docker compose exec -T backend \
-            sh -c "APP_ENV=test XDEBUG_MODE=coverage php -d xdebug.mode=coverage vendor/bin/phpunit \
-                   -c phpunit.dist.xml \
-                   --coverage-clover var/coverage.xml \
-                   --coverage-text"
+          docker compose exec -T backend sh -lc '
+            set -e
+            cd /var/www/app
+            APP_ENV=test XDEBUG_MODE=coverage php -d xdebug.mode=coverage vendor/bin/phpunit \
+              -c phpunit.dist.xml \
+              --coverage-clover var/coverage.xml \
+              --coverage-text
+          '
+
 
       - name: Upload coverage artifact
         uses: actions/upload-artifact@v4
