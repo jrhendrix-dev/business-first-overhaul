@@ -90,13 +90,19 @@ jobs:
             sleep 2
           done
 
-      # Create & migrate the test database (force test DSN via env vars)
+      # Create & grant the test database as MySQL root, then migrate with the app user
       - name: Prepare test DB (create + migrate)
         run: |
+          # Create DB and grant privileges using root (values from docker-compose.yml)
+          docker compose exec -T mysql \
+            mysql -uroot -proot -e "CREATE DATABASE IF NOT EXISTS app_test CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci; GRANT ALL PRIVILEGES ON app_test.* TO 'symfony'@'%'; FLUSH PRIVILEGES;"
+
+          # Run Symfony DB create (idempotent) & migrations using the test DSN
           docker compose exec -T \
             -e APP_ENV=test \
             -e DATABASE_URL="mysql://symfony:password@mysql:3306/app_test?serverVersion=8.0" \
             backend php bin/console doctrine:database:create --env=test --if-not-exists
+
           docker compose exec -T \
             -e APP_ENV=test \
             -e DATABASE_URL="mysql://symfony:password@mysql:3306/app_test?serverVersion=8.0" \
