@@ -2,10 +2,8 @@ framework:
     rate_limiter:
         enabled: true
         limiters:
-            # must match the service your controller expects: limiter.contact_form
             contact_form:
                 policy: fixed_window
-                limit: 999999            # effectively no throttling during tests
+                limit: 999999          # effectively disable throttling in tests
                 interval: '1 minute'
-                # use in-memory storage so nothing external is required
                 storage_service: 'rate_limiter.storage.in_memory'
