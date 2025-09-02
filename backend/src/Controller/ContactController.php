@@ -23,7 +23,7 @@ final class ContactController extends AbstractController
     public function __construct(
         private readonly MessageBusInterface $bus,
         private readonly ValidatorInterface $validator,
-        #[Autowire(service: 'contact_form.limiter')]
+        #[Autowire(service: 'limiter.contact_form')]
         private readonly RateLimiterFactory $contactLimiter,
     ) {}
 
