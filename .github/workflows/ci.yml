@@ -9,34 +9,32 @@ jobs:
   test:
     runs-on: ubuntu-latest
 
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: bfe_db       # base name; Doctrine adds `_test` in test env
+          MYSQL_USER: symfony
+          MYSQL_PASSWORD: password
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot"
+          --health-interval=5s
+          --health-timeout=3s
+          --health-retries=20
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up PHP
+      - name: Set up PHP (with PCOV for coverage)
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.3'
-          coverage: pcov          # use PCOV, not Xdebug
+          coverage: pcov
           tools: composer
-
-      # ⬇️ Create the env files BEFORE composer so Flex auto-scripts can read them
-      - name: Create test env files
-        working-directory: backend
-        run: |
-          cat > .env <<'EOF'
-          APP_ENV=test
-          APP_SECRET=test
-          DATABASE_URL=mysql://symfony:password@mysql:3306/bfe_db?serverVersion=8.0
-          MAILER_DSN=null://null
-          EOF
-
-          # Use base DB name; Doctrine in test appends "_test" (via dbname_suffix)
-          cat > .env.test <<'EOF'
-          APP_ENV=test
-          DATABASE_URL=mysql://symfony:password@mysql:3306/bfe_db?serverVersion=8.0
-          MAILER_DSN=null://null
-          EOF
 
       - name: Cache Composer downloads
         uses: actions/cache@v4
@@ -46,86 +44,74 @@ jobs:
           restore-keys: |
             composer-${{ runner.os }}-
 
-      - name: Install Composer (dev) deps on host
+      - name: Write env files for tests
         working-directory: backend
-        env:
-          COMPOSER_MEMORY_LIMIT: -1
-        run: composer install --no-ansi --no-interaction --no-progress --prefer-dist --optimize-autoloader
-        # If env/script issues appear, try: --no-scripts
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      # Build and start ONLY the services needed for tests
-      - name: Build and start containers
         run: |
-          docker compose -f docker-compose.yml build
-          docker compose -f docker-compose.yml up -d mysql backend
+          # base DSN; Doctrine's test config appends _test to DB name
+          cat > .env <<'EOF'
+          APP_ENV=dev
+          APP_SECRET=test
+          DATABASE_URL=mysql://symfony:password@127.0.0.1:3306/bfe_db?serverVersion=8.0
+          MAILER_DSN=null://null
+          EOF
 
-      # Ensure env files exist inside the running container
-      - name: Copy env files into backend container
-        run: |
-          docker compose cp backend/.env backend:/var/www/app/.env
-          docker compose cp backend/.env.test backend:/var/www/app/.env.test
-          docker compose exec -T backend ls -la /var/www/app | grep -E '\.env$|\.env\.test$'
+          cat > .env.test <<'EOF'
+          APP_ENV=test
+          # base DB name; Doctrine appends _test via dbname_suffix in config/packages/test/doctrine.yaml
+          DATABASE_URL=mysql://symfony:password@127.0.0.1:3306/bfe_db?serverVersion=8.0
+          MAILER_DSN=null://null
+          EOF
 
-      # Wait for MySQL to be healthy (requires a healthcheck on the mysql service)
       - name: Wait for MySQL healthy
         shell: bash
         run: |
-          set -e
-          DB_CID="$(docker compose ps -q mysql)"
-          echo "DB container: $DB_CID"
           for i in {1..60}; do
-            STATUS="$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{end}}' "$DB_CID")"
-            echo "MySQL health: ${STATUS:-unknown}"
-            if [ "$STATUS" = "healthy" ]; then
+            if mysqladmin ping -h 127.0.0.1 -uroot -proot --silent; then
               echo "MySQL is healthy"; break
             fi
             if [ $i -eq 60 ]; then
               echo "MySQL did not become healthy in time" >&2
-              docker compose logs mysql >&2 || true
+              docker logs ${{ job.services.mysql.id }} || true
               exit 1
             fi
             sleep 2
           done
 
-      # Create & grant the *actual* test database bfe_db_test using root, then migrate with the app user
-      - name: Prepare test DB (create + migrate)
+      - name: Install Composer deps
+        working-directory: backend
+        env:
+          COMPOSER_MEMORY_LIMIT: -1
+        run: composer install --no-ansi --no-interaction --no-progress --prefer-dist --optimize-autoloader
+
+      - name: Create bfe_db_test and grant privileges (root)
         run: |
-          # Doctrine in test appends "_test" -> target DB is bfe_db_test
-          docker compose exec -T mysql \
-            mysql -uroot -proot -e "CREATE DATABASE IF NOT EXISTS bfe_db_test CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci; GRANT ALL PRIVILEGES ON bfe_db_test.* TO 'symfony'@'%'; FLUSH PRIVILEGES;"
+          mysql -h 127.0.0.1 -uroot -proot -e "
+            CREATE DATABASE IF NOT EXISTS bfe_db_test
+              CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+            GRANT ALL PRIVILEGES ON bfe_db_test.* TO 'symfony'@'%';
+            FLUSH PRIVILEGES;
+          "
 
-          # Run Symfony DB create (idempotent) & migrations using the TEST DSN
-          docker compose exec -T \
-            -e APP_ENV=test \
-            -e DATABASE_URL="mysql://symfony:password@mysql:3306/bfe_db?serverVersion=8.0" \
-            backend php bin/console doctrine:database:create --env=test --if-not-exists
-
-          docker compose exec -T \
-            -e APP_ENV=test \
-            -e DATABASE_URL="mysql://symfony:password@mysql:3306/bfe_db?serverVersion=8.0" \
-            backend php bin/console doctrine:migrations:migrate --env=test -n || true
-
-      - name: Run PHPUnit with coverage inside backend container (PCOV)
+      - name: Prepare schema (test)
+        working-directory: backend
+        env:
+          APP_ENV: test
         run: |
-          docker compose exec -T \
-            -e APP_ENV=test \
-            -e DATABASE_URL="mysql://symfony:password@mysql:3306/bfe_db?serverVersion=8.0" \
-            backend sh -lc 'php -d pcov.enabled=1 -d pcov.directory=/var/www/app \
-              vendor/bin/phpunit -c phpunit.dist.xml \
-              --coverage-clover var/coverage.xml \
-              --coverage-text'
+          php bin/console doctrine:database:create --env=test --if-not-exists
+          php bin/console doctrine:migrations:migrate --env=test -n || true
+
+      - name: Run PHPUnit with coverage (PCOV)
+        working-directory: backend
+        env:
+          APP_ENV: test
+        run: |
+          php -d pcov.enabled=1 -d pcov.directory=$(pwd) \
+            vendor/bin/phpunit -c phpunit.dist.xml \
+            --coverage-clover var/coverage.xml \
+            --coverage-text
 
       - name: Upload coverage artifact
         uses: actions/upload-artifact@v4
         with:
           name: coverage
           path: backend/var/coverage.xml
-
-      - name: Upload to Codecov
-        uses: codecov/codecov-action@v4
-        with:
-          files: backend/var/coverage.xml
-          fail_ci_if_error: true
