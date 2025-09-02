@@ -17,7 +17,7 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.3'
-          coverage: xdebug
+          coverage: pcov          # use PCOV, not Xdebug
           tools: composer
 
       # ⬇️ Create the env files BEFORE composer so Flex auto-scripts can read them
@@ -31,7 +31,7 @@ jobs:
           MAILER_DSN=null://null
           EOF
 
-          # Use base DB name; Doctrine's test config adds "_test"
+          # Use base DB name; Doctrine in test appends "_test" (via dbname_suffix)
           cat > .env.test <<'EOF'
           APP_ENV=test
           DATABASE_URL=mysql://symfony:password@mysql:3306/bfe_db?serverVersion=8.0
@@ -108,14 +108,13 @@ jobs:
             -e DATABASE_URL="mysql://symfony:password@mysql:3306/bfe_db?serverVersion=8.0" \
             backend php bin/console doctrine:migrations:migrate --env=test -n || true
 
-      - name: Run PHPUnit with coverage inside backend container
+      - name: Run PHPUnit with coverage inside backend container (PCOV)
         run: |
           docker compose exec -T \
             -e APP_ENV=test \
-            -e XDEBUG_MODE=coverage \
             -e DATABASE_URL="mysql://symfony:password@mysql:3306/bfe_db?serverVersion=8.0" \
-            backend sh -lc 'php -d xdebug.mode=coverage vendor/bin/phpunit \
-              -c phpunit.dist.xml \
+            backend sh -lc 'php -d pcov.enabled=1 -d pcov.directory=/var/www/app \
+              vendor/bin/phpunit -c phpunit.dist.xml \
               --coverage-clover var/coverage.xml \
               --coverage-text'
 
