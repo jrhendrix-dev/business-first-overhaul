@@ -2,9 +2,9 @@ framework:
     rate_limiter:
         enabled: true
         limiters:
-            # must match your controller’s dependency: limiter.contact_form
             contact_form:
                 policy: fixed_window
                 limit: 999999
                 interval: '1 minute'
-                storage_service: 'rate_limiter.storage.in_memory'
+                # use the built-in cache pool for rate limiter storage
+                storage_service: 'cache.rate_limiter'
