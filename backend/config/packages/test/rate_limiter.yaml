@@ -1,4 +1,5 @@
 framework:
     rate_limiter:
+        enabled: false
         contact_form:
             policy: no_limit  # keep tests deterministic

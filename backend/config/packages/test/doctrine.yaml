@@ -1,6 +1,7 @@
 doctrine:
     dbal:
         url: '%env(resolve:DATABASE_URL)%'
+        # use a distinct DB per test run; Symfony will append this suffix
         dbname_suffix: '_test%env(default::TEST_TOKEN)%'
 
     orm:

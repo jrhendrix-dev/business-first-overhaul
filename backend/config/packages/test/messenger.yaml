@@ -1,6 +1,6 @@
 framework:
     messenger:
         transports:
-            sync: 'in-memory://'
-        routing:
-            'App\Message\ContactMessage': 'sync'   # handle immediately in tests
+            # in-memory transport so no Rabbit/Redis/Doctrine queue is needed
+            async: 'in-memory://'
+        routing: { }                   # keep empty unless you route messages explicitly

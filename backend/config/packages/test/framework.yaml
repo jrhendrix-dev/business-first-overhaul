@@ -1,5 +1,7 @@
 framework:
     test: true
+    mailer:
+        dsn: 'null://null'             # no real SMTP
     session:
         storage_factory_id: session.storage.factory.mock_file
 
