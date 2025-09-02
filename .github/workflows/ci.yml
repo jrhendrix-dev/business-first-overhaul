@@ -31,10 +31,10 @@ jobs:
           MAILER_DSN=null://null
           EOF
 
-          # IMPORTANT: use a dedicated test DB, disable mailer
+          # Use base DB name; Doctrine's test config adds "_test"
           cat > .env.test <<'EOF'
           APP_ENV=test
-          DATABASE_URL=mysql://symfony:password@mysql:3306/app_test?serverVersion=8.0
+          DATABASE_URL=mysql://symfony:password@mysql:3306/bfe_db?serverVersion=8.0
           MAILER_DSN=null://null
           EOF
 
@@ -90,22 +90,22 @@ jobs:
             sleep 2
           done
 
-      # Create & grant the test database as MySQL root, then migrate with the app user
+      # Create & grant the *actual* test database bfe_db_test using root, then migrate with the app user
       - name: Prepare test DB (create + migrate)
         run: |
-          # Create DB and grant privileges using root (values from docker-compose.yml)
+          # Doctrine in test appends "_test" -> target DB is bfe_db_test
           docker compose exec -T mysql \
-            mysql -uroot -proot -e "CREATE DATABASE IF NOT EXISTS app_test CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci; GRANT ALL PRIVILEGES ON app_test.* TO 'symfony'@'%'; FLUSH PRIVILEGES;"
+            mysql -uroot -proot -e "CREATE DATABASE IF NOT EXISTS bfe_db_test CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci; GRANT ALL PRIVILEGES ON bfe_db_test.* TO 'symfony'@'%'; FLUSH PRIVILEGES;"
 
-          # Run Symfony DB create (idempotent) & migrations using the test DSN
+          # Run Symfony DB create (idempotent) & migrations using the TEST DSN
           docker compose exec -T \
             -e APP_ENV=test \
-            -e DATABASE_URL="mysql://symfony:password@mysql:3306/app_test?serverVersion=8.0" \
+            -e DATABASE_URL="mysql://symfony:password@mysql:3306/bfe_db?serverVersion=8.0" \
             backend php bin/console doctrine:database:create --env=test --if-not-exists
 
           docker compose exec -T \
             -e APP_ENV=test \
-            -e DATABASE_URL="mysql://symfony:password@mysql:3306/app_test?serverVersion=8.0" \
+            -e DATABASE_URL="mysql://symfony:password@mysql:3306/bfe_db?serverVersion=8.0" \
             backend php bin/console doctrine:migrations:migrate --env=test -n || true
 
       - name: Run PHPUnit with coverage inside backend container
@@ -113,7 +113,7 @@ jobs:
           docker compose exec -T \
             -e APP_ENV=test \
             -e XDEBUG_MODE=coverage \
-            -e DATABASE_URL="mysql://symfony:password@mysql:3306/app_test?serverVersion=8.0" \
+            -e DATABASE_URL="mysql://symfony:password@mysql:3306/bfe_db?serverVersion=8.0" \
             backend sh -lc 'php -d xdebug.mode=coverage vendor/bin/phpunit \
               -c phpunit.dist.xml \
               --coverage-clover var/coverage.xml \
