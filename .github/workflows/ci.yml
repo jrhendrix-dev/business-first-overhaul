@@ -60,6 +60,8 @@ jobs:
           # base DB name; Doctrine appends _test via dbname_suffix in config/packages/test/doctrine.yaml
           DATABASE_URL=mysql://symfony:password@127.0.0.1:3306/bfe_db?serverVersion=8.0
           MAILER_DSN=null://null
+          # JWT: test-only symmetric secret (HS256) to avoid key files
+          JWT_SECRET_KEY=__test_secret_change_me__
           EOF
 
       - name: Wait for MySQL healthy

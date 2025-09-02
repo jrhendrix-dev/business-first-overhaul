@@ -6,5 +6,4 @@ framework:
                 policy: fixed_window
                 limit: 999999
                 interval: '1 minute'
-                # use the built-in cache pool for rate limiter storage
                 storage_service: 'cache.rate_limiter'
