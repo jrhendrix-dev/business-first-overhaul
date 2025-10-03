@@ -25,8 +25,8 @@ jobs:
           --health-retries=30
 
     env:
-      # DB for tests
-      DATABASE_URL: mysql://symfony:password@127.0.0.1:3306/bfe_db_test?serverVersion=8.0
+      # IMPORTANT: use base name; test suffix will append "_test"
+      DATABASE_URL: mysql://symfony:password@127.0.0.1:3306/bfe_db?serverVersion=8.0
 
       # Symfony basics
       APP_SECRET: secretf0rt3st
@@ -34,7 +34,7 @@ jobs:
       MAILER_FROM: no-reply@example.test
       MESSENGER_TRANSPORT_DSN: sync://
 
-      # LexikJWT expects file paths for RSA keys
+      # LexikJWT expects file paths (not random strings)
       JWT_PASSPHRASE: ""
       JWT_SECRET_KEY: "%kernel.project_dir%/config/jwt/private.pem"
       JWT_PUBLIC_KEY: "%kernel.project_dir%/config/jwt/public.pem"
@@ -57,13 +57,13 @@ jobs:
           key: composer-${{ runner.os }}-${{ hashFiles('backend/composer.lock') }}
           restore-keys: composer-${{ runner.os }}-
 
+      # Minimal .env (optional, but harmless) – no DATABASE_URL here
       - name: Create minimal .env for CI
         working-directory: backend
         run: |
           printf "%s\n" \
             "APP_ENV=dev" \
             "APP_SECRET=dev_dummy_secret" \
-            "DATABASE_URL=${DATABASE_URL}" \
             "MAILER_DSN=${MAILER_DSN}" \
             "MESSENGER_TRANSPORT_DSN=${MESSENGER_TRANSPORT_DSN}" \
             "JWT_PASSPHRASE=${JWT_PASSPHRASE}" \
@@ -90,6 +90,7 @@ jobs:
           done
           echo "MySQL did not become healthy in time"; exit 1
 
+      # Create the DB that the test suffix will target: bfe_db + "_test" -> bfe_db_test
       - name: Create test DB & grants
         run: |
           mysql -h 127.0.0.1 -uroot -proot -e "
