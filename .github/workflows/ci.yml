@@ -14,7 +14,7 @@ jobs:
         image: mysql:8.0
         env:
           MYSQL_ROOT_PASSWORD: root
-          MYSQL_DATABASE: bfe_db
+          MYSQL_DATABASE: bfe_db            # initial DB (unused by tests)
           MYSQL_USER: symfony
           MYSQL_PASSWORD: password
         ports: [ "3306:3306" ]
@@ -22,16 +22,15 @@ jobs:
           --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot"
           --health-interval=5s
           --health-timeout=3s
-          --health-retries=20
+          --health-retries=30
 
     env:
-      # always prefer TCP, never sockets
-      DATABASE_URL: mysql://symfony:password@127.0.0.1:3306/bfe_db?serverVersion=8.0
-      # safe defaults so DI never explodes
+      DATABASE_URL: mysql://symfony:password@127.0.0.1:3306/bfe_db_test?serverVersion=8.0
       APP_SECRET: secretf0rt3st
       MAILER_DSN: null://null
       MAILER_FROM: no-reply@example.test
       MESSENGER_TRANSPORT_DSN: sync://
+      JWT_PASSPHRASE: ""
       JWT_SECRET_KEY: __test_secret_change_me__
 
     steps:
@@ -43,8 +42,7 @@ jobs:
           php-version: '8.3'
           coverage: pcov
           tools: composer
-          # If you *want* to be able to use semaphore in non-test envs
-          # extensions: sysvsem
+          extensions: mbstring, intl, pdo_mysql, xml, ctype, dom, json, tokenizer
 
       - name: Cache Composer
         uses: actions/cache@v4
@@ -64,8 +62,10 @@ jobs:
         run: |
           for i in {1..60}; do
             if mysqladmin ping -h 127.0.0.1 -uroot -proot --silent; then
+              echo "MySQL is up!"
               exit 0
             fi
+            echo "Waiting for MySQL ($i/60)..."
             sleep 2
           done
           echo "MySQL did not become healthy in time"; exit 1
@@ -82,14 +82,19 @@ jobs:
             FLUSH PRIVILEGES;
           "
 
-      - name: Prepare schema (test)
+      - name: Generate JWT keys (tests)
+        working-directory: backend
+        env:
+          APP_ENV: test
+        run: php bin/console lexik:jwt:generate-keypair --skip-if-exists -n
+
+      - name: Prepare schema (migrations on test DB)
         working-directory: backend
         env:
           APP_ENV: test
           DATABASE_URL: ${{ env.DATABASE_URL }}
         run: |
-          php bin/console doctrine:database:create --env=test --if-not-exists
-          php bin/console doctrine:migrations:migrate --env=test -n || true
+          php bin/console doctrine:migrations:migrate --env=test -n
 
       - name: PHPUnit (PCOV)
         working-directory: backend
