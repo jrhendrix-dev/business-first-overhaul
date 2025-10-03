@@ -1,0 +1,3 @@
+test_exception_routes:
+resource: ../../tests/Fixtures/Controller/
+type: attribute
