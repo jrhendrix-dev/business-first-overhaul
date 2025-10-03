@@ -1,5 +1,5 @@
 <?php
-// tests/Dto/User/Password/ResetPasswordDtoTest.php
+
 declare(strict_types=1);
 
 namespace App\Tests\Dto\User\Password;
@@ -11,29 +11,38 @@ use Symfony\Component\Validator\Validation;
 
 final class ResetPasswordDtoTest extends TestCase
 {
+    private function makeValidator()
+    {
+        return Validation::createValidatorBuilder()
+            ->enableAttributeMapping()   // <— was enableAnnotationMapping()
+            ->getValidator();
+    }
+
     #[Test]
     public function it_validates_happy_path(): void
     {
-        $token = \str_repeat('a', 64);
+        $v = $this->makeValidator();
         $dto = new ResetPasswordDto(
-            token: $token,
-            newPassword: 'StrongPassw0rd!'
+            currentPassword: 'CorrectHorseBatteryStaple1!',
+            newPassword:     'NewPassw0rd!',
+            confirmPassword: 'NewPassw0rd!'
         );
 
-        $violations = Validation::createValidatorBuilder()->enableAnnotationMapping()->getValidator()->validate($dto);
+        $violations = $v->validate($dto);
         self::assertCount(0, $violations);
     }
 
     #[Test]
     public function it_requires_policy_compliant_password(): void
     {
-        $token = \str_repeat('a', 64);
+        $v = $this->makeValidator();
         $dto = new ResetPasswordDto(
-            token: $token,
-            newPassword: 'short'
+            currentPassword: 'CorrectHorseBatteryStaple1!',
+            newPassword:     'short',
+            confirmPassword: 'short'
         );
 
-        $violations = Validation::createValidatorBuilder()->enableAnnotationMapping()->getValidator()->validate($dto);
+        $violations = $v->validate($dto);
         self::assertGreaterThan(0, $violations->count());
     }
 }
