@@ -1,35 +1,38 @@
 <?php
+// src/Dto/User/UpdateUserDto.php
+declare(strict_types=1);
 
 namespace App\Dto\User;
 
 use Symfony\Component\Validator\Constraints as Assert;
+use App\Enum\UserRoleEnum;
 
 /**
- * DTO for partial user updates.
- * All fields are optional; only provided ones are validated.
+ * Request DTO for partial updates; only non-null fields are applied.
  */
-final class UpdateUserDTO
+final class UpdateUserDto
 {
-    /** @var string|null */
-    #[Assert\Length(min: 1, max: 100)]
+    #[Assert\Length(max: 255)]
     public ?string $firstName = null;
 
-    /** @var string|null */
-    #[Assert\Length(min: 1, max: 100)]
+    #[Assert\Length(max: 255)]
     public ?string $lastName = null;
 
-    /** @var string|null */
     #[Assert\Email]
+    #[Assert\Length(max: 255)]
     public ?string $email = null;
 
-    /** @var string|null */
-    #[Assert\Length(min: 3, max: 64)]
-    public ?string $username = null;
+    #[Assert\Length(max: 45)]
+    public ?string $userName = null;
 
-    /** @var string|null New plain password (if provided, must be strong enough) */
-    #[Assert\Length(min: 8, max: 255)]
+    #[Assert\Length(min: 12, max: 255, minMessage: 'Password must be at least {{ limit }} characters.')]
+    #[Assert\Regex(pattern: '/[A-Z]/', message: 'Password must contain at least one uppercase letter.')]
+    #[Assert\Regex(pattern: '/[a-z]/', message: 'Password must contain at least one lowercase letter.')]
+    #[Assert\Regex(pattern: '/\d/',   message: 'Password must contain at least one number.')]
+    #[Assert\Regex(pattern: '/[^A-Za-z0-9]/', message: 'Password must contain at least one special character.')]
+    #[Assert\NotCompromisedPassword(message: 'This password appears in data breaches; please choose another.')]
     public ?string $password = null;
 
-    /** @var String|null Backed enum value for UserRoleEnum, admin-only */
-    public ?int $role = null;
+    /** Optional; when set it must be a valid enum. */
+    public ?UserRoleEnum $role = null;
 }

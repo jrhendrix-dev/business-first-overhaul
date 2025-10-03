@@ -6,6 +6,7 @@ use App\Entity\User;
 use App\Entity\Classroom;
 use App\Enum\EnrollmentStatusEnum;
 use App\Enum\UserRoleEnum;
+use App\Entity\Enrollment;
 use Doctrine\ORM\EntityManager;
 use Doctrine\ORM\Exception\ORMException;
 use Doctrine\Persistence\ManagerRegistry;
@@ -23,26 +24,29 @@ class UserRepository extends ServiceEntityRepository
     }
 
     /**
-     * Finds a student user by ID and verifies they belong to a specific classroom.
+     * Return the student if they have an ACTIVE enrollment in the given classroom.
      *
-     * @param int $studentId The ID of the student to find
-     * @param int $classroomId The ID of the classroom to check
-     * @return User|null The student entity if found in the classroom, null otherwise
-     * @throws ORMException If query execution fails
+     * @param int $studentId
+     * @param int $classroomId
+     * @return User|null
      */
     public function findStudentInClassroom(int $studentId, int $classroomId): ?User
     {
-        return $this->createQueryBuilder('u')
+        $qb = $this->createQueryBuilder('u')
+            // join through Enrollment; e.student is the owning side to User
+            ->innerJoin(Enrollment::class, 'e', 'WITH', 'e.student = u')
             ->andWhere('u.id = :studentId')
-            ->andWhere('u.classroom = :classroom')
+            // compare by FK id, not object
+            ->andWhere('IDENTITY(e.classroom) = :classroomId')
+            ->andWhere('e.status = :active')
+            ->setMaxResults(1)
             ->setParameter('studentId', $studentId)
-            ->setParameter(
-                'classroom',
-                $this->getEntityManager()->getReference(Classroom::class, $classroomId)
-            )
-            ->getQuery()
-            ->getOneOrNullResult();
+            ->setParameter('classroomId', $classroomId)
+            ->setParameter('active', EnrollmentStatusEnum::ACTIVE);
+
+        return $qb->getQuery()->getOneOrNullResult();
     }
+
 
     /**
      * Finds a user by their unique ID.
@@ -103,18 +107,22 @@ class UserRepository extends ServiceEntityRepository
     }
 
     /**
-     * Retrieves all student users without a classroom assignment.
+     * Students who are NOT actively enrolled in any classroom.
      *
-     * @return User[] Array of student user entities without classroom
+     * @return User[]
      */
     public function findStudentsWithoutClassroom(): array
     {
-        return $this->createQueryBuilder('u')
+        $qb = $this->createQueryBuilder('u')
+            ->select('DISTINCT u')
             ->andWhere('u.role = :role')
-            ->andWhere('u.classroom IS NULL')
+            // left join ACTIVE enrollments; if none, e.id will be NULL
+            ->leftJoin(Enrollment::class, 'e', 'WITH', 'e.student = u AND e.status = :active')
+            ->andWhere('e.id IS NULL')
             ->setParameter('role', UserRoleEnum::STUDENT)
-            ->getQuery()
-            ->getResult();
+            ->setParameter('active', EnrollmentStatusEnum::ACTIVE);
+
+        return $qb->getQuery()->getResult();
     }
 
     /**
@@ -145,7 +153,7 @@ class UserRepository extends ServiceEntityRepository
     public function searchByName(string $name, ?UserRoleEnum $role = null): array
     {
         $qb = $this->createQueryBuilder('u')
-            ->andWhere('LOWER(u.firstname) LIKE :name OR LOWER(u.lastname) LIKE :name')
+            ->andWhere('LOWER(u.firstName) LIKE :name OR LOWER(u.lastName) LIKE :name')
             ->setParameter('name', '%' . strtolower($name) . '%');
 
         if ($role !== null) {

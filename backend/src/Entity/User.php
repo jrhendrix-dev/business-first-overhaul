@@ -21,28 +21,23 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column(name: 'id', type: 'integer')]
-    #[Groups(['user:read', 'user:summary', 'classroom:read','user:mini'])]
     private ?int $id = null;
 
     #[ORM\Column(length: 45, unique: true)]
     #[Assert\NotBlank]
-    #[Groups(['user:read', 'user:summary', 'classroom:read'])]
-    private string $username;
+    private string $userName;
 
     #[ORM\Column(length: 255)]
     #[Assert\NotBlank]
-    #[Groups(['user:read', 'user:summary', 'classroom:read','user:mini'])]
-    private string $firstname;
+    private string $firstName;
 
     #[ORM\Column(length: 255)]
     #[Assert\NotBlank]
-    #[Groups(['user:read', 'user:summary', 'classroom:read','user:mini'])]
-    private string $lastname;
+    private string $lastName;
 
     #[ORM\Column(length: 45, unique: true)]
     #[Assert\NotBlank]
     #[Assert\Email]
-    #[Groups(['user:read', 'user:summary', 'classroom:read'])]
     private string $email;
 
     #[ORM\Column(length: 255)]
@@ -52,7 +47,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(name: 'create_time', type: 'datetime_immutable')]
     private \DateTimeImmutable $createdAt;
 
-    #[ORM\Column(type: 'integer', enumType: UserRoleEnum::class)]
+    #[ORM\Column(type: 'string', length: 32, enumType: UserRoleEnum::class)]
     private UserRoleEnum $role;
 
     #[ORM\Column(name: 'is_active', type: 'boolean', options: ['default' => true])]
@@ -102,48 +97,48 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     }
 
     /** @return string */
-    public function getUsername(): string
+    public function getUserName(): string
     {
-        return $this->username;
+        return $this->userName;
     }
 
     /** @return self */
-    public function setUsername(string $username): self
+    public function setUserName(string $userName): self
     {
-        $this->username = $username;
+        $this->userName = $userName;
         return $this;
     }
 
     /** @return string */
-    public function getFirstname(): string
+    public function getFirstName(): string
     {
-        return $this->firstname;
+        return $this->firstName;
     }
 
     /** @return self */
-    public function setFirstname(string $firstname): self
+    public function setFirstName(string $firstName): self
     {
-        $this->firstname = $firstname;
+        $this->firstName = $firstName;
         return $this;
     }
 
     /** @return string */
-    public function getLastname(): string
+    public function getLastName(): string
     {
-        return $this->lastname;
+        return $this->lastName;
     }
 
     /** @return self */
-    public function setLastname(string $lastname): self
+    public function setLastName(string $lastName): self
     {
-        $this->lastname = $lastname;
+        $this->lastName = $lastName;
         return $this;
     }
 
     /** @return string */
     public function getFullname(): string
     {
-        return $this->firstname . ' ' . $this->lastname;
+        return $this->firstName . ' ' . $this->lastName;
     }
 
     /** @return string */
@@ -155,7 +150,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     /** @return self */
     public function setEmail(string $email): self
     {
-        $this->email = $email;
+        $this->email = strtolower(trim($email));
         return $this;
     }
 
@@ -217,11 +212,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
 
         $roles = ['ROLE_USER']; // baseline for every authenticated user
 
-        $roles[] = match ($this->role) {
-            UserRoleEnum::ADMIN   => 'ROLE_ADMIN',
-            UserRoleEnum::TEACHER => 'ROLE_TEACHER',
-            UserRoleEnum::STUDENT => 'ROLE_STUDENT',
-        };
+        $roles[] = $this->role->value;
 
         return array_values(array_unique($roles));
     }

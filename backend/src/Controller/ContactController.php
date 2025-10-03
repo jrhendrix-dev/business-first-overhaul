@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace App\Controller;
 
-use App\DTO\ContactMessageDTO;
+use App\Dto\ContactMessageDTO;
 use App\Message\ContactMessage;
 use Random\RandomException;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -32,7 +32,7 @@ final class ContactController extends AbstractController
      * @throws \JsonException
      * @throws ExceptionInterface
      */
-    #[Route('/api/contact', name: 'api_contact', methods: ['POST'])]
+    #[Route('/contact', name: 'api_contact', methods: ['POST'])]
     public function __invoke(Request $request): JsonResponse
     {
         /** @var array<string,mixed> $payload */

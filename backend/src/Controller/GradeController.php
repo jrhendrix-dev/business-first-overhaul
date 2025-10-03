@@ -2,8 +2,8 @@
 // src/Controller/GradeController.php
 namespace App\Controller;
 
-use App\DTO\AddGradeDTO;
-use App\DTO\UpdateGradeDTO;
+use App\Dto\Grade\AddGradeDTO;
+use App\Dto\Grade\UpdateGradeDTO;
 use App\Http\ValidationResponder;
 use App\Repository\GradeRepository;
 use App\Service\EnrollmentManager;
@@ -16,7 +16,7 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
 
-#[Route('/api')]
+#[Route('')]
 final class GradeController extends AbstractController
 {
     public function __construct(

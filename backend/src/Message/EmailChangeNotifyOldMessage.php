@@ -1,8 +1,10 @@
 <?php
-
 namespace App\Message;
 
-class EmailChangeNotifyOldMessage
+final class EmailChangeNotifyOldMessage
 {
-
+    public function __construct(
+        public readonly int $userId,
+        public readonly string $previousEmail,
+    ) {}
 }

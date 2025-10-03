@@ -30,9 +30,9 @@ final class UserFixtures extends Fixture
 
         // --- Admin ---
         $admin = new User();
-        $admin->setUsername('admin');
-        $admin->setFirstname($faker->firstName());
-        $admin->setLastname($faker->lastName());
+        $admin->setUserName('admin');
+        $admin->setFirstName($faker->firstName());
+        $admin->setLastName($faker->lastName());
         $admin->setEmail('admin@example.com');
         $admin->setRole(UserRoleEnum::ADMIN);
         $admin->setPassword($this->passwordHasher->hashPassword($admin, '1234'));
@@ -43,9 +43,9 @@ final class UserFixtures extends Fixture
         for ($i = 1; $i <= 3; $i++) {
             $t = new User();
             $t->setEmail($faker->unique()->safeEmail());
-            $t->setFirstname($faker->firstName());
-            $t->setLastname($faker->lastName());
-            $t->setUsername($faker->unique()->userName());
+            $t->setFirstName($faker->firstName());
+            $t->setLastName($faker->lastName());
+            $t->setUserName($faker->unique()->userName());
             $t->setRole(UserRoleEnum::TEACHER);
             $t->setPassword($this->passwordHasher->hashPassword($t, '1234'));
             $manager->persist($t);
@@ -57,9 +57,9 @@ final class UserFixtures extends Fixture
         for ($i = 1; $i <= 5; $i++) {
             $s = new User();
             $s->setEmail($faker->unique()->safeEmail());
-            $s->setFirstname($faker->firstName());
-            $s->setLastname($faker->lastName());
-            $s->setUsername($faker->unique()->userName());
+            $s->setFirstName($faker->firstName());
+            $s->setLastName($faker->lastName());
+            $s->setUserName($faker->unique()->userName());
             $s->setRole(UserRoleEnum::STUDENT);
             $s->setPassword($this->passwordHasher->hashPassword($s, '1234'));
             $manager->persist($s);

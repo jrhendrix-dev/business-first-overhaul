@@ -1,11 +1,11 @@
 <?php
 
-// src/DTO/AssignTeacherDTO.php
+// src/DTO/AssignTeacherDto.php
 namespace App\Dto\User;
 
 use Symfony\Component\Validator\Constraints as Assert;
 
-final class AssignTeacherDTO
+final class AssignTeacherDto
 {
     public function __construct(
         #[Assert\NotNull] #[Assert\Positive]

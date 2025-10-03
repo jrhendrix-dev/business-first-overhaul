@@ -1,56 +1,60 @@
 <?php
-// src/Dto/User/UserCreateDto.php
+// src/Dto/User/CreateUserDto.php
 declare(strict_types=1);
 
 namespace App\Dto\User;
 
 use Symfony\Component\Validator\Constraints as Assert;
+use App\Enum\UserRoleEnum;
 
 /**
- * DTO for creating a User (request payload).
+ * Request DTO for creating a user.
  */
-final class UserCreateDto
+final class CreateUserDto
 {
-    #[Assert\NotBlank]
-    #[Assert\Email]
-    public readonly string $email;
-
-    #[Assert\NotBlank]
-    #[Assert\Length(min: 8, max: 255)]
-    public readonly string $password;
-
-    #[Assert\NotBlank]
-    #[Assert\Length(max: 100)]
+    #[Assert\NotBlank] #[Assert\Length(max: 255)]
     public readonly string $firstName;
 
-    #[Assert\NotBlank]
-    #[Assert\Length(max: 100)]
+    #[Assert\NotBlank] #[Assert\Length(max: 255)]
     public readonly string $lastName;
 
-    #[Assert\NotBlank]
-    #[Assert\Length(max: 100)]
-    public readonly string $username;
+    #[Assert\NotBlank] #[Assert\Email] #[Assert\Length(max: 255)]
+    public readonly string $email;
 
-    /** @var string[] Symfony role strings (ROLE_*) */
-    #[Assert\All([
-        new Assert\NotBlank(),
-        new Assert\Length(max: 50),
-    ])]
-    public readonly array $roles;
+    #[Assert\NotBlank] #[Assert\Length(max: 45)]
+    public readonly string $userName;
+
+    #[Assert\NotBlank]
+    #[Assert\Length(min: 12, max: 255, minMessage: 'Password must be at least {{ limit }} characters.')]
+    #[Assert\Regex(pattern: '/[A-Z]/', message: 'Password must contain at least one uppercase letter.')]
+    #[Assert\Regex(pattern: '/[a-z]/', message: 'Password must contain at least one lowercase letter.')]
+    #[Assert\Regex(pattern: '/\d/',   message: 'Password must contain at least one number.')]
+    // Optional (recommended): require a symbol. Tweak to your policy.
+    #[Assert\Regex(pattern: '/[^A-Za-z0-9]/', message: 'Password must contain at least one special character.')]
+    // Optional (recommended): rejects passwords found in known breaches
+    #[Assert\NotCompromisedPassword(message: 'This password appears in data breaches; please choose another.')]
+    public readonly string $password;
+
+    /**
+     * String role value (ROLE_*). We keep string to decouple HTTP from enum.
+     * Use UserRoleEnum::from() at the service boundary.
+     */
+    #[Assert\NotBlank] #[Assert\Choice(callback: [UserRoleEnum::class, 'values'])]
+    public readonly string $role;
 
     public function __construct(
-        string $email,
-        string $password,
         string $firstName,
         string $lastName,
+        string $email,
         string $userName,
-        array $roles = ['ROLE_USER'],
+        string $password,
+        string $role = 'ROLE_STUDENT',
     ) {
-        $this->email     = $email;
-        $this->password  = $password;
         $this->firstName = $firstName;
         $this->lastName  = $lastName;
-        $this->username  = $userName;
-        $this->roles     = $roles;
+        $this->email     = $email;
+        $this->userName  = $userName;
+        $this->password  = $password;
+        $this->role      = $role;
     }
 }

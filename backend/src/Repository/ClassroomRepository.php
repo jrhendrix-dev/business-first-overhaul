@@ -98,4 +98,16 @@ class ClassroomRepository extends ServiceEntityRepository
             ->getQuery()
             ->getSingleScalarResult();
     }
+
+    /**
+     * @return Classroom[]
+     */
+    public function findAllByTeacher(User $teacher): array
+    {
+        return $this->createQueryBuilder('c')
+            ->andWhere('c.teacher = :teacher')
+            ->setParameter('teacher', $teacher)
+            ->getQuery()
+            ->getResult();
+    }
 }

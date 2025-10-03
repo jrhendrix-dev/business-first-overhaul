@@ -1,6 +1,6 @@
 <?php
 // src/DTO/AddGradeDTO.php
-namespace App\DTO\Grade;
+namespace App\Dto\Grade;
 
 use Symfony\Component\Validator\Constraints as Assert;
 

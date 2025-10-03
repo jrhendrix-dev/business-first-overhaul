@@ -2,16 +2,24 @@
 
 namespace App\Service;
 
+use App\Dto\User\UpdateUserDTO;
 use App\Entity\Classroom;
+use App\Entity\Enrollment;
 use App\Entity\User;
 use App\Enum\UserRoleEnum;
+use App\Repository\UserRepository;
 use App\Service\Contracts\EnrollmentPort;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
-use App\Repository\UserRepository;
+use Symfony\Component\Messenger\Exception\ExceptionInterface;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
-use Symfony\Component\Security\Core\Validator\Constraints\UserPassword;
-use App\DTO\UpdateUserDTO;
+use App\Enum\AccountTokenType;
+use App\Dto\User\Password\ChangePasswordDto;
+use App\Dto\User\Password\ForgotPasswordDto;
+use App\Dto\User\Password\ResetPasswordDto;
+use Symfony\Component\Messenger\MessageBusInterface;
+use App\Message\EmailChangeConfirmMessage;
+use App\Message\EmailChangeNotifyOldMessage;
 
 /**
  * Service responsible for managing business logic related to User entities.
@@ -30,6 +38,11 @@ class UserManager
         private EntityManagerInterface $em,
         private UserPasswordHasherInterface $passwordHasher,
         private UserRepository $userRepository,
+        private AccountTokenService $tokens,
+        private AccountMailer $mailer,
+        private readonly MessageBusInterface $bus,
+        private readonly EnrollmentManager $enrollments,
+        private readonly ClassroomManager $classrooms,
     )
     {
     }
@@ -65,37 +78,40 @@ class UserManager
     }
 
     /**
-     * Changes a user's role and updates their classroom assignment if needed.
-     * If changing from STUDENT to another role, removes classroom association.
+     * Handle all side-effects of moving between roles.
      *
-     * @param User $user The user to modify
-     * @param UserRoleEnum $role The new role to assign
+     * Rules:
+     *  - FROM STUDENT → anything: drop all active enrollments, detach classroom seat.
+     *  - TO   STUDENT ← from TEACHER/ADMIN: unassign as teacher from all classrooms.
+     *  - NO-OP if roles are the same.
+     *
+     * @param User          $user
+     * @param UserRoleEnum  $from
+     * @param UserRoleEnum  $to
      */
-    public function changeRole(User $user, UserRoleEnum $role, EnrollmentPort $enrollments): void
+    private function applyRoleTransition(User $user, UserRoleEnum $from, UserRoleEnum $to): void
     {
-        // No-op if nothing changes
-        if ($user->getRole() === $role) {
-            return;
+        // Moving away from STUDENT
+        if ($from === UserRoleEnum::STUDENT && $to !== UserRoleEnum::STUDENT) {
+            // Domain invariants: a non-student must not keep student enrollments.
+            $this->enrollments->dropAllActiveForStudent($user);
+            $this->classrooms->detachStudentFromAnyClassroom($user);
         }
 
-        // If they are moving *away* from STUDENT, make sure they have no active enrollments
-        if ($user->getRole() === UserRoleEnum::STUDENT) {
-            $enrollments->dropAllActiveForStudent($user);
+        // Moving into STUDENT
+        if ($to === UserRoleEnum::STUDENT && $from !== UserRoleEnum::STUDENT) {
+            // A student must not be a teacher anywhere.
+            $this->classrooms->unassignTeacherFromAll($user);
         }
-
-        $user->setRole($role);
-        $this->em->flush();
     }
 
     /**
-     * Updates a user's password with a new hashed value.
-     *
-     * @param User $user The user to modify
-     * @param string $password The plain text password to hash and store
+     * Persist a new hashed password for the given user.
+     * Expects a **hashed** password string.
      */
-    public function changePassword(User $user, string $password): void
+    public function changePassword(User $user, string $hashedPassword): void
     {
-        $user->setPassword($password);
+        $user->setPassword($hashedPassword);
         $this->em->persist($user);
         $this->em->flush();
     }
@@ -221,7 +237,7 @@ class UserManager
      * @param string $firstName User's first name
      * @param string $lastName User's last name
      * @param string $email User's email address
-     * @param string $username User's username
+     * @param string $userName User's userName
      * @param string $password Plain text password to be hashed
      * @param UserRoleEnum $role User's role
      * @return User The newly created and persisted User entity
@@ -230,7 +246,7 @@ class UserManager
         string $firstName,
         string $lastName,
         string $email,
-        string $username,
+        string $userName,
         string $password,
         UserRoleEnum $role
     ): User {
@@ -238,15 +254,15 @@ class UserManager
         if ($this->userRepository->findByEmail($email)) {
             throw new \DomainException('email_taken');
         }
-        if ($this->userRepository->findOneBy(['username' => $username])) {
+        if ($this->userRepository->findOneBy(['userName' => $userName])) {
             throw new \DomainException('username_taken');
         }
 
         $user = new User();
-        $user->setFirstname($firstName);
-        $user->setLastname($lastName);
+        $user->setFirstName($firstName);
+        $user->setLastName($lastName);
         $user->setEmail($email);
-        $user->setUsername($username);
+        $user->setUserName($userName);
         $user->setRole($role);
         $user->setPassword($this->passwordHasher->hashPassword($user, $password));
 
@@ -269,25 +285,152 @@ class UserManager
     /**
      * Apply a partial update. Only non-null DTO fields are applied.
      *
+     * @param User $user
+     * @param UpdateUserDto $dto
      */
-    public function updateUser(User $user, UpdateUserDTO $dto): User
+    public function updateUser(User $user, UpdateUserDto $dto): User
     {
+
         if ($dto->firstName !== null) { $user->setFirstName($dto->firstName); }
         if ($dto->lastName  !== null) { $user->setLastName($dto->lastName);   }
         if ($dto->email     !== null) { $user->setEmail($dto->email);         }
-        if ($dto->username  !== null) { $user->setUsername($dto->username);   }
+        if ($dto->userName  !== null) { $user->setUserName($dto->userName);   }
 
         if ($dto->password !== null) {
             $user->setPassword($this->passwordHasher->hashPassword($user, $dto->password));
         }
 
-        if ($dto->role !== null) {
-            $user->setRole(UserRoleEnum::from($dto->role));
+        $originalRole = $user->getRole();
+        if ($dto->role instanceof UserRoleEnum && $dto->role !== $originalRole) {
+            $this->applyRoleTransition($user, $originalRole, $dto->role);
+            $user->setRole($dto->role);
         }
 
         $this->em->flush();
+        return $user;
+    }
+
+
+    /**
+     * Initiate email change: validates credentials, emits token to old email, payload carries newEmail.
+     *
+     * @throws \DomainException on conflicts or bad credentials
+     * @throws ExceptionInterface
+     */
+    public function startEmailChange(User $user, string $newEmail, string $password): void
+    {
+        if (!$this->passwordHasher->isPasswordValid($user, $password)) {
+            throw new \DomainException('bad_credentials');
+        }
+        if (!\filter_var($newEmail, \FILTER_VALIDATE_EMAIL)) {
+            throw new \DomainException('invalid_email');
+        }
+        if ($newEmail === $user->getEmail()) {
+            throw new \DomainException('same_email');
+        }
+        if ($this->userRepository->findByEmail($newEmail)) {
+            throw new \DomainException('email_taken');
+        }
+
+        $oldEmail = $user->getEmail();
+
+        $expiresAt = (new \DateTimeImmutable())->modify('+2 hours');
+        $mint      = $this->tokens->mint(
+            user: $user,
+            type: AccountTokenType::EMAIL_CHANGE,
+            expiresAt: $expiresAt,
+            payload: ['newEmail' => $newEmail]
+        );
+
+        // Build link you’ll handle in your frontend or a confirm endpoint:
+        $base = rtrim($_ENV['APP_URL'] ?? 'http://localhost:8000', '/');
+        $confirmUrl = $base . '/api/me/change-email/confirm?token=' . urlencode($mint['raw']);
+
+        $this->bus->dispatch(new EmailChangeConfirmMessage(
+            userId: $user->getId(),
+            targetEmail: $newEmail,
+            confirmUrl: $confirmUrl
+        ));
+        $this->bus->dispatch(new EmailChangeNotifyOldMessage(
+            userId: $user->getId(),
+            previousEmail: $oldEmail
+        ));
+    }
+
+    /**
+     * Consume email-change token and persist new email.
+     *
+     * @throws \DomainException when token invalid/expired or email now taken
+     */
+    public function confirmEmailChange(string $rawToken): User
+    {
+        $token = $this->tokens->consume($rawToken, AccountTokenType::EMAIL_CHANGE);
+        $payload = $token->getPayload() ?? [];
+        $newEmail = (string)($payload['newEmail'] ?? '');
+
+        if ($newEmail === '' || $this->userRepository->findByEmail($newEmail)) {
+            throw new \DomainException('email_taken_or_invalid');
+        }
+
+        $user = $token->getUser();
+        $user->setEmail($newEmail);
+        $this->em->flush();
 
         return $user;
+    }
+
+    /**
+     * Change password for the authenticated user (requires current password).
+     *
+     * @throws \DomainException on invalid credentials
+     */
+    public function changeOwnPassword(User $user, ChangePasswordDto $dto): void
+    {
+        if (!$this->passwordHasher->isPasswordValid($user, (string)$dto->currentPassword)) {
+            throw new \DomainException('bad_credentials');
+        }
+        if ($this->passwordHasher->isPasswordValid($user, (string)$dto->newPassword)) {
+            throw new \DomainException('same_password');
+        }
+
+        $user->setPassword($this->passwordHasher->hashPassword($user, (string)$dto->newPassword));
+        $this->em->flush();
+
+        $this->mailer->notifyPasswordChanged($user);
+    }
+
+    /**
+     * Start a password-reset flow (generic response even if email not found).
+     */
+    public function startPasswordReset(ForgotPasswordDto $dto): void
+    {
+        $user = $this->userRepository->findByEmail((string)$dto->email);
+        if (!$user) {
+            // Do nothing; we return a generic 200 to avoid enumeration.
+            return;
+        }
+
+        $expiresAt = (new \DateTimeImmutable())->modify('+1 hour');
+        $mint      = $this->tokens->mint($user, AccountTokenType::PASSWORD_RESET, $expiresAt);
+
+        $resetUrl = sprintf('%s/api/me/password/reset?token=%s', $_ENV['APP_URL'] ?? 'http://localhost', $mint['raw']);
+        $this->mailer->sendPasswordResetLink($user, $resetUrl);
+    }
+
+    /**
+     * Confirm password reset using a token and new password.
+     *
+     * @throws \DomainException when token invalid/expired
+     */
+    public function confirmPasswordReset(ResetPasswordDto $dto): void
+    {
+        $token = $this->tokens->consume((string)$dto->token, AccountTokenType::PASSWORD_RESET);
+        $user  = $token->getUser();
+
+        $user->setPassword($this->passwordHasher->hashPassword($user, (string)$dto->newPassword));
+        $this->em->flush();
+
+        $this->mailer->notifyPasswordChanged($user);
     }
 
     /**

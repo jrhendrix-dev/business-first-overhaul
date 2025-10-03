@@ -19,13 +19,11 @@ use Symfony\Component\Serializer\Annotation\MaxDepth;
 #[UniqueEntity(fields: ['name'], message: 'A classroom with this name already exists.')]
 class Classroom
 {
-    #[Groups(['classroom:read'])]
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column(name: 'id', type: 'integer')]
     private ?int $id = null;
 
-    #[Groups(['classroom:read'])]
     #[ORM\Column(name: "name", type: "string", length: 45, unique: true)]
     private string $name;
 
@@ -37,7 +35,6 @@ class Classroom
     )]
     private Collection $enrollments;
 
-    #[Groups(['classroom:read'])]
     #[ORM\ManyToOne(targetEntity: User::class)]
     #[ORM\JoinColumn(name: 'teacher_id', referencedColumnName: 'id', nullable: true, onDelete: 'SET NULL')]
     #[MaxDepth(1)]

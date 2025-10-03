@@ -1,7 +1,7 @@
 <?php
 
 // src/DTO/EnrollStudentDTO.php
-namespace App\DTO\Enrollment;
+namespace App\Dto\Enrollment;
 
 use Symfony\Component\Validator\Constraints as Assert;
 

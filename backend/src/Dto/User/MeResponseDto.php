@@ -8,7 +8,7 @@ namespace App\Dto\User;
  *
  * @phpstan-type UserMeArray array{id:int, email:string, role: string|null}
  */
-final class MeResponse
+final class MeResponseDto
 {
     public function __construct(
         public readonly int $id,

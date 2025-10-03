@@ -26,7 +26,7 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
  * - Teacher assignment/removal: ClassroomTeacherController
  * - Enrollments (students in classes): EnrollmentController
  */
-#[Route('/api/classrooms')]
+#[Route('/classrooms')]
 final class ClassroomController extends AbstractController
 {
     public function __construct(

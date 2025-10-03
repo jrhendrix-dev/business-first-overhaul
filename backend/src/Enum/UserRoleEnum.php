@@ -2,11 +2,11 @@
 
 namespace App\Enum;
 
-enum UserRoleEnum: int
+enum UserRoleEnum: String
 {
-    case ADMIN = 1;
-    case TEACHER = 2;
-    case STUDENT = 3;
+    case ADMIN = "ROLE_ADMIN";
+    case TEACHER = "ROLE_TEACHER";
+    case STUDENT = "ROLE_STUDENT";
 
     public static function values(): array {
         return array_column(self::cases(), 'value');

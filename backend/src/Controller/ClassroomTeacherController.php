@@ -2,11 +2,9 @@
 // src/Controller/ClassroomTeacherController.php
 namespace App\Controller;
 
-use App\DTO\AssignTeacherDTO;
+use App\Dto\User\AssignTeacherDto;
 use App\Http\Json;
 use App\Http\ValidationResponder;
-use App\Repository\ClassroomRepository;
-use App\Repository\UserRepository;
 use App\Service\ClassroomManager;
 use App\Service\UserManager;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -16,7 +14,7 @@ use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
 
-#[Route('/api/classrooms')]
+#[Route('/classrooms')]
 final class ClassroomTeacherController extends AbstractController
 {
     public function __construct(
@@ -38,7 +36,7 @@ final class ClassroomTeacherController extends AbstractController
         }
 
         $body = json_decode($request->getContent() ?: '{}', true, 512, JSON_THROW_ON_ERROR);
-        $dto  = AssignTeacherDTO::fromArray($body);
+        $dto  = AssignTeacherDto::fromArray($body);
         $viol = $this->validator->validate($dto);
         if (count($viol) > 0) {
             return ValidationResponder::bad($viol);

@@ -26,8 +26,8 @@ class ClassroomManager
      */
     public function __construct(
         private EntityManagerInterface $em,
-        private ClassroomRepository $classroomRepository,
-        private EnrollmentPort $enrollments,
+        private ClassroomRepository    $classroomRepository,
+        private EnrollmentManager      $enrollments,
     ) {}
 
     public function normalizeName(string $name): string
@@ -249,4 +249,40 @@ class ClassroomManager
         // while the enrollment rules live in EnrollmentManager.
         $this->enrollments->dropActiveForStudent($student, $classroom);
     }
+
+    /**
+     * Detach a student from every classroom by soft-dropping all ACTIVE enrollments.
+     *
+     * Idempotent: safe to call repeatedly.
+     *
+     * @param User $student The user assumed to be in STUDENT role (but not required).
+     */
+    public function detachStudentFromAnyClassroom(User $student): void
+    {
+        // Delegate to the enrollment boundary which enforces the "ACTIVE only" rule.
+        $this->enrollments->dropAllActiveForStudent($student);
+        // No flush here — caller controls transaction boundaries.
+    }
+
+    /**
+     * Unassign a teacher from all classrooms where they are currently assigned.
+     *
+     * Idempotent: if already unassigned, no changes are made.
+     *
+     * @param User $teacher The user being unassigned as teacher.
+     */
+    public function unassignTeacherFromAll(User $teacher): void
+    {
+        /** @var Classroom[] $owned */
+        $owned = $this->classroomRepository->findAllByTeacher($teacher);
+
+        foreach ($owned as $classroom) {
+            if ($classroom->getTeacher() === $teacher) {
+                $classroom->setTeacher(null);
+            }
+        }
+        // No flush here — caller controls transaction boundaries.
+    }
+
+
 }

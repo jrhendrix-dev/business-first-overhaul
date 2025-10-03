@@ -19,29 +19,23 @@ class Enrollment
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column(type: 'integer')]
-    #[Groups(['enrollment:read', 'classroom:enrollments'])]
     private ?int $id = null;
 
     #[ORM\ManyToOne(targetEntity: User::class, inversedBy: 'enrollments')]
     #[ORM\JoinColumn(nullable: false)]
-    #[Groups(['enrollment:read', 'classroom:enrollments'])]
     private ?User $student = null;
 
     #[ORM\ManyToOne(targetEntity: Classroom::class, inversedBy: 'enrollments')]
     #[ORM\JoinColumn(nullable: false)]
-    #[Groups(['enrollment:read', 'classroom:enrollments'])]
     private ?Classroom $classroom = null;
 
     #[ORM\Column(type: 'datetime_immutable')]
-    #[Groups(['enrollment:read', 'classroom:enrollments'])]
     private \DateTimeImmutable $enrolledAt;
 
     #[ORM\Column(type: 'datetime_immutable', nullable: true)]
-    #[Groups(['enrollment:read', 'classroom:enrollments'])]
     private ?\DateTimeImmutable $droppedAt = null;
 
     #[ORM\Column(type: 'string', enumType: EnrollmentStatusEnum::class)]
-    #[Groups(['enrollment:read', 'classroom:enrollments'])]
     private EnrollmentStatusEnum $status = EnrollmentStatusEnum::ACTIVE;
 
     /** @var Collection<int, Grade> */

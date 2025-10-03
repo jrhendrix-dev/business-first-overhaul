@@ -2,7 +2,7 @@
 // src/Dto/Me/ChangePasswordDto.php
 declare(strict_types=1);
 
-namespace App\Dto\Me;
+namespace App\Dto\User\Password;
 
 use Symfony\Component\Validator\Constraints as Assert;
 

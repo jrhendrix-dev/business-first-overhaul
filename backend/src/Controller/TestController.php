@@ -9,7 +9,7 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\HttpFoundation\Request;
 
-#[Route('/api/test-auth', name: 'api_test_auth')]
+#[Route('/test-auth', name: 'api_test_auth')]
 class TestController extends AbstractController
 {
     #[Route('', methods: ['GET'])]
