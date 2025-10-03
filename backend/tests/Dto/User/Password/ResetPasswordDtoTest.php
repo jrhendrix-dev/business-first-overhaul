@@ -24,7 +24,7 @@ final class ResetPasswordDtoTest extends TestCase
         // 32-char token (min) and policy-compliant password (>=12 chars, upper, lower, number, special)
         $dto = new ResetPasswordDto(
             token: str_repeat('a', 32),
-            newPassword: 'NewPassw0rd!'
+            newPassword: 'Str0ngPass!ABCdef12'
         );
 
         self::assertCount(0, $this->v()->validate($dto));

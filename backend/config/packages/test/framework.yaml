@@ -1,15 +1,8 @@
 framework:
     test: true
-    mailer:
-        dsn: 'null://null'             # no real SMTP
     session:
         storage_factory_id: session.storage.factory.mock_file
 
-    cache:
-        app: cache.adapter.array
-        system: cache.adapter.array
-        pools:
-            doctrine.result_cache_pool:
-                adapter: cache.adapter.array
-            doctrine.system_cache_pool:
-                adapter: cache.adapter.array
+    validation:
+        enable_attributes: true
+        not_compromised_password: false
