@@ -1,7 +1,6 @@
 # Business First Overhaul
 
 [![CI](https://github.com/jrhendrix-dev/business-first-overhaul/actions/workflows/ci.yml/badge.svg)](https://github.com/jrhendrix-dev/business-first-overhaul/actions/workflows/ci.yml)
-[![codecov](https://codecov.io/gh/jrhendrix-dev/business-first-overhaul/branch/main/graph/badge.svg)](https://codecov.io/gh/jrhendrix-dev/business-first-overhaul)
 
 A full-stack re-implementation of the **Business First English Academy** management system.  
 This monorepo contains the **Symfony 7 backend** and planned **Angular + Tailwind frontend**.  
