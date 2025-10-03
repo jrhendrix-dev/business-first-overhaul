@@ -25,13 +25,19 @@ jobs:
           --health-retries=30
 
     env:
+      # DB for tests
       DATABASE_URL: mysql://symfony:password@127.0.0.1:3306/bfe_db_test?serverVersion=8.0
+
+      # Symfony basics
       APP_SECRET: secretf0rt3st
       MAILER_DSN: null://null
       MAILER_FROM: no-reply@example.test
       MESSENGER_TRANSPORT_DSN: sync://
+
+      # LexikJWT expects file paths for RSA keys
       JWT_PASSPHRASE: ""
-      JWT_SECRET_KEY: __test_secret_change_me__
+      JWT_SECRET_KEY: "%kernel.project_dir%/config/jwt/private.pem"
+      JWT_PUBLIC_KEY: "%kernel.project_dir%/config/jwt/public.pem"
 
     steps:
       - uses: actions/checkout@v4
@@ -60,6 +66,9 @@ jobs:
             "DATABASE_URL=${DATABASE_URL}" \
             "MAILER_DSN=${MAILER_DSN}" \
             "MESSENGER_TRANSPORT_DSN=${MESSENGER_TRANSPORT_DSN}" \
+            "JWT_PASSPHRASE=${JWT_PASSPHRASE}" \
+            "JWT_SECRET_KEY=${JWT_SECRET_KEY}" \
+            "JWT_PUBLIC_KEY=${JWT_PUBLIC_KEY}" \
             > .env
 
       - name: Install Composer deps
@@ -97,7 +106,12 @@ jobs:
         working-directory: backend
         env:
           APP_ENV: test
-        run: php bin/console lexik:jwt:generate-keypair --skip-if-exists -n
+          JWT_PASSPHRASE: ""
+          JWT_SECRET_KEY: "%kernel.project_dir%/config/jwt/private.pem"
+          JWT_PUBLIC_KEY: "%kernel.project_dir%/config/jwt/public.pem"
+        run: |
+          mkdir -p config/jwt
+          php bin/console lexik:jwt:generate-keypair --skip-if-exists -n
 
       - name: Prepare schema (migrations on test DB)
         working-directory: backend
