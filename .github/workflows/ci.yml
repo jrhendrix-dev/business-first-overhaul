@@ -51,12 +51,25 @@ jobs:
           key: composer-${{ runner.os }}-${{ hashFiles('backend/composer.lock') }}
           restore-keys: composer-${{ runner.os }}-
 
+      - name: Create minimal .env for CI
+        working-directory: backend
+        run: |
+          cat > .env <<'EOF'
+      APP_ENV=dev
+      APP_SECRET=dev_dummy_secret
+      DATABASE_URL=${DATABASE_URL}
+      MAILER_DSN=${MAILER_DSN}
+      MESSENGER_TRANSPORT_DSN=${MESSENGER_TRANSPORT_DSN}
+      EOF
+
+
       - name: Install Composer deps
         working-directory: backend
         env:
           COMPOSER_MEMORY_LIMIT: -1
           APP_ENV: dev
-        run: composer install --no-ansi --no-interaction --no-progress --prefer-dist --optimize-autoloader
+        run: composer install --no-ansi --no-interaction --no-progress --prefer-dist --optimize-autoloader --no-scripts
+
 
       - name: Wait for MySQL
         run: |
