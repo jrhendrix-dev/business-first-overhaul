@@ -85,7 +85,7 @@ function startLockoutCountdown(seconds) {
  */
 function handleLoginFormSubmit(e) {
     e.preventDefault();
-    const username = $('#username').val();
+    const username = $('#userName').val();
     const password = $('#password').val();
 
     $.post('login.php', { username, password }, function (response) {

@@ -1,2 +1,3 @@
+# backend/config/packages/test/lock.yaml
 framework:
-    lock: 'semaphore'   # local process locks
+    lock: 'flock'

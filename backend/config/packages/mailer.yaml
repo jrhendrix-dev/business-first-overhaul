@@ -1,4 +1,4 @@
 # config/packages/dev/mailer.yaml
 framework:
     mailer:
-        dsn: 'smtp://mailpit:1025'
+        dsn: '%env(MAILER_DSN)%'

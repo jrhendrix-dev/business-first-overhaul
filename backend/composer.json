@@ -9,11 +9,14 @@
         "php": ">=8.2",
         "ext-ctype": "*",
         "ext-iconv": "*",
+        "api-platform/doctrine-orm": "^4.2",
+        "api-platform/symfony": "^4.2",
         "doctrine/dbal": "^3",
         "doctrine/doctrine-bundle": "^2.15",
         "doctrine/doctrine-migrations-bundle": "^3.4",
         "doctrine/orm": "^3.5",
-        "lexik/jwt-authentication-bundle": "^2.18",
+        "lexik/jwt-authentication-bundle": "*",
+        "nelmio/cors-bundle": "*",
         "phpdocumentor/reflection-docblock": "^5.6",
         "phpstan/phpdoc-parser": "^2.2",
         "symfony/asset": "7.3.*",
@@ -29,13 +32,14 @@
         "symfony/intl": "7.3.*",
         "symfony/lock": "^7.0",
         "symfony/mailer": "7.3.*",
+        "symfony/messenger": "7.3.*",
         "symfony/mime": "7.3.*",
         "symfony/monolog-bundle": "^3.0",
         "symfony/notifier": "7.3.*",
         "symfony/process": "7.3.*",
         "symfony/property-access": "7.3.*",
         "symfony/property-info": "7.3.*",
-        "symfony/rate-limiter": "^7.0",
+        "symfony/rate-limiter": "7.3.*",
         "symfony/runtime": "7.3.*",
         "symfony/security-bundle": "7.3.*",
         "symfony/serializer": "7.3.*",
@@ -92,12 +96,19 @@
             "@auto-scripts"
         ],
 
-        "test": "APP_ENV=test php vendor/bin/phpunit -c phpunit.dist.xml",
+        "test:db": [
+            "php bin/console doctrine:database:drop --env=test --force --if-exists",
+            "php bin/console doctrine:database:create --env=test",
+            "php bin/console doctrine:schema:create --env=test"
+        ],
+        "phpunit": "APP_ENV=test php vendor/bin/phpunit -c phpunit.dist.xml",
+        "test": [
+            "@test:db",
+            "@phpunit"
+        ],
         "test:cov": "APP_ENV=test XDEBUG_MODE=coverage php -d xdebug.mode=coverage vendor/bin/phpunit -c phpunit.dist.xml --coverage-html var/coverage-html --coverage-clover var/coverage.xml --coverage-text",
         "test:cov:clover": "APP_ENV=test XDEBUG_MODE=coverage php -d xdebug.mode=coverage vendor/bin/phpunit -c phpunit.coverage.xml --coverage-clover var/coverage/clover.xml",
         "test:cov:text": "APP_ENV=test XDEBUG_MODE=coverage php -d xdebug.mode=coverage vendor/bin/phpunit -c phpunit.coverage.xml --coverage-text"
-
-
     },
     "conflict": {
         "symfony/symfony": "*"

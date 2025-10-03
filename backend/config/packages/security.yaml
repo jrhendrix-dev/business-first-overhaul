@@ -1,12 +1,12 @@
+# config/packages/security.yaml
 security:
     password_hashers:
-        App\Entity\User:
-            algorithm: auto
+        Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface: 'auto'
 
     role_hierarchy:
-        ROLE_ADMIN:   [ ROLE_TEACHER, ROLE_USER ]
-        ROLE_TEACHER: [ ROLE_USER ]
-        ROLE_STUDENT: [ ROLE_USER ]
+        ROLE_ADMIN:   [ROLE_TEACHER, ROLE_USER]
+        ROLE_TEACHER: [ROLE_USER]
+        ROLE_STUDENT: [ROLE_USER]
 
     providers:
         app_user_provider:
@@ -15,43 +15,67 @@ security:
                 property: email
 
     firewalls:
+        # Symfony dev tools (profiler, assets)
         dev:
             pattern: ^/(_(profiler|wdt)|css|images|js)/
             security: false
 
+        # Handles POST /api/login and returns JWT via Lexik handlers
         login:
-            pattern: ^/api/login$
+            pattern: ^/api/login
             stateless: true
             json_login:
-                check_path: /api/login
+                check_path: api_login
                 username_path: email
                 password_path: password
                 success_handler: lexik_jwt_authentication.handler.authentication_success
                 failure_handler: lexik_jwt_authentication.handler.authentication_failure
 
-        # PUBLIC contact endpoint (must be before the /api firewall)
-        contact_public:
-            pattern: ^/api/contact$
-            security: false
-
+        # All other /api endpoints secured with JWT
         api:
             pattern: ^/api
             stateless: true
-            provider: app_user_provider
             jwt: ~
 
-    access_control:
-        # most specific FIRST (public endpoints)
-        - { path: ^/api/contact$,            roles: PUBLIC_ACCESS }
-        - { path: ^/api/dev/test-mail$,      roles: PUBLIC_ACCESS }
-        - { path: ^/api/password/forgot$,    roles: PUBLIC_ACCESS }
-        - { path: ^/api/password/reset$,     roles: PUBLIC_ACCESS }
-        - { path: ^/api/register$,           roles: PUBLIC_ACCESS }
-        - { path: ^/api/login$,              roles: IS_AUTHENTICATED_ANONYMOUSLY }
+        # (Optional) everything else (/, assets, SPA shell) — no auth
+        main:
+            pattern: ^/
+            lazy: true
+            security: false
 
-        # any other specific exceptions (role-based)
+    access_control:
+        # Most-specific rules FIRST
+
+        # Public API docs (UI + JSON/YAML endpoints)
+        - { path: ^/api/docs(?:$|/), roles: PUBLIC_ACCESS }
+        - { path: ^/api/docs\.(?:json|jsonld|yaml|yamlopenapi|jsonopenapi)$, roles: PUBLIC_ACCESS }
+
+        # Static asset paths (whether using Asset Mapper or classic bundles)
+        - { path: ^/assets/,  roles: PUBLIC_ACCESS }
+        - { path: ^/bundles/, roles: PUBLIC_ACCESS }
+
+        # JSON-LD contexts (safe to expose)
+        - { path: ^/api/contexts/, roles: PUBLIC_ACCESS }
+
+        # Auth endpoints
+        - { path: ^/api/login$, roles: PUBLIC_ACCESS, methods: [POST] }
+
+        # Public endpoints you listed
+        - { path: ^/api/auth/register$,        roles: PUBLIC_ACCESS }
+        - { path: ^/api/password/forgot$, roles: PUBLIC_ACCESS }
+        - { path: ^/api/password/reset$,  roles: PUBLIC_ACCESS }
+        - { path: ^/api/contact$,         roles: PUBLIC_ACCESS }
+        - { path: ^/api/dev/test-mail$,   roles: PUBLIC_ACCESS }
+
+        # CORS preflight for any /api route (avoid spurious 401s on OPTIONS)
+        - { path: ^/api, roles: PUBLIC_ACCESS, methods: [OPTIONS] }
+
+        # Role-based exceptions
         - { path: ^/api/classes/\d+/students, roles: ROLE_TEACHER }
         - { path: ^/api/enrollments,          roles: ROLE_USER }
 
-        # catch-all for the rest of /api
+        # Optionally keep "/" public if you add a redirect/home later
+        - { path: ^/$, roles: PUBLIC_ACCESS, methods: [GET] }
+
+        # Catch-all: everything else under /api requires a valid JWT
         - { path: ^/api, roles: IS_AUTHENTICATED_FULLY }

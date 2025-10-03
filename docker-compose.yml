@@ -1,17 +1,11 @@
 services:
-
-  mailpit:
-    image: axllent/mailpit:latest
-    ports:
-      - "8025:8025"   # web UI
-      - "1025:1025"   # smtp
-    restart: unless-stopped
-    networks:
-      - bfe_network
-
   mysql:
     image: mysql:8.0
-    restart: unless-stopped
+    container_name: mysql-1
+    networks:
+      bfe_network:
+        aliases: [db, mysql]
+    restart: no
     environment:
       MYSQL_ROOT_PASSWORD: root
       MYSQL_DATABASE: bfe_db
@@ -21,10 +15,8 @@ services:
       - mysql_data:/var/lib/mysql
     ports:
       - "3307:3306"
-    networks:
-      - bfe_network
     healthcheck:
-      test: [ "CMD", "mysqladmin" ,"ping", "-h", "127.0.0.1" ]
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -34,61 +26,73 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     container_name: bfe_symfony_backend
-    restart: unless-stopped
+    restart: no
     environment:
       APP_ENV: dev
-      DATABASE_URL: "mysql://symfony:symfony@db:3306/app_test?serverVersion=8.0"
-      # DSNs (you can also set these in .env.local — see below)
-      MAILER_DSN: 'smtp://mailpit:1025'
-      MESSENGER_TRANSPORT_DSN: 'doctrine://default?auto_setup=1'
-
-      MAILER_FROM: 'no-reply@businessfirstacademy.net'
-      FRONTEND_RESET_URL: 'http://localhost:4200/reset-password'
-
-      # Keep Xdebug inert by default
+      MAILER_DSN: "smtp://3488809b94296f:f85837f38e644e@sandbox.smtp.mailtrap.io:2525"
+      MAILER_FROM: "Business First <no-reply@businessfirstacademy.net>"
+      FRONTEND_RESET_URL: "http://localhost:4200/reset-password"
       XDEBUG_MODE: off
+      COMPOSER_ALLOW_SUPERUSER: "1"
     working_dir: /var/www/app
     volumes:
       - ./backend:/var/www/app
     depends_on:
       mysql:
         condition: service_healthy
-      mailpit:
-        condition: service_started
     ports:
       - "8000:8000"
     command: >
-      sh -lc '
-        until php -r '\''try {
-          new PDO("mysql:host=mysql;port=3306;dbname=bfe_db","symfony","password",
-                  [PDO::ATTR_TIMEOUT=>2]);
-        } catch (Throwable $e) { exit(1); }'\''; do
-          echo "⏳ Waiting for MySQL...";
-          sleep 2;
-        done &&
-        composer install --no-interaction &&
-        php bin/console doctrine:database:create --if-not-exists &&
-        php bin/console doctrine:schema:update --force &&
+      bash -lc "
+        set -euo pipefail;
+
+        # NEW: ensure asset target exists and is writable for recipes
+        mkdir -p public/bundles && chmod -R 777 public/bundles
+
+        composer install --no-interaction --prefer-dist --ansi;
+        composer dump-autoload -o --ansi;
+
+        if [ ! -f config/jwt/private.pem ] || [ ! -f config/jwt/public.pem ]; then
+          php bin/console lexik:jwt:generate-keypair --overwrite --no-interaction;
+        fi
+
+        if ! php bin/console doctrine:migrations:migrate -n; then
+          php bin/console doctrine:migrations:sync-metadata-storage --no-interaction || true;
+          php bin/console doctrine:migrations:version --add --all --no-interaction || true;
+        fi
+
         php -S 0.0.0.0:8000 -t public
-      '
+      "
     networks:
       - bfe_network
 
-  # Messenger worker (consumes async queue so emails actually send)
-  consumer:
+  # NEW: async message worker (consumes the "async" transport)
+  worker:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    depends_on:
-      - backend
-    restart: unless-stopped
-    working_dir: /var/www/app
+    container_name: bfe_symfony_worker
+    restart: no
     environment:
       APP_ENV: dev
-      MESSENGER_TRANSPORT_DSN: 'doctrine://default?auto_setup=1'
-    command: php bin/console messenger:consume async -vv --no-reset --keepalive
+      DATABASE_URL: "mysql://symfony:password@mysql:3306/bfe_db?serverVersion=8.0&charset=utf8mb4&ssl-mode=DISABLED"
+      MAILER_DSN: "smtp://3488809b94296f:f85837f38e644e@sandbox.smtp.mailtrap.io:2525"
+      MAILER_FROM: "Business First <no-reply@businessfirstacademy.net>"
+      # lets messenger keep running forever, restarting the process cleanly every hour
+      # (time-limit must be > 0)
+    working_dir: /var/www/app
     volumes:
       - ./backend:/var/www/app
+    depends_on:
+      mysql:
+        condition: service_healthy
+    command: >
+      bash -lc "
+        set -euo pipefail;
+        php bin/console doctrine:query:sql 'SELECT 1' >/dev/null 2>&1 || true;
+        php bin/console messenger:setup-transports --no-interaction;
+        exec php bin/console messenger:consume async -vv --sleep=1 --memory-limit=256M --time-limit=3600
+      "
     networks:
       - bfe_network
 
@@ -98,7 +102,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     container_name: bfe_angular_frontend
-    restart: unless-stopped
+    restart: no
     ports:
       - "4200:4200"
     volumes:

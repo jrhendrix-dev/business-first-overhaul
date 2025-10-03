@@ -14,83 +14,71 @@ jobs:
         image: mysql:8.0
         env:
           MYSQL_ROOT_PASSWORD: root
-          MYSQL_DATABASE: bfe_db       # base name; Doctrine adds `_test` in test env
+          MYSQL_DATABASE: bfe_db
           MYSQL_USER: symfony
           MYSQL_PASSWORD: password
-        ports:
-          - 3306:3306
+        ports: [ "3306:3306" ]
         options: >-
           --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot"
           --health-interval=5s
           --health-timeout=3s
           --health-retries=20
 
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+    env:
+      # always prefer TCP, never sockets
+      DATABASE_URL: mysql://symfony:password@127.0.0.1:3306/bfe_db?serverVersion=8.0
+      # safe defaults so DI never explodes
+      APP_SECRET: secretf0rt3st
+      MAILER_DSN: null://null
+      MAILER_FROM: no-reply@example.test
+      MESSENGER_TRANSPORT_DSN: sync://
+      JWT_SECRET_KEY: __test_secret_change_me__
 
-      - name: Set up PHP (with PCOV for coverage)
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up PHP (PCOV)
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.3'
           coverage: pcov
           tools: composer
+          # If you *want* to be able to use semaphore in non-test envs
+          # extensions: sysvsem
 
-      - name: Cache Composer downloads
+      - name: Cache Composer
         uses: actions/cache@v4
         with:
           path: ~/.composer/cache
           key: composer-${{ runner.os }}-${{ hashFiles('backend/composer.lock') }}
-          restore-keys: |
-            composer-${{ runner.os }}-
-
-      - name: Write env files for tests
-        working-directory: backend
-        run: |
-          # base DSN; Doctrine's test config appends _test to DB name
-          cat > .env <<'EOF'
-          APP_ENV=dev
-          APP_SECRET=test
-          DATABASE_URL=mysql://symfony:password@127.0.0.1:3306/bfe_db?serverVersion=8.0
-          MAILER_DSN=null://null
-          EOF
-
-          cat > .env.test <<'EOF'
-          APP_ENV=test
-          # base DB name; Doctrine appends _test via dbname_suffix in config/packages/test/doctrine.yaml
-          DATABASE_URL=mysql://symfony:password@127.0.0.1:3306/bfe_db?serverVersion=8.0
-          MAILER_DSN=null://null
-          # JWT: test-only symmetric secret (HS256) to avoid key files
-          JWT_SECRET_KEY=__test_secret_change_me__
-          EOF
-
-      - name: Wait for MySQL healthy
-        shell: bash
-        run: |
-          for i in {1..60}; do
-            if mysqladmin ping -h 127.0.0.1 -uroot -proot --silent; then
-              echo "MySQL is healthy"; break
-            fi
-            if [ $i -eq 60 ]; then
-              echo "MySQL did not become healthy in time" >&2
-              docker logs ${{ job.services.mysql.id }} || true
-              exit 1
-            fi
-            sleep 2
-          done
+          restore-keys: composer-${{ runner.os }}-
 
       - name: Install Composer deps
         working-directory: backend
         env:
           COMPOSER_MEMORY_LIMIT: -1
+          APP_ENV: dev
         run: composer install --no-ansi --no-interaction --no-progress --prefer-dist --optimize-autoloader
 
-      - name: Create bfe_db_test and grant privileges (root)
+      - name: Wait for MySQL
+        run: |
+          for i in {1..60}; do
+            if mysqladmin ping -h 127.0.0.1 -uroot -proot --silent; then
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "MySQL did not become healthy in time"; exit 1
+
+      - name: Create test DB & grants
         run: |
           mysql -h 127.0.0.1 -uroot -proot -e "
             CREATE DATABASE IF NOT EXISTS bfe_db_test
               CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+            CREATE USER IF NOT EXISTS 'symfony'@'%' IDENTIFIED BY 'password';
+            CREATE USER IF NOT EXISTS 'symfony'@'localhost' IDENTIFIED BY 'password';
             GRANT ALL PRIVILEGES ON bfe_db_test.* TO 'symfony'@'%';
+            GRANT ALL PRIVILEGES ON bfe_db_test.* TO 'symfony'@'localhost';
             FLUSH PRIVILEGES;
           "
 
@@ -98,21 +86,23 @@ jobs:
         working-directory: backend
         env:
           APP_ENV: test
+          DATABASE_URL: ${{ env.DATABASE_URL }}
         run: |
           php bin/console doctrine:database:create --env=test --if-not-exists
           php bin/console doctrine:migrations:migrate --env=test -n || true
 
-      - name: Run PHPUnit with coverage (PCOV)
+      - name: PHPUnit (PCOV)
         working-directory: backend
         env:
           APP_ENV: test
+          DATABASE_URL: ${{ env.DATABASE_URL }}
         run: |
           php -d pcov.enabled=1 -d pcov.directory=$(pwd) \
             vendor/bin/phpunit -c phpunit.dist.xml \
             --coverage-clover var/coverage.xml \
             --coverage-text
 
-      - name: Upload coverage artifact
+      - name: Upload coverage
         uses: actions/upload-artifact@v4
         with:
           name: coverage

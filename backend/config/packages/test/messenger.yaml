@@ -1,6 +1,7 @@
 framework:
     messenger:
+        failure_transport: ~
         transports:
-            # in-memory transport so no Rabbit/Redis/Doctrine queue is needed
             async: 'in-memory://'
-        routing: { }                   # keep empty unless you route messages explicitly
+            failed: ~
+        routing: { }
