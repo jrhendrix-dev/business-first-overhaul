@@ -22,11 +22,11 @@ class Enrollment
     private ?int $id = null;
 
     #[ORM\ManyToOne(targetEntity: User::class, inversedBy: 'enrollments')]
-    #[ORM\JoinColumn(nullable: false)]
+    #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
     private ?User $student = null;
 
     #[ORM\ManyToOne(targetEntity: Classroom::class, inversedBy: 'enrollments')]
-    #[ORM\JoinColumn(nullable: false)]
+    #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
     private ?Classroom $classroom = null;
 
     #[ORM\Column(type: 'datetime_immutable')]
@@ -90,8 +90,12 @@ class Enrollment
 
     // ----------- Associations -----------
 
-    public function getStudent(): ?User
+    /** @return User */
+    public function getStudent(): User
     {
+        if ($this->student === null) {
+            throw new \LogicException('Invariant violated: Enrollment has no student.');
+        }
         return $this->student;
     }
 
@@ -101,8 +105,12 @@ class Enrollment
         return $this;
     }
 
-    public function getClassroom(): ?Classroom
+    /** @return Classroom */
+    public function getClassroom(): Classroom
     {
+        if ($this->classroom === null) {
+            throw new \LogicException('Invariant violated: Enrollment has no classroom.');
+        }
         return $this->classroom;
     }
 
