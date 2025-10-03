@@ -1,5 +1,5 @@
 <?php
-
+// tests/Dto/User/Password/ResetPasswordDtoTest.php
 declare(strict_types=1);
 
 namespace App\Tests\Dto\User\Password;
@@ -11,38 +11,44 @@ use Symfony\Component\Validator\Validation;
 
 final class ResetPasswordDtoTest extends TestCase
 {
-    private function makeValidator()
+    private function v()
     {
         return Validation::createValidatorBuilder()
-            ->enableAttributeMapping()   // <— was enableAnnotationMapping()
+            ->enableAttributeMapping()
             ->getValidator();
     }
 
     #[Test]
     public function it_validates_happy_path(): void
     {
-        $v = $this->makeValidator();
+        // 32-char token (min) and policy-compliant password (>=12 chars, upper, lower, number, special)
         $dto = new ResetPasswordDto(
-            currentPassword: 'CorrectHorseBatteryStaple1!',
-            newPassword:     'NewPassw0rd!',
-            confirmPassword: 'NewPassw0rd!'
+            token: str_repeat('a', 32),
+            newPassword: 'NewPassw0rd!'
         );
 
-        $violations = $v->validate($dto);
-        self::assertCount(0, $violations);
+        self::assertCount(0, $this->v()->validate($dto));
     }
 
     #[Test]
-    public function it_requires_policy_compliant_password(): void
+    public function it_rejects_policy_non_compliant_password(): void
     {
-        $v = $this->makeValidator();
         $dto = new ResetPasswordDto(
-            currentPassword: 'CorrectHorseBatteryStaple1!',
-            newPassword:     'short',
-            confirmPassword: 'short'
+            token: str_repeat('b', 32),
+            newPassword: 'short' // too short + fails policy
         );
 
-        $violations = $v->validate($dto);
-        self::assertGreaterThan(0, $violations->count());
+        self::assertGreaterThan(0, $this->v()->validate($dto)->count());
+    }
+
+    #[Test]
+    public function it_rejects_short_token(): void
+    {
+        $dto = new ResetPasswordDto(
+            token: 'too-short-token',
+            newPassword: 'NewPassw0rd!'
+        );
+
+        self::assertGreaterThan(0, $this->v()->validate($dto)->count());
     }
 }

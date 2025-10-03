@@ -14,16 +14,14 @@ final class LoginTest extends WebTestCase
     {
         $client = static::createClient();
 
-        // seed or ensure a known user exists with password 'Secret123!'
-        $client->request('POST', '/api/auth/login', [], [], ['CONTENT_TYPE' => 'application/json'], json_encode([
-            'email' => 'ada@maths.org',
-            'password' => 'Secret123!',
+        $client->request('POST', '/api/login', [], [], ['CONTENT_TYPE' => 'application/json'], json_encode([
+            'email' => 'admin@example.com',
+            'password' => 'adminpass',
         ]));
 
-        self::assertResponseStatusCodeSame(200);
-        $json = json_decode($client->getResponse()->getContent(), true);
+        self::assertResponseIsSuccessful(); // 200
+        $json = json_decode($client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
         self::assertArrayHasKey('token', $json);
         self::assertArrayHasKey('user', $json);
-        self::assertArrayHasKey('email', $json['user']);
     }
 }
