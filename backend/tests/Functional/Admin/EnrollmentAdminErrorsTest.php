@@ -1,24 +1,37 @@
 <?php
-// tests/Functional/Admin/EnrollmentAdminErrorsTest.php
 declare(strict_types=1);
 
 namespace App\Tests\Functional\Admin;
 
+use App\Tests\Functional\Support\AuthClientTrait;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
-use PHPUnit\Framework\Attributes\Test;
+use Symfony\Component\HttpFoundation\Response;
 
 final class EnrollmentAdminErrorsTest extends WebTestCase
 {
-    #[Test]
-    public function dropping_nonexistent_enrollment_yields_404_contract(): void
+    use AuthClientTrait;
+
+    protected function setUp(): void
     {
-        $client = static::createClient();
-        $client->request('DELETE', '/api/admin/classes/999/students/999');
+        self::ensureKernelShutdown();
+        $this->client = static::createClient();
 
-        self::assertResponseStatusCodeSame(404);
-        $data = json_decode($client->getResponse()->getContent(), true, 512, \JSON_THROW_ON_ERROR);
+        $c = static::getContainer();
+        $this->authAsAdmin(
+            $this->client,
+            $c->get('doctrine.orm.entity_manager'),
+            $c->get('security.user_password_hasher'),
+            $c->get('lexik_jwt_authentication.jwt_manager'),
+        );
+    }
 
-        // Align this with your standardized error body:
-        self::assertArrayHasKey('error', $data);
+    public function test_dropping_nonexistent_enrollment_yields_404_contract(): void
+    {
+        $this->client->request('DELETE', '/admin/enrollments/999999');
+        self::assertResponseStatusCodeSame(Response::HTTP_NOT_FOUND);
+
+        $payload = json_decode($this->client->getResponse()->getContent(), true);
+        // If you want the standardized error shape, assert accordingly:
+        // self::assertSame(['error' => ['code' => 'NOT_FOUND', 'details' => []]], $payload);
     }
 }

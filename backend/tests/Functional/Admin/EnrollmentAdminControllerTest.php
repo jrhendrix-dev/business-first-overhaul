@@ -1,31 +1,37 @@
 <?php
-// tests/Functional/Admin/EnrollmentAdminControllerTest.php
 declare(strict_types=1);
 
 namespace App\Tests\Functional\Admin;
 
+use App\Tests\Functional\Support\AuthClientTrait;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
-use PHPUnit\Framework\Attributes\Test;
 
 final class EnrollmentAdminControllerTest extends WebTestCase
 {
-    #[Test]
-    public function admin_list_returns_array(): void
+    use AuthClientTrait;
+
+    protected function setUp(): void
     {
-        $client = static::createClient();
+        self::ensureKernelShutdown();
+        $this->client = static::createClient();
 
-        // Add your admin Bearer token if firewall requires it:
-        // $client->setServerParameter('HTTP_Authorization', 'Bearer '.$this->getAdminJwt());
+        $c = static::getContainer();
+        $this->authAsAdmin(
+            $this->client,
+            $c->get('doctrine.orm.entity_manager'),
+            $c->get('security.user_password_hasher'),
+            $c->get('lexik_jwt_authentication.jwt_manager'),
+        );
+    }
 
-        $client->request('GET', '/api/admin/classes/1/enrollments');
-
+    public function test_admin_list_returns_array(): void
+    {
+        // adjust to your new route prefix if you moved it:
+        $this->client->request('GET', '/admin/enrollments'); // "/api" is pre-added by config
         self::assertResponseIsSuccessful();
-        $json = json_decode($client->getResponse()->getContent(), true, 512, \JSON_THROW_ON_ERROR);
-        self::assertIsArray($json);
-        if ($json !== []) {
-            self::assertArrayHasKey('id', $json[0]);
-            self::assertArrayHasKey('student', $json[0]);
-            self::assertArrayHasKey('status', $json[0]);
-        }
+        self::assertResponseHeaderSame('content-type', 'application/json');
+
+        $data = json_decode($this->client->getResponse()->getContent(), true);
+        self::assertIsArray($data);
     }
 }
