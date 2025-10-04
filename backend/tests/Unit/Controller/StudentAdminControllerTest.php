@@ -20,8 +20,8 @@ final class StudentAdminControllerTest extends TestCase
     public function lists_active_classrooms_for_student(): void
     {
         $users       = $this->createMock(UserManager::class);
-        $enrollments = $this->createMock(EnrollmentPort::class);                 // <-- correct type
-        $mapper      = $this->createMock(StudentClassroomResponsePort::class);   // <-- mock interface, not final class
+        $enrollments = $this->createMock(EnrollmentPort::class);
+        $mapper      = $this->createMock(StudentClassroomResponsePort::class);
 
         $student = new User();
         $student->setRole(UserRoleEnum::STUDENT); // enum-typed property must be initialized
