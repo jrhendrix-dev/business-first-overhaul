@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Controller\Admin;
 
 use App\Service\ClassroomManager;
+use App\Service\Contracts\EnrollmentPort;
 use App\Service\EnrollmentManager;
 use App\Service\RequestEntityResolver;
 use App\Mapper\Response\EnrollmentResponseMapper;
@@ -50,7 +51,7 @@ final class EnrollmentAdminController extends AbstractController
      * @param EnrollmentResponseMapper  $enrollmentMapper    Maps Enrollment entities to API arrays.
      */
     public function __construct(
-        private readonly EnrollmentManager $enrollmentManager,
+        private readonly EnrollmentPort $enrollmentManager,
         private readonly ClassroomManager $classroomManager,
         private readonly RequestEntityResolver $resolver,
         private readonly EnrollmentResponseMapper $enrollmentMapper,

@@ -211,4 +211,31 @@ final class EnrollmentRepository extends ServiceEntityRepository
             ->getQuery()
             ->execute();
     }
+
+    /**
+     * @return Enrollment[] ACTIVE enrollments for the student with classroom+teacher preloaded.
+     */
+    public function findActiveByStudent(User $student): array
+    {
+        return $this->createQueryBuilder('e')
+            ->leftJoin('e.classroom', 'c')->addSelect('c')
+            ->leftJoin('c.teacher', 't')->addSelect('t')
+            ->andWhere('e.student = :s')->setParameter('s', $student)
+            ->andWhere('e.status = :st')->setParameter('st', \App\Enum\EnrollmentStatusEnum::ACTIVE)
+            ->orderBy('c.name', 'ASC')
+            ->getQuery()->getResult();
+    }
+
+    /** Count ACTIVE enrollments in a classroom (you already added this, keep as-is) */
+    public function countActiveByClassroom(Classroom $classroom): int
+    {
+        return (int) $this->createQueryBuilder('e')
+            ->select('COUNT(e.id)')
+            ->andWhere('e.classroom = :c')->setParameter('c', $classroom)
+            ->andWhere('e.status = :st')->setParameter('st', EnrollmentStatusEnum::ACTIVE)
+            ->getQuery()
+            ->getSingleScalarResult();
+    }
+
+
 }

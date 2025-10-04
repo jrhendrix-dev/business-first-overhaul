@@ -70,6 +70,8 @@ final class EnrollmentManager implements EnrollmentPort
         return $enrollment;
     }
 
+
+
     /**
      * Soft drop the ACTIVE enrollment, if present. No-op if not currently active.
      *
@@ -149,6 +151,13 @@ final class EnrollmentManager implements EnrollmentPort
         return $this->enrollments->findEnrollmentById($enrollmentId);
     }
 
+
+    public function getActiveForStudent(User $student): array
+    {
+        return $this->enrollments->findActiveByStudent($student);
+    }
+
+
     /**
      * Fetch the Enrollment for a given (studentId, classId) pair or throw if none found.
      *
@@ -174,5 +183,10 @@ final class EnrollmentManager implements EnrollmentPort
         }
 
         return $enrollment;
+    }
+
+    public function countActiveByClassroom(Classroom $classroom): int
+    {
+        return \count($this->enrollments->findActiveByClassroom($classroom));
     }
 }

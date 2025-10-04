@@ -7,6 +7,7 @@ use App\Entity\User;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 use App\Entity\Enrollment;
+use App\Enum\EnrollmentStatusEnum;
 
 /**
  * @extends ServiceEntityRepository<Classroom>
@@ -109,5 +110,36 @@ class ClassroomRepository extends ServiceEntityRepository
             ->setParameter('teacher', $teacher)
             ->getQuery()
             ->getResult();
+    }
+
+    public function findAllWithTeacher(): array
+    {
+        return $this->createQueryBuilder('c')
+            ->leftJoin('c.teacher', 't')->addSelect('t')
+            ->orderBy('c.name', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
+
+    /** @return Classroom[] */
+    public function findByNameWithTeacher(string $name): array
+    {
+        return $this->createQueryBuilder('c')
+            ->leftJoin('c.teacher', 't')->addSelect('t')
+            ->andWhere('c.name LIKE :n')->setParameter('n', '%'.$name.'%')
+            ->orderBy('c.name', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    public function countActiveByClassroom(Classroom $classroom): int
+    {
+        return (int) $this->createQueryBuilder('e')
+            ->select('COUNT(e.id)')
+            ->andWhere('e.classroom = :c')->setParameter('c', $classroom)
+            ->andWhere('e.status = :st')->setParameter('st', EnrollmentStatusEnum::ACTIVE)
+            ->getQuery()
+            ->getSingleScalarResult();
     }
 }
