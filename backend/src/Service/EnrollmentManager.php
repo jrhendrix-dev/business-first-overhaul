@@ -187,6 +187,6 @@ final class EnrollmentManager implements EnrollmentPort
 
     public function countActiveByClassroom(Classroom $classroom): int
     {
-        return \count($this->enrollments->findActiveByClassroom($classroom));
+        return $this->enrollments->countActiveByClassroom($classroom);
     }
 }

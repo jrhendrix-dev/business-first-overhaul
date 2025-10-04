@@ -7,6 +7,7 @@ namespace App\Controller\Admin;
 use App\Dto\Classroom\CreateClassroomDto;
 use App\Dto\Classroom\RenameClassroomDto;
 use App\Mapper\Response\ClassroomResponseMapper;
+use App\Mapper\Response\Contracts\ClassroomResponsePort;
 use App\Repository\ClassroomRepository;
 use App\Service\ClassroomManager;
 use App\Service\Contracts\EnrollmentPort;
@@ -26,12 +27,12 @@ use App\Repository\EnrollmentRepository;
 final class ClassroomAdminController extends AbstractController
 {
     public function __construct(
-        private readonly ClassroomManager $classrooms,
-        private readonly UserManager $users,
-        private readonly ClassroomRepository $classroomRepo,
-        private readonly ClassroomResponseMapper $mapper,
-        private readonly ValidatorInterface $validator,
-        private readonly EnrollmentPort $enrollmentRepo,
+        private readonly ClassroomManager        $classrooms,
+        private readonly UserManager             $users,
+        private readonly ClassroomRepository     $classroomRepo,
+        private readonly ClassroomResponsePort   $mapper,
+        private readonly ValidatorInterface      $validator,
+        private readonly EnrollmentPort          $enrollments,
     ) {}
 
     #[Route('', name: 'admin_classroom_list', methods: ['GET'])]
@@ -50,7 +51,7 @@ final class ClassroomAdminController extends AbstractController
             return $this->json(['error' => ['code' => 'NOT_FOUND', 'details' => ['resource' => 'Classroom']]], 404);
         }
 
-        $activeCount = $this->enrollmentRepo->countActiveByClassroom($class);
+        $activeCount = $this->enrollments->countActiveByClassroom($class);
         return $this->json($this->mapper->toDetail($class, $activeCount));
     }
 

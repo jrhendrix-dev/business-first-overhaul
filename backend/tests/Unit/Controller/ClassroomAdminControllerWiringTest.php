@@ -5,13 +5,15 @@ declare(strict_types=1);
 namespace App\Tests\Unit\Controller;
 
 use App\Controller\Admin\ClassroomAdminController;
-use App\Mapper\Response\ClassroomResponseMapper;
+use App\Entity\Classroom;
+use App\Mapper\Response\Contracts\ClassroomResponsePort;
 use App\Repository\ClassroomRepository;
-use App\Repository\EnrollmentRepository;
 use App\Service\ClassroomManager;
+use App\Service\Contracts\EnrollmentPort;
 use App\Service\UserManager;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
 
 final class ClassroomAdminControllerWiringTest extends TestCase
@@ -19,22 +21,40 @@ final class ClassroomAdminControllerWiringTest extends TestCase
     #[Test]
     public function get_one_passes_active_count_into_mapper(): void
     {
-        $classroom = $this->createMock(\App\Entity\Classroom::class);
-        $cm  = $this->createMock(ClassroomManager::class);
-        $um  = $this->createMock(UserManager::class);
-        $cr  = $this->createMock(ClassroomRepository::class);
-        $er  = $this->createMock(EnrollmentRepository::class);
-        $map = $this->createMock(ClassroomResponseMapper::class);
-        $val = $this->createMock(ValidatorInterface::class);
+        $classroomManager = $this->createMock(ClassroomManager::class);
+        $userManager      = $this->createStub(UserManager::class);
+        $repo             = $this->createStub(ClassroomRepository::class);
+        $validator        = $this->createStub(ValidatorInterface::class);
 
-        $cm->method('getClassById')->willReturn($classroom);
-        $er->method('countActiveByClassroom')->with($classroom)->willReturn(2);
-        $map->method('toDetail')->willReturn(new \App\Dto\Classroom\ClassroomDetailDto(2, 'B1', null, 2));
+        // Mock *interfaces* (not finals)
+        $enrollments      = $this->createMock(EnrollmentPort::class);
+        $mapper           = $this->createMock(ClassroomResponsePort::class);
 
-        $ctl = new ClassroomAdminController($cm, $um, $cr, $map, $val, $er);
-        $resp = $ctl->getOne(2);
+        $classroomId = 123;
+        $classroom   = $this->createStub(Classroom::class);
+        $activeCount = 7;
 
-        self::assertSame(200, $resp->getStatusCode());
-        self::assertStringContainsString('"activeStudents":2', (string) $resp->getContent());
+        $classroomManager->method('getClassById')
+            ->with($classroomId)->willReturn($classroom);
+
+        $enrollments->method('countActiveByClassroom')
+            ->with($classroom)->willReturn($activeCount);
+
+        $mapper->expects($this->once())
+            ->method('toDetail')
+            ->with($classroom, $activeCount)
+            ->willReturn(['id' => $classroomId, 'activeCount' => $activeCount]);
+
+        $controller = new ClassroomAdminController(
+            $classroomManager,
+            $userManager,
+            $repo,
+            $mapper,
+            $validator,
+            $enrollments
+        );
+
+        $resp = $controller->getOne($classroomId);
+        self::assertSame(Response::HTTP_OK, $resp->getStatusCode());
     }
 }

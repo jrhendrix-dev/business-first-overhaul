@@ -9,6 +9,7 @@ use App\Entity\Classroom;
 use App\Entity\Enrollment;
 use App\Entity\User;
 use App\Enum\EnrollmentStatusEnum;
+use App\Enum\UserRoleEnum;
 use App\Mapper\Response\StudentClassroomResponseMapper;
 use App\Service\Contracts\EnrollmentPort;
 use App\Service\UserManager;
@@ -25,6 +26,7 @@ final class StudentAdminControllerTest extends TestCase
             ->setFirstName('Sara')
             ->setLastName('Diaz')
             ->setEmail('sara@example.org')
+            ->setRole(UserRoleEnum::STUDENT)
             ->setPassword('x');
 
         $users = $this->createMock(UserManager::class);

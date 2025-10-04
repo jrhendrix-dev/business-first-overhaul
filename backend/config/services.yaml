@@ -29,6 +29,7 @@ services:
             - '../src/**/Tests/'
 
     # Domain ports/adapters
+    App\Mapper\Response\Contracts\ClassroomResponsePort: '@App\Mapper\Response\ClassroomResponseMapper'
     App\Service\Contracts\EnrollmentPort: '@App\Service\EnrollmentManager'
 
     App\Service\Contracts\PasswordResetTokenPort:

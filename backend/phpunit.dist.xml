@@ -6,6 +6,7 @@
          failOnNotice="true"
          failOnWarning="true"
          bootstrap="tests/bootstrap.php"
+         cacheResult="false"
          cacheDirectory=".phpunit.cache">
 
     <php>

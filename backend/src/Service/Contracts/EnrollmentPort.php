@@ -15,16 +15,19 @@ use App\Entity\User;
 interface EnrollmentPort
 {
     /**
-     * Ensure the student is ACTIVE in classroom (idempotent).
+     * Enroll (or reactivate) a student in a classroom (idempotent).
      *
      * @param Classroom $classroom
-     * @param User      $student
-     * @return Enrollment ACTIVE enrollment row after the operation.
+     * @param User $student
+     * @return Enrollment
      */
     public function enrollByIds(Classroom $classroom, User $student): Enrollment;
 
     /**
-     * Soft drop the ACTIVE enrollment for the student in classroom, if present.
+     * Soft-drop a student from a classroom (no-op if already inactive).
+     *
+     * @param Classroom $classroom
+     * @param User $student
      */
     public function softDropByIds(Classroom $classroom, User $student): void;
 
@@ -34,7 +37,9 @@ interface EnrollmentPort
     public function dropActiveForStudent(User $student, ?Classroom $classroom = null): void;
 
     /**
-     * Soft drop all ACTIVE enrollments for a classroom.
+     * Bulk soft-drop all ACTIVE enrollments for a classroom.
+     *
+     * @param Classroom $classroom
      */
     public function dropAllActiveForClassroom(Classroom $classroom): void;
 
@@ -70,7 +75,10 @@ interface EnrollmentPort
     public function getActiveForStudent(User $student): array;
 
     /**
-     * Count ACTIVE enrollments in a classroom.
+     * Count ACTIVE enrollments for a classroom.
+     *
+     * @param Classroom $classroom
+     * @return int
      */
     public function countActiveByClassroom(Classroom $classroom): int;
 }

@@ -8,6 +8,8 @@ use Symfony\Component\Dotenv\Dotenv;
 
 require dirname(__DIR__) . '/vendor/autoload.php';
 
+DG\BypassFinals::enable();
+
 // Load .env cascade (.env, .env.test, .env.local, etc.)
 if (method_exists(Dotenv::class, 'bootEnv')) {
     // usePutenv makes values available to getenv()/putenv, which some libs use

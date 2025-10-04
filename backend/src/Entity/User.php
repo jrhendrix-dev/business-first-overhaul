@@ -48,7 +48,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     private \DateTimeImmutable $createdAt;
 
     #[ORM\Column(type: 'string', length: 32, enumType: UserRoleEnum::class)]
-    private UserRoleEnum $role;
+    private UserRoleEnum $role = UserRoleEnum::STUDENT;
 
     #[ORM\Column(name: 'is_active', type: 'boolean', options: ['default' => true])]
     private bool $isActive = true;
