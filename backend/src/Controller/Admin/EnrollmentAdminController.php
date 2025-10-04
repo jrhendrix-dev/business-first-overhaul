@@ -12,19 +12,43 @@ use DomainException;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\Routing\Annotation\Route;
+use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
 /**
- * Admin endpoints for classroom enrollments.
+ * Admin endpoints for managing classroom enrollments.
  *
- * All routes here are served under /api/admin/... thanks to the
- * global "/api" prefix configured in your routing and the local "/admin" prefix.
+ * Routing
+ * -------
+ * Controllers under `App\Controller\Admin\` are prefixed with `/api/admin` by `config/routes.yaml`.
+ * This class adds a local `/enrollments` prefix, so final paths are:
+ *
+ * - PUT    /api/admin/enrollments/class/{classId}/student/{studentId}
+ * - DELETE /api/admin/enrollments/class/{classId}/student/{studentId}
+ * - DELETE /api/admin/enrollments/class/{classId}/student/{studentId}/hard
+ * - DELETE /api/admin/enrollments/class/{classId}/enrollments
+ * - GET    /api/admin/enrollments/class/{classId}/enrollments
+ * - GET    /api/admin/enrollments/class/{classId}/active-enrollments
+ *
+ * Security
+ * --------
+ * All routes require an authenticated user with ROLE_ADMIN.
+ *
+ * Error Contract
+ * --------------
+ * Validation / domain / not-found errors are normalized elsewhere to:
+ * { "error": { "code": UPPER_SNAKE_CODE, "details": { ... } } }
  */
 #[IsGranted('ROLE_ADMIN')]
-#[Route('')]
+#[Route('/enrollments')]
 final class EnrollmentAdminController extends AbstractController
 {
+    /**
+     * @param EnrollmentManager         $enrollmentManager   Domain service for enrollment workflows.
+     * @param ClassroomManager          $classroomManager    Domain service for classroom logic.
+     * @param RequestEntityResolver     $resolver            Helper to resolve/require entities by id.
+     * @param EnrollmentResponseMapper  $enrollmentMapper    Maps Enrollment entities to API arrays.
+     */
     public function __construct(
         private readonly EnrollmentManager $enrollmentManager,
         private readonly ClassroomManager $classroomManager,
@@ -33,12 +57,28 @@ final class EnrollmentAdminController extends AbstractController
     ) {}
 
     /**
-     * Enroll (or reactivate) a student in a classroom. Idempotent.
+     * Enroll (or reactivate) a student in a classroom (idempotent).
      *
-     * PUT /api/admin/classes/{classId}/students/{studentId}
+     * Route: PUT /api/admin/enrollments/class/{classId}/student/{studentId}
+     *
+     * Behavior
+     * - If the student is already actively enrolled, returns the current enrollment.
+     * - If previously dropped/soft-deleted, reactivates it.
+     * - Applies business rules in the domain layer (e.g., class capacity).
+     *
+     * Responses
+     * - 201 Created: { id, studentId, classId, status }
+     * - 404 Not Found (normalized): { "error": { "code": "NOT_FOUND", ... } } when class/student not found.
+     * - 409 Conflict: { "error": { "code": "CONFLICT", "details": { "message": string } } } on domain rule conflict.
+     *
+     * @param int $classId    Classroom identifier.
+     * @param int $studentId  Student identifier.
+     * @return JsonResponse   Enrollment summary payload.
+     *
+     * @throws \Symfony\Component\HttpKernel\Exception\NotFoundHttpException When class or student does not exist.
      */
     #[Route(
-        '/classes/{classId}/students/{studentId}',
+        '/class/{classId}/student/{studentId}',
         name: 'admin_enrollments_enroll',
         requirements: ['classId' => '\d+', 'studentId' => '\d+'],
         methods: ['PUT']
@@ -58,7 +98,6 @@ final class EnrollmentAdminController extends AbstractController
                 'status'    => $enrollment->getStatus()->value,
             ], Response::HTTP_CREATED);
         } catch (DomainException $e) {
-            // e.g., business rule conflict
             return $this->json(
                 ['error' => ['code' => 'CONFLICT', 'details' => ['message' => $e->getMessage()]]],
                 Response::HTTP_CONFLICT
@@ -69,10 +108,21 @@ final class EnrollmentAdminController extends AbstractController
     /**
      * Soft-drop the ACTIVE enrollment for a student in a classroom.
      *
-     * DELETE /api/admin/classes/{classId}/students/{studentId}
+     * Route: DELETE /api/admin/enrollments/class/{classId}/student/{studentId}
+     *
+     * Behavior
+     * - Removes the student from the classroom via the ClassroomManager (soft operation).
+     *
+     * Responses
+     * - 204 No Content on success.
+     * - 404 Not Found (normalized) if class or student does not exist or there is no active enrollment.
+     *
+     * @param int $classId    Classroom identifier.
+     * @param int $studentId  Student identifier.
+     * @return JsonResponse   Empty body with appropriate status code.
      */
     #[Route(
-        '/classes/{classId}/students/{studentId}',
+        '/class/{classId}/student/{studentId}',
         name: 'admin_enrollments_soft_drop',
         requirements: ['classId' => '\d+', 'studentId' => '\d+'],
         methods: ['DELETE']
@@ -88,12 +138,20 @@ final class EnrollmentAdminController extends AbstractController
     }
 
     /**
-     * Hard drop (if you keep the endpoint) — you’re currently delegating to soft drop.
+     * Hard drop endpoint (currently delegates to the soft-drop semantics).
      *
-     * DELETE /api/admin/classes/{classId}/students/{studentId}/hard
+     * Route: DELETE /api/admin/enrollments/class/{classId}/student/{studentId}/hard
+     *
+     * Responses
+     * - 204 No Content on success.
+     * - 404 Not Found (normalized) if class or student does not exist or there is no active enrollment.
+     *
+     * @param int $classId    Classroom identifier.
+     * @param int $studentId  Student identifier.
+     * @return JsonResponse   Empty body with appropriate status code.
      */
     #[Route(
-        '/classes/{classId}/students/{studentId}/hard',
+        '/class/{classId}/student/{studentId}/hard',
         name: 'admin_enrollments_drop',
         requirements: ['classId' => '\d+', 'studentId' => '\d+'],
         methods: ['DELETE']
@@ -111,10 +169,17 @@ final class EnrollmentAdminController extends AbstractController
     /**
      * Bulk soft-drop all ACTIVE enrollments in a classroom.
      *
-     * DELETE /api/admin/classes/{classId}/enrollments
+     * Route: DELETE /api/admin/enrollments/class/{classId}/enrollments
+     *
+     * Responses
+     * - 204 No Content on success.
+     * - 404 Not Found (normalized) if classroom does not exist.
+     *
+     * @param int $classId  Classroom identifier.
+     * @return JsonResponse Empty body with appropriate status code.
      */
     #[Route(
-        '/classes/{classId}/enrollments',
+        '/class/{classId}/enrollments',
         name: 'admin_enrollments_drop_all',
         requirements: ['classId' => '\d+'],
         methods: ['DELETE']
@@ -130,10 +195,17 @@ final class EnrollmentAdminController extends AbstractController
     /**
      * List enrollments (any status) for a classroom.
      *
-     * GET /api/admin/classes/{classId}/enrollments
+     * Route: GET /api/admin/enrollments/class/{classId}/enrollments
+     *
+     * Responses
+     * - 200 OK: array of enrollments mapped by {@see EnrollmentResponseMapper::toCollection()}.
+     * - 404 Not Found (normalized) if classroom does not exist.
+     *
+     * @param int $classId  Classroom identifier.
+     * @return JsonResponse Array of enrollments.
      */
     #[Route(
-        '/classes/{classId}/enrollments',
+        '/class/{classId}/enrollments',
         name: 'admin_enrollments_list',
         requirements: ['classId' => '\d+'],
         methods: ['GET']
@@ -149,10 +221,17 @@ final class EnrollmentAdminController extends AbstractController
     /**
      * List ACTIVE enrollments for a classroom.
      *
-     * GET /api/admin/classes/{classId}/active-enrollments
+     * Route: GET /api/admin/enrollments/class/{classId}/active-enrollments
+     *
+     * Responses
+     * - 200 OK: array of active enrollments mapped by {@see EnrollmentResponseMapper::toCollection()}.
+     * - 404 Not Found (normalized) if classroom does not exist.
+     *
+     * @param int $classId  Classroom identifier.
+     * @return JsonResponse Array of active enrollments.
      */
     #[Route(
-        '/classes/{classId}/active-enrollments',
+        '/class/{classId}/active-enrollments',
         name: 'admin_active_enrollments_list',
         requirements: ['classId' => '\d+'],
         methods: ['GET']

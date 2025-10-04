@@ -5,10 +5,13 @@ namespace App\Tests\Functional\Admin;
 
 use App\Tests\Functional\Support\AuthClientTrait;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
+use Symfony\Component\HttpFoundation\Response;
 
 final class EnrollmentAdminControllerTest extends WebTestCase
 {
     use AuthClientTrait;
+
+    private \Symfony\Bundle\FrameworkBundle\KernelBrowser $client;
 
     protected function setUp(): void
     {
@@ -24,14 +27,22 @@ final class EnrollmentAdminControllerTest extends WebTestCase
         );
     }
 
-    public function test_admin_list_returns_array(): void
+    /**
+     * The list endpoint requires a classroom id. If the classroom doesn't exist,
+     * our contract returns a NOT_FOUND envelope.
+     */
+    public function test_list_with_unknown_class_returns_404_contract(): void
     {
-        // adjust to your new route prefix if you moved it:
-        $this->client->request('GET', '/admin/enrollments'); // "/api" is pre-added by config
-        self::assertResponseIsSuccessful();
-        self::assertResponseHeaderSame('content-type', 'application/json');
+        $router = static::getContainer()->get('router');
+        $url = $router->generate('admin_enrollments_list', ['classId' => 999999]);
 
-        $data = json_decode($this->client->getResponse()->getContent(), true);
-        self::assertIsArray($data);
+        $this->client->request('GET', $url);
+
+        self::assertResponseStatusCodeSame(Response::HTTP_NOT_FOUND);
+
+        $payload = json_decode($this->client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        self::assertIsArray($payload);
+        self::assertArrayHasKey('error', $payload);
+        self::assertSame('NOT_FOUND', $payload['error']['code'] ?? null);
     }
 }

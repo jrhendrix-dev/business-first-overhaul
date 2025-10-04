@@ -11,6 +11,8 @@ final class EnrollmentAdminErrorsTest extends WebTestCase
 {
     use AuthClientTrait;
 
+    private \Symfony\Bundle\FrameworkBundle\KernelBrowser $client;
+
     protected function setUp(): void
     {
         self::ensureKernelShutdown();
@@ -25,13 +27,21 @@ final class EnrollmentAdminErrorsTest extends WebTestCase
         );
     }
 
-    public function test_dropping_nonexistent_enrollment_yields_404_contract(): void
+    public function test_soft_drop_nonexistent_enrollment_yields_404_contract(): void
     {
-        $this->client->request('DELETE', '/admin/enrollments/999999');
+        $router = static::getContainer()->get('router');
+        $url = $router->generate('admin_enrollments_soft_drop', [
+            'classId'   => 999999,
+            'studentId' => 999999,
+        ]);
+
+        $this->client->request('DELETE', $url);
+
         self::assertResponseStatusCodeSame(Response::HTTP_NOT_FOUND);
 
-        $payload = json_decode($this->client->getResponse()->getContent(), true);
-        // If you want the standardized error shape, assert accordingly:
-        // self::assertSame(['error' => ['code' => 'NOT_FOUND', 'details' => []]], $payload);
+        $payload = json_decode($this->client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        self::assertIsArray($payload);
+        self::assertArrayHasKey('error', $payload);
+        self::assertSame('NOT_FOUND', $payload['error']['code'] ?? null);
     }
 }
