@@ -14,7 +14,7 @@ use Symfony\Component\Routing\Annotation\Route;
 /**
  * Public/API endpoints for enrollments (read-only).
  */
-#[Route('')]
+#[Route('/enrollments')]
 final class EnrollmentController extends AbstractController
 {
     public function __construct(
@@ -27,7 +27,7 @@ final class EnrollmentController extends AbstractController
      * GET /api/classes/{classId}/active-enrollments
      */
     #[Route(
-        '/classes/{classId}/active-enrollments',
+        '/class/{classId}/active-enrollments',
         name: 'active_enrollments_list_public',
         requirements: ['classId' => '\d+'],
         methods: ['GET']
