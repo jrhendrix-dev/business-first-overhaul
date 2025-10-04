@@ -6,11 +6,12 @@ namespace App\Mapper\Response;
 
 use App\Dto\Student\StudentClassroomItemDto;
 use App\Entity\Enrollment;
+use App\Mapper\Response\Contracts\StudentClassroomResponsePort;
 
 /**
  * Maps Enrollment rows (for a given student) to StudentClassroomItemDto.
  */
-final class StudentClassroomResponseMapper
+final class StudentClassroomResponseMapper implements StudentClassroomResponsePort
 {
     public function toItem(Enrollment $e): StudentClassroomItemDto
     {
@@ -32,9 +33,9 @@ final class StudentClassroomResponseMapper
         );
     }
 
-    /** @param Enrollment[] $items @return StudentClassroomItemDto[] */
-    public function toCollection(array $items): array
+    /** @param Enrollment[] $enrollments @return StudentClassroomItemDto[] */
+    public function toCollection(array $enrollments): array
     {
-        return array_map(fn (Enrollment $e) => $this->toItem($e), $items);
+        return array_map(fn (Enrollment $e) => $this->toItem($e), $enrollments);
     }
 }

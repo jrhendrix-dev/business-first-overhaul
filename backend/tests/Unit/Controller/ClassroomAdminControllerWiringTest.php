@@ -13,6 +13,7 @@ use App\Service\Contracts\EnrollmentPort;
 use App\Service\UserManager;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\DependencyInjection\Container;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
 
@@ -26,9 +27,9 @@ final class ClassroomAdminControllerWiringTest extends TestCase
         $repo             = $this->createStub(ClassroomRepository::class);
         $validator        = $this->createStub(ValidatorInterface::class);
 
-        // Mock *interfaces* (not finals)
-        $enrollments      = $this->createMock(EnrollmentPort::class);
-        $mapper           = $this->createMock(ClassroomResponsePort::class);
+        // Mock interfaces (not finals)
+        $enrollments = $this->createMock(EnrollmentPort::class);
+        $mapper      = $this->createMock(ClassroomResponsePort::class);
 
         $classroomId = 123;
         $classroom   = $this->createStub(Classroom::class);
@@ -53,6 +54,9 @@ final class ClassroomAdminControllerWiringTest extends TestCase
             $validator,
             $enrollments
         );
+
+        // IMPORTANT: AbstractController needs a container for ->json()
+        $controller->setContainer(new Container());
 
         $resp = $controller->getOne($classroomId);
         self::assertSame(Response::HTTP_OK, $resp->getStatusCode());
