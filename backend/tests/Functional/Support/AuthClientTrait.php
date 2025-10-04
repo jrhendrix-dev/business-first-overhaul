@@ -28,20 +28,13 @@ trait AuthClientTrait
             $user->setFirstName('Test');
             $user->setLastName('Admin');
             $user->setEmail($email);
-            // your entity uses "userName" (camel N)
-            if (method_exists($user, 'setUserName')) {
-                $user->setUserName('test_admin');
-            } elseif (method_exists($user, 'setUsername')) {
-                $user->setUsername('test_admin');
-            }
+            method_exists($user, 'setUserName') ? $user->setUserName('test_admin') : $user->setUsername('test_admin');
 
             $this->promoteToAdmin($user);
             $user->setPassword($hasher->hashPassword($user, $plainPassword));
-
             $em->persist($user);
             $em->flush();
         } else {
-            // ensure admin role even if the user already existed
             $this->promoteToAdmin($user);
             $em->flush();
         }
@@ -50,30 +43,24 @@ trait AuthClientTrait
         $client->setServerParameter('HTTP_Authorization', 'Bearer '.$token);
     }
 
-    /**
-     * Support both models:
-     *  - single string role: setRole('ROLE_ADMIN')
-     *  - array roles: setRoles([...]) or addRole('ROLE_ADMIN')
-     */
     private function promoteToAdmin(User $user): void
     {
-        $admin = UserRoleEnum::ROLE_ADMIN->value ?? 'ROLE_ADMIN';
+        $enumCase   = UserRoleEnum::ADMIN;       // enum case
+        $adminValue = $enumCase->value;           // 'ROLE_ADMIN'
 
-        if (method_exists($user, 'setRole')) {
-            $user->setRole($admin);
+        if (method_exists($user, 'setRole')) {    // prefers enum setter
+            $user->setRole($enumCase);
             return;
         }
-        if (method_exists($user, 'setRoles')) {
-            $user->setRoles([$admin]);
+        if (method_exists($user, 'setRoles')) {   // string-array fallback
+            $user->setRoles([$adminValue]);
             return;
         }
         if (method_exists($user, 'addRole')) {
-            $user->addRole($admin);
+            $user->addRole($adminValue);
             return;
         }
-        // Fallback: if nothing else exists, try generic "role" property
-        if (property_exists($user, 'role')) {
-            $user->role = $admin;
-        }
+
+        throw new \RuntimeException('Unable to promote user to admin: no suitable setter found on User.');
     }
 }
