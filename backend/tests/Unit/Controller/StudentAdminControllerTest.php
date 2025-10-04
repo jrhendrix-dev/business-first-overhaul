@@ -27,7 +27,7 @@ final class StudentAdminControllerTest extends TestCase
         $student->setRole(UserRoleEnum::STUDENT); // enum-typed property must be initialized
 
         $users->method('getUserById')->with(42)->willReturn($student);
-        $enrollments->method('findActiveForStudent')->with($student)->willReturn([]); // name below
+        $enrollments->method('getActiveForStudent')->with($student)->willReturn([]); // name below
         $mapper->method('toCollection')->with([])->willReturn([]);
 
         $controller = new StudentAdminController($users, $enrollments, $mapper);
