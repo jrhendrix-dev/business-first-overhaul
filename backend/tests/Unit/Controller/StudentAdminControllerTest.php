@@ -35,7 +35,7 @@ final class StudentAdminControllerTest extends TestCase
 
         // Call the real action name in your controller:
         // If your method is listActiveClassroomsForStudent(int $id): JsonResponse
-        $resp = $controller->classroomsForStudent(42);
+        $resp = $controller->listActiveClassroomsForStudent(42);
         self::assertSame(Response::HTTP_OK, $resp->getStatusCode());
     }
 }
