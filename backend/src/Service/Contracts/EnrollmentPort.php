@@ -61,6 +61,12 @@ interface EnrollmentPort
     public function getActiveEnrollmentsForClassroom(Classroom $classroom): array;
 
     /**
+     * Idempotent enrollment (no duplicate active rows).
+     */
+    public function enroll(User $student, Classroom $classroom): Enrollment;
+
+
+    /**
      * Any enrollments for a classroom (any status).
      *
      * @return Enrollment[]
