@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Controller\Admin;
 
+use App\Dto\Classroom\AssignTeacherDto;
 use App\Dto\Classroom\CreateClassroomDto;
 use App\Dto\Classroom\RenameClassroomDto;
 use App\Mapper\Response\ClassroomResponseMapper;
@@ -39,7 +40,7 @@ final class ClassroomAdminController extends AbstractController
     public function list(): JsonResponse
     {
 
-        $items = $this->classroomRepo->findAllWithTeacher();
+        $items = $this->classroomRepo->findAllWithTeacher(includeDropped: true);
         return $this->json($this->mapper->toCollection($items));
     }
 
@@ -87,13 +88,6 @@ final class ClassroomAdminController extends AbstractController
         return $this->json(['count' => (int) $count]);
     }
 
-    // GET /api/admin/students/{id}/classrooms
-    #[Route('/../students/{id}/classrooms', // note: we are still inside /classrooms prefix; go up one level
-        name: 'admin_classrooms_for_student',
-        requirements: ['id' => '\d+'],
-        methods: ['GET']
-    )]
-
     #[Route('/unassigned', name: 'admin_classroom_unassigned', methods: ['GET'])]
     public function unassigned(): JsonResponse
     {
@@ -108,8 +102,53 @@ final class ClassroomAdminController extends AbstractController
         if ($name === '') {
             return $this->json(['error' => ['code' => 'VALIDATION_FAILED', 'details' => ['name' => 'Required']]], 400);
         }
-        $items = $this->classroomRepo->findByNameWithTeacher($name);
+        $items = $this->classroomRepo->findByNameWithTeacher($name, includeDropped: true);
         return $this->json($this->mapper->toCollection($items));
+    }
+
+    #[Route('/{id}/teacher', name: 'admin_classroom_assign_teacher', requirements: ['id' => '\\d+'], methods: ['PUT'])]
+    public function assignTeacher(int $id, Request $request): JsonResponse
+    {
+        $class = $this->classrooms->getClassById($id);
+        if (!$class) {
+            return $this->json(['error' => ['code' => 'NOT_FOUND', 'details' => ['resource' => 'Classroom']]], 404);
+        }
+        $dto = AssignTeacherDto::fromArray(json_decode($request->getContent() ?: '{}', true, 512, \JSON_THROW_ON_ERROR));
+        $violations = $this->validator->validate($dto);
+        if (\count($violations) > 0) {
+            $details = [];
+            foreach ($violations as $v) {
+                $details[$v->getPropertyPath()] = $v->getMessage();
+            }
+            return $this->json(['error' => ['code' => 'VALIDATION_FAILED', 'details' => $details]], 422);
+        }
+
+        $teacher = $this->users->getUserById($dto->teacherId);
+        if (!$teacher) {
+            return $this->json(['error' => ['code' => 'NOT_FOUND', 'details' => ['resource' => 'User']]], 404);
+        }
+        if (!$teacher->isTeacher()) {
+            return $this->json(['error' => ['code' => 'VALIDATION_FAILED', 'details' => ['teacherId' => 'User is not a teacher']]], 422);
+        }
+
+        $this->classrooms->assignTeacher($class, $teacher);
+        $activeCount = $this->enrollments->countActiveByClassroom($class);
+
+        return $this->json($this->mapper->toDetail($class, $activeCount));
+    }
+
+    #[Route('/{id}/reactivate', name: 'admin_classroom_reactivate', requirements: ['id' => '\\d+'], methods: ['POST'])]
+    public function reactivate(int $id): JsonResponse
+    {
+        $class = $this->classrooms->getClassById($id);
+        if (!$class) {
+            return $this->json(['error' => ['code' => 'NOT_FOUND', 'details' => ['resource' => 'Classroom']]], 404);
+        }
+
+        $this->classrooms->reactivate($class);
+        $activeCount = $this->enrollments->countActiveByClassroom($class);
+
+        return $this->json($this->mapper->toDetail($class, $activeCount));
     }
 
     #[Route('', name: 'admin_classroom_create', methods: ['POST'])]
@@ -180,7 +219,15 @@ final class ClassroomAdminController extends AbstractController
         if (!$class) {
             return $this->json(['error' => ['code' => 'NOT_FOUND', 'details' => ['resource' => 'Classroom']]], 404);
         }
-        $this->classrooms->removeClassroom($class);
-        return $this->json(['deleted' => true], 200);
+        $deleted = $this->classrooms->removeClassroom($class);
+        if ($deleted) {
+            return $this->json(['deleted' => true], 200);
+        }
+
+        return $this->json([
+            'deleted'     => false,
+            'softDeleted' => true,
+            'status'      => $class->getStatus()->value,
+        ], 200);
     }
 }

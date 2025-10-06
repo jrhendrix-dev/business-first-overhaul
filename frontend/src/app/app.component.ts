@@ -6,6 +6,6 @@ import { Component } from '@angular/core';
   selector: 'app-root',
   standalone: true,
   templateUrl: './app.component.html',
-  styleUrls: ['./app.css']
+  styleUrls: ['./app.component.css']
 })
 export class AppComponent {}

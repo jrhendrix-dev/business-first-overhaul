@@ -4,6 +4,7 @@ namespace App\Repository;
 
 use App\Entity\Classroom;
 use App\Entity\User;
+use App\Enum\ClassroomStatusEnum;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 use App\Entity\Enrollment;
@@ -33,6 +34,8 @@ class ClassroomRepository extends ServiceEntityRepository
     {
         return $this->createQueryBuilder('c')
             ->andWhere('c.teacher IS NULL')
+            ->andWhere('c.status = :status')
+            ->setParameter('status', ClassroomStatusEnum::ACTIVE)
             ->getQuery()
             ->getResult();
     }
@@ -49,7 +52,9 @@ class ClassroomRepository extends ServiceEntityRepository
     {
         return $this->createQueryBuilder('c')
             ->andWhere('c.teacher = :teacherId')
+            ->andWhere('c.status = :status')
             ->setParameter('teacherId', $teacherId)
+            ->setParameter('status', ClassroomStatusEnum::ACTIVE)
             ->getQuery()
             ->getResult();
     }
@@ -66,7 +71,9 @@ class ClassroomRepository extends ServiceEntityRepository
         return $this->createQueryBuilder('c')
             ->innerJoin(Enrollment::class, 'e', 'WITH', 'e.classroom = c')
             ->andWhere('e.student = :sid')
+            ->andWhere('c.status = :status')
             ->setParameter('sid', $studentId)
+            ->setParameter('status', ClassroomStatusEnum::ACTIVE)
             ->getQuery()
             ->getResult();
     }
@@ -80,7 +87,9 @@ class ClassroomRepository extends ServiceEntityRepository
     public function searchByName(string $term): array {
         return $this->createQueryBuilder('c')
             ->andWhere('c.name LIKE :term')
+            ->andWhere('c.status = :status')
             ->setParameter('term', '%' . $term . '%')
+            ->setParameter('status', ClassroomStatusEnum::ACTIVE)
             ->getQuery()
             ->getResult();
     }
@@ -95,7 +104,9 @@ class ClassroomRepository extends ServiceEntityRepository
         return (int) $this->createQueryBuilder('c')
             ->select('count(c.id)')
             ->andWhere('c.teacher = :teacherId')
+            ->andWhere('c.status = :status')
             ->setParameter('teacherId', $teacherId)
+            ->setParameter('status', ClassroomStatusEnum::ACTIVE)
             ->getQuery()
             ->getSingleScalarResult();
     }
@@ -107,38 +118,49 @@ class ClassroomRepository extends ServiceEntityRepository
     {
         return $this->createQueryBuilder('c')
             ->andWhere('c.teacher = :teacher')
+            ->andWhere('c.status = :status')
             ->setParameter('teacher', $teacher)
+            ->setParameter('status', ClassroomStatusEnum::ACTIVE)
             ->getQuery()
             ->getResult();
     }
 
-    public function findAllWithTeacher(): array
+    public function findAllWithTeacher(bool $includeDropped = false): array
     {
-        return $this->createQueryBuilder('c')
+        $qb = $this->createQueryBuilder('c')
             ->leftJoin('c.teacher', 't')->addSelect('t')
-            ->orderBy('c.name', 'ASC')
-            ->getQuery()
-            ->getResult();
+            ->orderBy('c.name', 'ASC');
+
+        if (!$includeDropped) {
+            $qb->andWhere('c.status = :status')->setParameter('status', ClassroomStatusEnum::ACTIVE);
+        }
+
+        return $qb->getQuery()->getResult();
     }
 
 
     /** @return Classroom[] */
-    public function findByNameWithTeacher(string $name): array
+    public function findByNameWithTeacher(string $name, bool $includeDropped = false): array
     {
-        return $this->createQueryBuilder('c')
+        $qb = $this->createQueryBuilder('c')
             ->leftJoin('c.teacher', 't')->addSelect('t')
             ->andWhere('c.name LIKE :n')->setParameter('n', '%'.$name.'%')
-            ->orderBy('c.name', 'ASC')
-            ->getQuery()
-            ->getResult();
+            ->orderBy('c.name', 'ASC');
+
+        if (!$includeDropped) {
+            $qb->andWhere('c.status = :status')->setParameter('status', ClassroomStatusEnum::ACTIVE);
+        }
+
+        return $qb->getQuery()->getResult();
     }
 
     public function countActiveByClassroom(Classroom $classroom): int
     {
-        return (int) $this->createQueryBuilder('e')
+        return (int) $this->createQueryBuilder('c')
             ->select('COUNT(e.id)')
-            ->andWhere('e.classroom = :c')->setParameter('c', $classroom)
-            ->andWhere('e.status = :st')->setParameter('st', EnrollmentStatusEnum::ACTIVE)
+            ->leftJoin('c.enrollments', 'e')
+            ->andWhere('c = :classroom')->setParameter('classroom', $classroom)
+            ->andWhere('e.status = :status')->setParameter('status', EnrollmentStatusEnum::ACTIVE)
             ->getQuery()
             ->getSingleScalarResult();
     }

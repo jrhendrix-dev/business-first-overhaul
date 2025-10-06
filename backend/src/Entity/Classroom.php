@@ -2,6 +2,7 @@
 
 namespace App\Entity;
 
+use App\Enum\ClassroomStatusEnum;
 use App\Enum\UserRoleEnum;
 use App\Entity\Enrollment;
 use App\Entity\User;
@@ -39,6 +40,9 @@ class Classroom
     #[ORM\JoinColumn(name: 'teacher_id', referencedColumnName: 'id', nullable: true, onDelete: 'SET NULL')]
     #[MaxDepth(1)]
     private ?User $teacher = null;
+
+    #[ORM\Column(type: 'string', enumType: ClassroomStatusEnum::class)]
+    private ClassroomStatusEnum $status = ClassroomStatusEnum::ACTIVE;
 
     public function __construct()
     {
@@ -122,5 +126,22 @@ class Classroom
         }
         $this->teacher = $user;
         return $this;
+    }
+
+    public function getStatus(): ClassroomStatusEnum
+    {
+        return $this->status;
+    }
+
+    /** @return self */
+    public function setStatus(ClassroomStatusEnum $status): self
+    {
+        $this->status = $status;
+        return $this;
+    }
+
+    public function isDropped(): bool
+    {
+        return $this->status === ClassroomStatusEnum::DROPPED;
     }
 }

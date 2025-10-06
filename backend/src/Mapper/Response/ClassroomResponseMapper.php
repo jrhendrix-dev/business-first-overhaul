@@ -14,7 +14,7 @@ final class ClassroomResponseMapper implements ClassroomResponsePort
 {
     /**
      * @param Classroom[] $items
-     * @return array<int, array{id:int,name:string,user:?array{ id:int, name:string }}>
+     * @return array<int, array{id:int,name:string,teacher:?array{ id:int, name:string },status:string}>
      */
     public function toCollection(array $items): array
     {
@@ -29,8 +29,9 @@ final class ClassroomResponseMapper implements ClassroomResponsePort
      * @return array{
      *   id:int,
      *   name:string,
-     *   user:?array{id:int,name:string},
-     *   activeStudents:int
+     *   teacher:?array{id:int,name:string},
+     *   activeStudents:int,
+     *   status:string
      * }
      */
     public function toDetail(Classroom $classroom, int $activeCount = 0): array
@@ -42,6 +43,7 @@ final class ClassroomResponseMapper implements ClassroomResponsePort
             'name'           => (string) $classroom->getName(),
             'teacher'        => $teacher ? $this->teacherMini($teacher) : null,
             'activeStudents' => $activeCount,
+            'status'         => $classroom->getStatus()->value,
         ];
     }
 
@@ -49,7 +51,8 @@ final class ClassroomResponseMapper implements ClassroomResponsePort
      * @return array{
      *   id:int,
      *   name:string,
-     *   user:?array{id:int,name:string}
+     *   teacher:?array{id:int,name:string},
+     *   status:string
      * }
      */
     public function toItem(Classroom $classroom): array
@@ -60,6 +63,7 @@ final class ClassroomResponseMapper implements ClassroomResponsePort
             'id'      => (int) $classroom->getId(),
             'name'    => (string) $classroom->getName(),
             'teacher' => $teacher ? $this->teacherMini($teacher) : null,
+            'status'  => $classroom->getStatus()->value,
         ];
     }
 

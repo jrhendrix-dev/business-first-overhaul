@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Unit\Mapper;
 
 use App\Entity\Classroom;
+use App\Enum\ClassroomStatusEnum;
 use App\Mapper\Response\ClassroomResponseMapper;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -17,9 +18,10 @@ final class ClassroomResponseMapperTest extends TestCase
         $mapper = new ClassroomResponseMapper();
 
         $classroom = $this->createConfiguredStub(Classroom::class, [
-            'getId'   => 10,
-            'getName' => 'A1',
+            'getId'      => 10,
+            'getName'    => 'A1',
             'getTeacher' => null,
+            'getStatus'  => ClassroomStatusEnum::ACTIVE,
         ]);
 
         $item = $mapper->toItem($classroom);
@@ -30,5 +32,26 @@ final class ClassroomResponseMapperTest extends TestCase
         self::assertSame('A1', $item['name']);
         self::assertArrayHasKey('teacher', $item);
         self::assertNull($item['teacher']);
+        self::assertSame(ClassroomStatusEnum::ACTIVE->value, $item['status']);
+    }
+
+    #[Test]
+    public function to_detail_includes_status_and_active_students(): void
+    {
+        $mapper = new ClassroomResponseMapper();
+
+        $classroom = $this->createConfiguredStub(Classroom::class, [
+            'getId'      => 55,
+            'getName'    => 'Zeta',
+            'getTeacher' => null,
+            'getStatus'  => ClassroomStatusEnum::DROPPED,
+        ]);
+
+        $detail = $mapper->toDetail($classroom, 3);
+
+        self::assertSame(55, $detail['id']);
+        self::assertSame('Zeta', $detail['name']);
+        self::assertSame(3, $detail['activeStudents']);
+        self::assertSame(ClassroomStatusEnum::DROPPED->value, $detail['status']);
     }
 }

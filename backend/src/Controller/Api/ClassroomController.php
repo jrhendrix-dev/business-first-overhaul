@@ -14,7 +14,7 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
-#[IsGranted('ROLE_USER')]
+#[IsGranted('ROLE_TEACHER')]
 #[Route('/classrooms')]
 final class ClassroomController extends AbstractController
 {
@@ -24,6 +24,7 @@ final class ClassroomController extends AbstractController
         private readonly ClassroomResponseMapper $mapper,
     ) {}
 
+
     #[Route('', name: 'classroom_list_public', methods: ['GET'])]
     public function list(): JsonResponse
     {
@@ -31,15 +32,17 @@ final class ClassroomController extends AbstractController
         return $this->json($this->mapper->toCollection($items));
     }
 
+
     #[Route('/{id}', name: 'classroom_get_public', requirements: ['id' => '\d+'], methods: ['GET'])]
     public function getOne(int $id): JsonResponse
     {
         $class = $this->classrooms->getClassById($id);
-        if (!$class) {
+        if (!$class || $class->isDropped()) {
             return $this->json(['error' => ['code' => 'NOT_FOUND', 'details' => ['resource' => 'Classroom']]], 404);
         }
         return $this->json($this->mapper->toDetail($class));
     }
+
 
     #[Route('/search', name: 'classroom_search_public', methods: ['GET'])]
     public function searchByName(Request $request): JsonResponse
@@ -51,6 +54,7 @@ final class ClassroomController extends AbstractController
         $items = $this->classroomRepo->findByNameWithTeacher($name);
         return $this->json($this->mapper->toCollection($items));
     }
+
 
     #[Route('/enrolled-in/{id}', name: 'classroom_enrolled_in_public', requirements: ['id' => '\d+'], methods: ['GET'])]
     public function enrolledIn(int $id): JsonResponse

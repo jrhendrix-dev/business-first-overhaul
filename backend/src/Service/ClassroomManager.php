@@ -4,6 +4,7 @@ namespace App\Service;
 
 use App\Entity\Classroom;
 use App\Entity\User;
+use App\Enum\ClassroomStatusEnum;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
 use App\Repository\ClassroomRepository;
@@ -47,6 +48,9 @@ class ClassroomManager
      */
     public function assignTeacher(Classroom $classroom, User $teacher): void
     {
+        if ($classroom->isDropped()) {
+            throw new LogicException('Cannot assign a teacher to a dropped classroom.');
+        }
         if (!$teacher->isTeacher()) {
             throw new LogicException('Only teachers can be assigned to a classroom as a teacher');
         }
@@ -188,6 +192,7 @@ class ClassroomManager
 
         $c = new Classroom();
         $c->setName($name);
+        $c->setStatus(ClassroomStatusEnum::ACTIVE);
 
         try {
             $this->em->persist($c);
@@ -224,15 +229,28 @@ class ClassroomManager
     }
 
     /**
-     * Deletes a classroom from the database.
+     * Delete a classroom or soft-delete when active enrollments exist.
      *
-     * @param Classroom $classroom The classroom to delete
-     * @note This will also remove all associations with students and teachers
+     * @param Classroom $classroom The classroom to remove.
+     * @return bool True when the classroom was hard-deleted, false when marked DROPPED.
      */
-    public function removeClassroom(Classroom $classroom): void
+    public function removeClassroom(Classroom $classroom): bool
     {
+        $activeEnrollments = $this->enrollments->countActiveByClassroom($classroom);
+        if ($activeEnrollments > 0) {
+            $classroom->setStatus(ClassroomStatusEnum::DROPPED);
+            $classroom->setTeacher(null);
+            $this->em->persist($classroom);
+            $this->enrollments->dropAllActiveForClassroom($classroom);
+            $this->em->flush();
+
+            return false;
+        }
+
         $this->em->remove($classroom);
         $this->em->flush();
+
+        return true;
     }
 
     /**
@@ -262,6 +280,13 @@ class ClassroomManager
         // Delegate to the enrollment boundary which enforces the "ACTIVE only" rule.
         $this->enrollments->dropAllActiveForStudent($student);
         // No flush here — caller controls transaction boundaries.
+    }
+
+    public function reactivate(Classroom $classroom): void
+    {
+        $classroom->setStatus(ClassroomStatusEnum::ACTIVE);
+        $this->em->persist($classroom);
+        $this->em->flush();
     }
 
     /**
