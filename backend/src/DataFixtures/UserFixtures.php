@@ -73,9 +73,9 @@ final class UserFixtures extends Fixture
         // Classrooms
         $classes = [];
         for ($i = 1; $i <= 4; $i++) {
-            $c = new Classroom()->setName("Classroom {$i}");
+            $c = new Classroom();
+            $c->setName("Classroom {$i}");
             $manager->persist($c);
-            $classes[] = $c;
         }
 
         $manager->flush();
