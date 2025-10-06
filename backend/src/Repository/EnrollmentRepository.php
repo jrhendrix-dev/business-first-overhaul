@@ -67,13 +67,12 @@ final class EnrollmentRepository extends ServiceEntityRepository
     public function findActiveByClassroom(Classroom $classroom): array
     {
         return $this->createQueryBuilder('e')
-            ->leftJoin('e.student', 's')->addSelect('s')
-            ->leftJoin('e.classroom', 'c')->addSelect('c')
+            ->addSelect('s')
+            ->leftJoin('e.student', 's')
             ->andWhere('e.classroom = :c')->setParameter('c', $classroom)
-            ->andWhere('e.status = :st')->setParameter('st', EnrollmentStatusEnum::ACTIVE)
+            ->andWhere('e.status = :st')->setParameter('st', \App\Enum\EnrollmentStatusEnum::ACTIVE)
             ->orderBy('e.enrolledAt', 'ASC')
-            ->getQuery()
-            ->getResult();
+            ->getQuery()->getResult();
     }
 
     /**
@@ -225,6 +224,8 @@ final class EnrollmentRepository extends ServiceEntityRepository
             ->orderBy('c.name', 'ASC')
             ->getQuery()->getResult();
     }
+
+
 
     /** Count ACTIVE enrollments in a classroom (you already added this, keep as-is) */
     public function countActiveByClassroom(Classroom $classroom): int

@@ -31,6 +31,7 @@ services:
     # Domain ports/adapters
     App\Mapper\Response\Contracts\ClassroomResponsePort: '@App\Mapper\Response\ClassroomResponseMapper'
     App\Service\Contracts\EnrollmentPort: '@App\Service\EnrollmentManager'
+    App\Service\Contracts\GradePort: '@App\Service\GradeManager'
     App\Mapper\Response\Contracts\StudentClassroomResponsePort: '@App\Mapper\Response\StudentClassroomResponseMapper'
 
     App\Service\Contracts\PasswordResetTokenPort:

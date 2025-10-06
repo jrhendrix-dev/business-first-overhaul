@@ -72,6 +72,7 @@ security:
 
         # Role-based exceptions
         - { path: ^/api/classes/\d+/students, roles: ROLE_TEACHER }
+        - { path: ^/api/teacher, roles: ROLE_TEACHER }
         - { path: ^/api/enrollments,          roles: ROLE_USER }
 
         # Optionally keep "/" public if you add a redirect/home later

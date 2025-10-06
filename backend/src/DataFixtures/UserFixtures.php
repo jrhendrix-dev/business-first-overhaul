@@ -1,11 +1,15 @@
 <?php
+// src/DataFixtures/UserFixtures.php
+declare(strict_types=1);
+
 namespace App\DataFixtures;
 
 use App\Entity\User;
 use App\Entity\Classroom;
+use App\Enum\GradeComponentEnum;
 use App\Enum\UserRoleEnum;
-use App\Service\EnrollmentManager;
-use App\Service\GradeManager;
+use App\Service\Contracts\EnrollmentPort;
+use App\Service\Contracts\GradePort;  // ← alias to avoid clash with service class
 use Doctrine\Bundle\FixturesBundle\Fixture;
 use Doctrine\Persistence\ObjectManager;
 use Faker\Factory;
@@ -16,8 +20,8 @@ final class UserFixtures extends Fixture
 {
     public function __construct(
         private UserPasswordHasherInterface $passwordHasher,
-        private EnrollmentManager $enrollmentManager,
-        private GradeManager $gradeManager,
+        private EnrollmentPort $enrollmentManager, // ← interface
+        private GradePort $gradeManager,           // ← interface (aliased)
     ) {}
 
     /**
@@ -26,72 +30,68 @@ final class UserFixtures extends Fixture
     public function load(ObjectManager $manager): void
     {
         $faker = Factory::create('es_ES');
-        $faker->unique(true); // reset unique just in case
+        $faker->unique(true);
 
-        // --- Admin ---
+        // Admin
         $admin = new User();
-        $admin->setUserName('admin');
-        $admin->setFirstName($faker->firstName());
-        $admin->setLastName($faker->lastName());
-        $admin->setEmail('admin@example.com');
-        $admin->setRole(UserRoleEnum::ADMIN);
-        $admin->setPassword($this->passwordHasher->hashPassword($admin, '1234'));
+            $admin->setUserName('admin');
+            $admin->setFirstName($faker->firstName());
+            $admin->setLastName($faker->lastName());
+            $admin->setEmail('admin@example.com');
+            $admin->setRole(UserRoleEnum::ADMIN);
+            $admin->setPassword($this->passwordHasher->hashPassword($admin, '1234'));
         $manager->persist($admin);
 
-        // --- Teachers ---
+        // Teachers
         $teachers = [];
         for ($i = 1; $i <= 3; $i++) {
-            $t = new User();
-            $t->setEmail($faker->unique()->safeEmail());
-            $t->setFirstName($faker->firstName());
-            $t->setLastName($faker->lastName());
-            $t->setUserName($faker->unique()->userName());
-            $t->setRole(UserRoleEnum::TEACHER);
-            $t->setPassword($this->passwordHasher->hashPassword($t, '1234'));
+            $t = (new User())
+                ->setEmail($faker->unique()->safeEmail())
+                ->setFirstName($faker->firstName())
+                ->setLastName($faker->lastName())
+                ->setUserName($faker->unique()->userName())
+                ->setRole(UserRoleEnum::TEACHER)
+                ->setPassword($this->passwordHasher->hashPassword($t ?? new User(), '1234'));
             $manager->persist($t);
             $teachers[] = $t;
         }
 
-        // --- Students ---
+        // Students
         $students = [];
         for ($i = 1; $i <= 5; $i++) {
-            $s = new User();
-            $s->setEmail($faker->unique()->safeEmail());
-            $s->setFirstName($faker->firstName());
-            $s->setLastName($faker->lastName());
-            $s->setUserName($faker->unique()->userName());
-            $s->setRole(UserRoleEnum::STUDENT);
-            $s->setPassword($this->passwordHasher->hashPassword($s, '1234'));
+            $s = (new User())
+                ->setEmail($faker->unique()->safeEmail())
+                ->setFirstName($faker->firstName())
+                ->setLastName($faker->lastName())
+                ->setUserName($faker->unique()->userName())
+                ->setRole(UserRoleEnum::STUDENT)
+                ->setPassword($this->passwordHasher->hashPassword($s ?? new User(), '1234'));
             $manager->persist($s);
             $students[] = $s;
         }
 
-        // --- Classrooms ---
+        // Classrooms
         $classes = [];
         for ($i = 1; $i <= 4; $i++) {
-            $c = new Classroom();
-            $c->setName("Classroom {$i}");
+            $c = new Classroom()->setName("Classroom {$i}");
             $manager->persist($c);
             $classes[] = $c;
         }
 
-        // Have IDs available for EnrollmentManager/GradeManager usage
         $manager->flush();
 
-        // --- Enrollments + Grades ---
+        // Enrollments + Grades
         foreach ($classes as $idx => $classroom) {
             $slice = array_slice($students, $idx, 2);
             foreach ($slice as $student) {
-                // This enforces domain rules (prevents duplicates, etc.)
                 $enrollment = $this->enrollmentManager->enroll($student, $classroom);
 
                 $gradeCount = random_int(1, 3);
                 for ($g = 0; $g < $gradeCount; $g++) {
-                    $component = $faker->randomElement(['Quiz', 'Homework', 'Project', 'Exam']);
-                    $maxScore  = 10.0;
-                    $score     = (float) random_int(5, 10);
+                    $label     = $faker->randomElement(['Quiz', 'Homework', 'Project', 'Exam']);
+                    $component = GradeComponentEnum::tryFromMixed($label) ?? GradeComponentEnum::QUIZ;
 
-                    $this->gradeManager->addGrade($enrollment, $component, $score, $maxScore);
+                    $this->gradeManager->addGrade($enrollment, $component, (float) random_int(5, 10), 10.0);
                 }
             }
         }

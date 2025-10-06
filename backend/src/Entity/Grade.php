@@ -1,9 +1,13 @@
 <?php
+// src/Entity/Grade.php
+declare(strict_types=1);
+
 namespace App\Entity;
 
 use App\Repository\GradeRepository;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Validator\Constraints as Assert;
+use App\Enum\GradeComponentEnum;
 
 #[ORM\Entity(repositoryClass: GradeRepository::class)]
 #[ORM\Table(name: 'grade')]
@@ -19,14 +23,14 @@ class Grade
     private ?Enrollment $enrollment = null;
 
     // e.g., “Midterm”, “Final”, “Homework 1”
-    #[ORM\Column(length: 100)]
-    #[Assert\NotBlank]
-    private string $component;
+    #[ORM\Column(type: 'string', enumType: GradeComponentEnum::class, length: 32)]
+    #[Assert\NotNull]
+    private GradeComponentEnum $component = GradeComponentEnum::QUIZ;
 
-    // score/maxScore (0..maxScore)
+
     #[ORM\Column(type: 'float')]
     #[Assert\Range(min: 0)]
-    private float $score;
+    private float $score = 0.0;
 
     #[ORM\Column(type: 'float')]
     #[Assert\Range(min: 1)]
@@ -40,25 +44,106 @@ class Grade
         $this->gradedAt = new \DateTimeImmutable();
     }
 
-    public function getId(): ?int { return $this->id; }
+    /**
+     * Primary key accessor.
+     */
+    public function getId(): ?int
+    {
+        return $this->id;
+    }
 
-    public function getEnrollment(): ?Enrollment { return $this->enrollment; }
-    public function setEnrollment(?Enrollment $enrollment): self { $this->enrollment = $enrollment; return $this; }
+    /**
+     * Enrollment getter.
+     */
+    public function getEnrollment(): ?Enrollment
+    {
+        return $this->enrollment;
+    }
 
-    public function getComponent(): string { return $this->component; }
-    public function setComponent(string $component): self { $this->component = $component; return $this; }
+    /**
+     * Fluent enrollment setter.
+     */
+    public function setEnrollment(?Enrollment $enrollment): self
+    {
+        $this->enrollment = $enrollment;
+        return $this;
+    }
 
-    public function getScore(): float { return $this->score; }
-    public function setScore(float $score): self { $this->score = $score; return $this; }
+    /**
+     * Grade component enum accessor.
+     */
+    public function getComponent(): GradeComponentEnum
+    {
+        return $this->component;
+    }
 
-    public function getMaxScore(): float { return $this->maxScore; }
-    public function setMaxScore(float $max): self { $this->maxScore = $max; return $this; }
+    /**
+     * Fluent component setter.
+     */
+    public function setComponent(GradeComponentEnum $component): self
+    {
+        $this->component = $component;
+        return $this;
+    }
 
-    public function getGradedAt(): \DateTimeImmutable { return $this->gradedAt; }
-    public function setGradedAt(\DateTimeImmutable $at): self { $this->gradedAt = $at; return $this; }
+    /**
+     * Score accessor.
+     */
+    public function getScore(): float
+    {
+        return $this->score;
+    }
 
+    /**
+     * Fluent score setter.
+     */
+    public function setScore(float $score): self
+    {
+        $this->score = $score;
+        return $this;
+    }
+
+    /**
+     * Maximum score accessor.
+     */
+    public function getMaxScore(): float
+    {
+        return $this->maxScore;
+    }
+
+    /**
+     * Fluent max-score setter.
+     */
+    public function setMaxScore(float $max): self
+    {
+        $this->maxScore = $max;
+        return $this;
+    }
+
+    /**
+     * Graded timestamp accessor.
+     */
+    public function getGradedAt(): \DateTimeImmutable
+    {
+        return $this->gradedAt;
+    }
+
+    /**
+     * Fluent graded timestamp setter.
+     */
+    public function setGradedAt(\DateTimeImmutable $at): self
+    {
+        $this->gradedAt = $at;
+        return $this;
+    }
+
+    /**
+     * Percent helper calculated from score/maxScore.
+     */
     public function getPercent(): float
     {
         return $this->maxScore > 0 ? ($this->score / $this->maxScore) * 100.0 : 0.0;
     }
+
+
 }

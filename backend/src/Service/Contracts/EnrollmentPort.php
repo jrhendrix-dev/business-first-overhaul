@@ -81,4 +81,13 @@ interface EnrollmentPort
      * @return int
      */
     public function countActiveByClassroom(Classroom $classroom): int;
+
+    /**
+     * Resolve the enrollment for a student/class pair or throw if missing.
+     *
+     * Implementations should surface a domain-level exception when the
+     * enrollment cannot be located so callers (e.g. GradeManager) can
+     * translate the failure into a user-facing error.
+     */
+    public function getByIdsOrFail(int $studentId, int $classId): Enrollment;
 }

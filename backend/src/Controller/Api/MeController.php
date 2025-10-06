@@ -15,6 +15,8 @@ use App\Mapper\Request\UserUpdateRequestMapper;
 use App\Mapper\Response\MeResponseMapper;
 use App\Mapper\Response\UserResponseMapper;
 use App\Service\UserManager;
+use App\Mapper\Response\GradeResponseMapper;
+use App\Service\GradeManager;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -36,6 +38,8 @@ final class MeController extends AbstractController
         private readonly UserResponseMapper $toResponse,     // full user projection (used for PATCH)
         private readonly MeResponseMapper $toMeResponse,     // minimal self view
         private readonly UserManager $manager,
+        private readonly GradeManager $grades,
+        private readonly GradeResponseMapper $gradeResponseMapper,
         private readonly UserUpdateRequestMapper $updateMapper,
         private readonly MeChangePasswordRequestMapper $pwdMapper,
         private readonly ValidatorInterface $validator,
@@ -102,7 +106,7 @@ final class MeController extends AbstractController
      * Body: { "newEmail": "new@example.com", "password": "current_password" }
      * Sends a confirmation email with a token. No immediate change.
      */
-    #[Route('/change-email', name: 'me_email_change_start', methods: ['POST'])]
+    #[Route('/change-email', name: 'email_change_start', methods: ['POST'])]
     public function startChangeEmail(Request $req): JsonResponse
     {
         /** @var User $user */
@@ -132,7 +136,7 @@ final class MeController extends AbstractController
      * Confirm email change with a token (from Mailtrap link).
      * GET /api/me/change-email/confirm?token=...
      */
-    #[Route('/change-email/confirm', name: 'me_email_change_confirm', methods: ['GET'])]
+    #[Route('/change-email/confirm', name: 'email_change_confirm', methods: ['GET'])]
     public function confirmChangeEmail(Request $req): JsonResponse
     {
         $token = (string)$req->query->get('token', '');
@@ -154,6 +158,46 @@ final class MeController extends AbstractController
             'email'   => $user->getEmail(),
         ], Response::HTTP_OK);
     }
+
+    #[Route('/grades', name: 'grades', methods: ['GET'])]
+    public function listGrades(Request $request): JsonResponse
+    {
+        $user = $this->requireAuthenticatedUserEntity();
+        if (!$user->isStudent()) {
+            throw $this->createAccessDeniedException();
+        }
+
+        $classIdRaw = $request->query->get('classId');
+        $classId    = null;
+        if ($classIdRaw !== null) {
+            if (!is_numeric($classIdRaw)) {
+                throw new ValidationException(['classId' => 'Must be a numeric identifier']);
+            }
+            $classId = (int) $classIdRaw;
+            if ($classId <= 0) {
+                throw new ValidationException(['classId' => 'Must be a positive integer']);
+            }
+        }
+
+        $grades = $this->grades->listForStudent($user, $classId);
+
+        return $this->json($this->gradeResponseMapper->toStudentCollection($grades), Response::HTTP_OK);
+    }
+
+    // src/Controller/Api/MeController.php
+    #[Route('/grades/all', name: 'grades_all', methods: ['GET'])]
+    public function listAllGrades(): JsonResponse
+    {
+        $user = $this->requireAuthenticatedUserEntity();
+        if (!$user->isStudent()) {
+            throw $this->createAccessDeniedException();
+        }
+
+        $grades = $this->grades->listForStudent($user, null);
+        return $this->json($this->gradeResponseMapper->toStudentCollection($grades), Response::HTTP_OK);
+    }
+
+
 
 
     /**
