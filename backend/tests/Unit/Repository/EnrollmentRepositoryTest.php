@@ -15,6 +15,7 @@ use Doctrine\ORM\EntityManager;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Tools\SchemaTool;
 use Doctrine\ORM\ORMSetup;
+use Doctrine\DBAL\DriverManager;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
@@ -24,22 +25,19 @@ final class EnrollmentRepositoryTest extends TestCase
     private EnrollmentRepository $repository;
 
     protected function setUp(): void
-    {
-        $config = ORMSetup::createAttributeMetadataConfiguration(
-            paths: [dirname(__DIR__, 3) . '/src/Entity'],
-            isDevMode: true,
-        );
+     {
+         $config = ORMSetup::createAttributeMetadataConfiguration(
+             [dirname(__DIR__, 3) . '/src/Entity'],
+             true
+         );
+         $conn   = DriverManager::getConnection(['driver' => 'pdo_sqlite', 'memory' => true], $config);
+         $this->em = new EntityManager($conn, $config);
 
-        $this->em = EntityManager::create(
-            ['driver' => 'pdo_sqlite', 'memory' => true],
-            $config
-        );
+         $tool = new SchemaTool($this->em);
+         $tool->createSchema($this->em->getMetadataFactory()->getAllMetadata());
 
-        $tool = new SchemaTool($this->em);
-        $tool->createSchema($this->em->getMetadataFactory()->getAllMetadata());
-
-        $this->repository = new EnrollmentRepository(new TestManagerRegistry($this->em));
-    }
+         $this->repository = new EnrollmentRepository(new TestManagerRegistry($this->em));
+     }
 
     protected function tearDown(): void
     {
