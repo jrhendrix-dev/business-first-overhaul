@@ -5,16 +5,22 @@ declare(strict_types=1);
 namespace App\Tests\Unit\Controller;
 
 use App\Controller\Api\MeController;
-use App\Dto\User\Password\ChangePasswordDto;
 use App\Dto\User\UpdateUserDto;
+use App\Entity\Classroom;
+use App\Entity\Enrollment;
+use App\Entity\Grade;
 use App\Entity\User;
+use App\Enum\ClassroomStatusEnum;
+use App\Enum\GradeComponentEnum;
 use App\Enum\UserRoleEnum;
 use App\Http\Exception\ValidationException;
 use App\Mapper\Request\MeChangePasswordRequestMapper;
 use App\Mapper\Request\UserUpdateRequestMapper;
+use App\Mapper\Response\ClassroomResponseMapper;
 use App\Mapper\Response\GradeResponseMapper;
 use App\Mapper\Response\MeResponseMapper;
 use App\Mapper\Response\UserResponseMapper;
+use App\Service\ClassroomManager;
 use App\Service\GradeManager;
 use App\Service\UserManager;
 use App\Tests\Support\EntityIdHelper;
@@ -24,8 +30,10 @@ use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\DependencyInjection\Container as SymfonyContainer;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 use Symfony\Component\Validator\ConstraintViolationList;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
+use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use App\Repository\GradeRepository;
 use App\Repository\ClassroomRepository;
@@ -73,6 +81,8 @@ final class MeControllerTest extends TestCase
             toMeResponse:        $meResp,
             manager:             $users,     // same service injected twice as in controller
             grades:              $grades,
+            classrooms:          $this->createStub(ClassroomManager::class),
+            classMapper:         new ClassroomResponseMapper(),
             gradeResponseMapper: $gradeResp,
             updateMapper:        $updateReq,
             pwdMapper:           $pwdReq,
@@ -130,6 +140,8 @@ final class MeControllerTest extends TestCase
             toMeResponse:        new MeResponseMapper(),
             manager:             $users,
             grades:              $grades,
+            classrooms:          $this->createStub(ClassroomManager::class),
+            classMapper:         new ClassroomResponseMapper(),
             gradeResponseMapper: new GradeResponseMapper(),
             updateMapper:        new UserUpdateRequestMapper(),      // real
             pwdMapper:           new MeChangePasswordRequestMapper(),// real
@@ -169,6 +181,8 @@ final class MeControllerTest extends TestCase
             toMeResponse:        new MeResponseMapper(),
             manager:             $users,
             grades:              $grades,
+            classrooms:          $this->createStub(ClassroomManager::class),
+            classMapper:         new ClassroomResponseMapper(),
             gradeResponseMapper: new GradeResponseMapper(),
             updateMapper:        new UserUpdateRequestMapper(),
             pwdMapper:           new MeChangePasswordRequestMapper(), // real mapper; drive via request JSON
@@ -185,5 +199,243 @@ final class MeControllerTest extends TestCase
         $this->expectException(ValidationException::class);
 
         $controller->changePassword(new Request(content: $badBody));
+    }
+
+    #[Test]
+    public function list_grades_denies_access_for_non_students(): void
+    {
+        $teacher = (new User())
+            ->setUserName('teach')
+            ->setFirstName('Tara')
+            ->setLastName('Teacher')
+            ->setEmail('teacher@example.com')
+            ->setPassword('hash')
+            ->setRole(UserRoleEnum::TEACHER);
+
+        $security = $this->createMock(Security::class);
+        $security->method('getUser')->willReturn($teacher);
+
+        $controller = new MeController(
+            security:            $security,
+            users:               $this->createStub(UserManager::class),
+            toResponse:          new UserResponseMapper(),
+            toMeResponse:        new MeResponseMapper(),
+            manager:             $this->createStub(UserManager::class),
+            grades:              new GradeManager(
+                $this->createStub(EntityManagerInterface::class),
+                $this->createStub(GradeRepository::class),
+                $this->createStub(EnrollmentPort::class),
+                $this->createStub(ClassroomRepository::class),
+            ),
+            classrooms:          $this->createStub(ClassroomManager::class),
+            classMapper:         new ClassroomResponseMapper(),
+            gradeResponseMapper: new GradeResponseMapper(),
+            updateMapper:        new UserUpdateRequestMapper(),
+            pwdMapper:           new MeChangePasswordRequestMapper(),
+            validator:           $this->createStub(ValidatorInterface::class),
+        );
+        $controller->setContainer(new SymfonyContainer());
+
+        $this->expectException(AccessDeniedException::class);
+
+        $controller->listGrades(new Request());
+    }
+
+    #[Test]
+    public function list_grades_rejects_non_numeric_class_id(): void
+    {
+        $student = (new User())
+            ->setUserName('stud')
+            ->setFirstName('Stu')
+            ->setLastName('Dent')
+            ->setEmail('student@example.com')
+            ->setPassword('hash')
+            ->setRole(UserRoleEnum::STUDENT);
+
+        EntityIdHelper::setId($student, 50);
+
+        $security = $this->createMock(Security::class);
+        $security->method('getUser')->willReturn($student);
+
+        $controller = new MeController(
+            security:            $security,
+            users:               $this->createStub(UserManager::class),
+            toResponse:          new UserResponseMapper(),
+            toMeResponse:        new MeResponseMapper(),
+            manager:             $this->createStub(UserManager::class),
+            grades:              new GradeManager(
+                $this->createStub(EntityManagerInterface::class),
+                $this->createStub(GradeRepository::class),
+                $this->createStub(EnrollmentPort::class),
+                $this->createStub(ClassroomRepository::class),
+            ),
+            classrooms:          $this->createStub(ClassroomManager::class),
+            classMapper:         new ClassroomResponseMapper(),
+            gradeResponseMapper: new GradeResponseMapper(),
+            updateMapper:        new UserUpdateRequestMapper(),
+            pwdMapper:           new MeChangePasswordRequestMapper(),
+            validator:           $this->createStub(ValidatorInterface::class),
+        );
+        $controller->setContainer(new SymfonyContainer());
+
+        $this->expectException(ValidationException::class);
+
+        $controller->listGrades(new Request(query: ['classId' => 'abc']));
+    }
+
+    #[Test]
+    public function list_grades_returns_student_collection(): void
+    {
+        $student = (new User())
+            ->setUserName('stud')
+            ->setFirstName('Stu')
+            ->setLastName('Dent')
+            ->setEmail('student@example.com')
+            ->setPassword('hash')
+            ->setRole(UserRoleEnum::STUDENT);
+        EntityIdHelper::setId($student, 42);
+
+        $classroom = (new Classroom())->setName('Biology 101');
+        EntityIdHelper::setId($classroom, 7);
+
+        $enrollment = (new Enrollment())
+            ->setStudent($student)
+            ->setClassroom($classroom)
+            ->setEnrolledAt(new DateTimeImmutable('2024-01-10T08:00:00+00:00'));
+        EntityIdHelper::setId($enrollment, 84);
+
+        $grade = (new Grade())
+            ->setEnrollment($enrollment)
+            ->setComponent(GradeComponentEnum::QUIZ)
+            ->setScore(88.5)
+            ->setMaxScore(100.0)
+            ->setGradedAt(new DateTimeImmutable('2024-01-15T09:00:00+00:00'));
+        EntityIdHelper::setId($grade, 128);
+
+        $gradeRepo = $this->createMock(GradeRepository::class);
+        $gradeRepo->expects($this->once())
+            ->method('listForStudent')
+            ->with($student, null)
+            ->willReturn([$grade]);
+
+        $grades = new GradeManager(
+            $this->createStub(EntityManagerInterface::class),
+            $gradeRepo,
+            $this->createStub(EnrollmentPort::class),
+            $this->createStub(ClassroomRepository::class),
+        );
+
+        $security = $this->createMock(Security::class);
+        $security->method('getUser')->willReturn($student);
+
+        $controller = new MeController(
+            security:            $security,
+            users:               $this->createStub(UserManager::class),
+            toResponse:          new UserResponseMapper(),
+            toMeResponse:        new MeResponseMapper(),
+            manager:             $this->createStub(UserManager::class),
+            grades:              $grades,
+            classrooms:          $this->createStub(ClassroomManager::class),
+            classMapper:         new ClassroomResponseMapper(),
+            gradeResponseMapper: new GradeResponseMapper(),
+            updateMapper:        new UserUpdateRequestMapper(),
+            pwdMapper:           new MeChangePasswordRequestMapper(),
+            validator:           $this->createStub(ValidatorInterface::class),
+        );
+        $controller->setContainer(new SymfonyContainer());
+
+        $response = $controller->listGrades(new Request());
+
+        self::assertSame(Response::HTTP_OK, $response->getStatusCode());
+        self::assertSame([
+            [
+                'id'            => 128,
+                'componentLabel'=> GradeComponentEnum::QUIZ->label(),
+                'score'         => 88.5,
+                'maxScore'      => 100,
+                'percent'       => 88.5,
+                'gradedAt'      => '2024-01-15T09:00:00+00:00',
+                'enrollmentId'  => 84,
+                'classroom'     => [
+                    'id'   => 7,
+                    'name' => 'Biology 101',
+                ],
+            ],
+        ], json_decode((string) $response->getContent(), true, 512, JSON_THROW_ON_ERROR));
+    }
+
+    #[Test]
+    public function enrolled_in_returns_classrooms_for_student(): void
+    {
+        $student = (new User())
+            ->setUserName('stud')
+            ->setFirstName('Stu')
+            ->setLastName('Dent')
+            ->setEmail('student@example.com')
+            ->setPassword('hash')
+            ->setRole(UserRoleEnum::STUDENT);
+        EntityIdHelper::setId($student, 64);
+
+        $teacher = (new User())
+            ->setUserName('teach')
+            ->setFirstName('Tina')
+            ->setLastName('Teacher')
+            ->setEmail('tina@example.com')
+            ->setPassword('hash')
+            ->setRole(UserRoleEnum::TEACHER);
+        EntityIdHelper::setId($teacher, 21);
+
+        $classroom = (new Classroom())
+            ->setName('History 201')
+            ->setTeacher($teacher)
+            ->setStatus(ClassroomStatusEnum::ACTIVE);
+        EntityIdHelper::setId($classroom, 11);
+
+        $classrooms = $this->getMockBuilder(ClassroomManager::class)
+            ->disableOriginalConstructor()
+            ->getMock();
+        $classrooms->expects($this->once())
+            ->method('getFindByStudent')
+            ->with(64)
+            ->willReturn([$classroom]);
+
+        $security = $this->createMock(Security::class);
+        $security->method('getUser')->willReturn($student);
+
+        $controller = new MeController(
+            security:            $security,
+            users:               $this->createStub(UserManager::class),
+            toResponse:          new UserResponseMapper(),
+            toMeResponse:        new MeResponseMapper(),
+            manager:             $this->createStub(UserManager::class),
+            grades:              new GradeManager(
+                $this->createStub(EntityManagerInterface::class),
+                $this->createStub(GradeRepository::class),
+                $this->createStub(EnrollmentPort::class),
+                $this->createStub(ClassroomRepository::class),
+            ),
+            classrooms:          $classrooms,
+            classMapper:         new ClassroomResponseMapper(),
+            gradeResponseMapper: new GradeResponseMapper(),
+            updateMapper:        new UserUpdateRequestMapper(),
+            pwdMapper:           new MeChangePasswordRequestMapper(),
+            validator:           $this->createStub(ValidatorInterface::class),
+        );
+        $controller->setContainer(new SymfonyContainer());
+
+        $response = $controller->enrolledIn();
+
+        self::assertSame(Response::HTTP_OK, $response->getStatusCode());
+        self::assertSame([
+            [
+                'id'      => 11,
+                'name'    => 'History 201',
+                'teacher' => [
+                    'id'   => 21,
+                    'name' => 'Tina Teacher',
+                ],
+                'status'  => ClassroomStatusEnum::ACTIVE->value,
+            ],
+        ], json_decode((string) $response->getContent(), true, 512, JSON_THROW_ON_ERROR));
     }
 }
