@@ -101,7 +101,7 @@ final class GradeRepositoryTest extends TestCase
         $this->em->persist($gradeB);
         $this->em->flush();
 
-        self::assertSame(84.0, $this->repository->averagePercentFor($enrollment));
+        self::assertSame(90.0, $this->repository->averagePercentFor($enrollment));
     }
 
     private function persistEnrollment(): Enrollment

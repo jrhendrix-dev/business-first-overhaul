@@ -42,7 +42,9 @@ final class UserFixturesTest extends TestCase
         $grades->expects($this->exactly(8))
             ->method('addGrade')
             ->with(
-                self::callback(fn(Enrollment $e) => in_array($e, $createdEnrollments, true)),
+                self::callback(static function (Enrollment $enrollment) use (&$createdEnrollments): bool {
+                    return in_array($enrollment, $createdEnrollments, true);
+                }),
                 self::isInstanceOf(GradeComponentEnum::class),
                 self::isType('float'),
                 self::equalTo(10.0)
