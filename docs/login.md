@@ -23,13 +23,13 @@ This file processes login requests submitted via AJAX. It checks the provided cr
 ### 1. **Input Validation**
 The script checks that both `username` and `password` are present in the POST request:
 ```php
-if (!isset($_POST['username']) || !isset($_POST['password'])) { ... }
+if (!isset($_POST['userName']) || !isset($_POST['password'])) { ... }
 ```
 
 ### 2. **Database Query**
 It runs a prepared SQL statement to fetch the user with the given username:
 ```php
-$stmt = $con->prepare("SELECT * FROM users WHERE username = ?");
+$stmt = $con->prepare("SELECT * FROM users WHERE userName = ?");
 ```
 
 ### 3. **Password Check**
@@ -41,7 +41,7 @@ if (password_verify($password, $user['password'])) { ... }
 ### 4. **Session Setup**
 If valid, it initializes `$_SESSION['user']` and `$_SESSION['lvl']`:
 ```php
-$_SESSION["user"] = $user["username"];
+$_SESSION["user"] = $user["userName"];
 $_SESSION["lvl"] = $user["ulevel"];
 ```
 

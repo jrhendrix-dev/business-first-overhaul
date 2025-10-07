@@ -1,7 +1,10 @@
 services:
   mysql:
     image: mysql:8.0
-    container_name: bfe_mysql
+    container_name: mysql-1
+    networks:
+      bfe_network:
+        aliases: [db, mysql]
     restart: no
     environment:
       MYSQL_ROOT_PASSWORD: root
@@ -12,14 +15,11 @@ services:
       - mysql_data:/var/lib/mysql
     ports:
       - "3307:3306"
-    networks:
-      - bfe_network
     healthcheck:
-      test: [ "CMD", "mysqladmin" ,"ping", "-h", "localhost" ]
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1"]
       interval: 10s
       timeout: 5s
       retries: 5
-
 
   backend:
     build:
@@ -27,27 +27,75 @@ services:
       dockerfile: Dockerfile
     container_name: bfe_symfony_backend
     restart: no
+    environment:
+      APP_ENV: dev
+      MAILER_DSN: "smtp://3488809b94296f:f85837f38e644e@sandbox.smtp.mailtrap.io:2525"
+      MAILER_FROM: "Business First <no-reply@businessfirstacademy.net>"
+      FRONTEND_RESET_URL: "http://localhost:4200/reset-password"
+      XDEBUG_MODE: off
+      COMPOSER_ALLOW_SUPERUSER: "1"
     working_dir: /var/www/app
     volumes:
       - ./backend:/var/www/app
     depends_on:
       mysql:
-          condition: service_healthy
+        condition: service_healthy
     ports:
       - "8000:8000"
     command: >
-      bash -c "
-        until mysqladmin ping -h mysql -u symfony -password --silent; do
-          echo '⏳ Waiting for MySQL...'; sleep 2;
-        done &&
-        composer install &&
-        php bin/console doctrine:database:create --if-not-exists &&
-        php bin/console doctrine:schema:update --force &&
-        symfony server:start --no-tls --port=8000 --allow-http --allow-all-ip
-      "
+      bash -lc "
+        set -euo pipefail;
 
+        # NEW: ensure asset target exists and is writable for recipes
+        mkdir -p public/bundles && chmod -R 777 public/bundles
+
+        composer install --no-interaction --prefer-dist --ansi;
+        composer dump-autoload -o --ansi;
+
+        if [ ! -f config/jwt/private.pem ] || [ ! -f config/jwt/public.pem ]; then
+          php bin/console lexik:jwt:generate-keypair --overwrite --no-interaction;
+        fi
+
+        if ! php bin/console doctrine:migrations:migrate -n; then
+          php bin/console doctrine:migrations:sync-metadata-storage --no-interaction || true;
+          php bin/console doctrine:migrations:version --add --all --no-interaction || true;
+        fi
+
+        php -S 0.0.0.0:8000 -t public
+      "
     networks:
       - bfe_network
+
+  # NEW: async message worker (consumes the "async" transport)
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: bfe_symfony_worker
+    restart: no
+    environment:
+      APP_ENV: dev
+      DATABASE_URL: "mysql://symfony:password@mysql:3306/bfe_db?serverVersion=8.0&charset=utf8mb4&ssl-mode=DISABLED"
+      MAILER_DSN: "smtp://3488809b94296f:f85837f38e644e@sandbox.smtp.mailtrap.io:2525"
+      MAILER_FROM: "Business First <no-reply@businessfirstacademy.net>"
+      # lets messenger keep running forever, restarting the process cleanly every hour
+      # (time-limit must be > 0)
+    working_dir: /var/www/app
+    volumes:
+      - ./backend:/var/www/app
+    depends_on:
+      mysql:
+        condition: service_healthy
+    command: >
+      bash -lc "
+        set -euo pipefail;
+        php bin/console doctrine:query:sql 'SELECT 1' >/dev/null 2>&1 || true;
+        php bin/console messenger:setup-transports --no-interaction;
+        exec php bin/console messenger:consume async -vv --sleep=1 --memory-limit=256M --time-limit=3600
+      "
+    networks:
+      - bfe_network
+
 
   frontend:
     build:
@@ -61,10 +109,12 @@ services:
       - ./frontend:/app
     working_dir: /app
     command: npm run start -- --host 0.0.0.0
+    networks:
+      - bfe_network
+
 networks:
   bfe_network:
     driver: bridge
 
 volumes:
   mysql_data:
-

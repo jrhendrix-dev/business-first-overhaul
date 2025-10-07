@@ -1,0 +1,140 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, Backend ]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: bfe_db
+          MYSQL_USER: symfony
+          MYSQL_PASSWORD: password
+        ports: [ "3306:3306" ]
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot"
+          --health-interval=5s
+          --health-timeout=3s
+          --health-retries=30
+
+    env:
+      # base name; test suffix appends "_test"
+      DATABASE_URL: mysql://symfony:password@127.0.0.1:3306/bfe_db?serverVersion=8.0
+
+      APP_SECRET: secretf0rt3st
+      MAILER_DSN: null://null
+      MAILER_FROM: no-reply@example.test
+      MESSENGER_TRANSPORT_DSN: sync://
+
+      # CORS expected by your config
+      CORS_ALLOW_ORIGIN: '^https?://(localhost|127\.0\.0\.1)(:[0-9]+)?$'
+
+      # Lexik JWT (file paths)
+      JWT_PASSPHRASE: ""
+      JWT_SECRET_KEY: "%kernel.project_dir%/config/jwt/private.pem"
+      JWT_PUBLIC_KEY: "%kernel.project_dir%/config/jwt/public.pem"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up PHP (PCOV)
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          coverage: pcov
+          tools: composer
+          extensions: mbstring, intl, pdo_mysql, xml, ctype, dom, json, tokenizer
+
+      - name: Cache Composer
+        uses: actions/cache@v4
+        with:
+          path: ~/.composer/cache
+          key: composer-${{ runner.os }}-${{ hashFiles('backend/composer.lock') }}
+          restore-keys: composer-${{ runner.os }}-
+
+      - name: Create minimal .env for CI
+        working-directory: backend
+        run: |
+          printf "%s\n" \
+            "APP_ENV=dev" \
+            "APP_SECRET=dev_dummy_secret" \
+            "MAILER_DSN=${MAILER_DSN}" \
+            "MESSENGER_TRANSPORT_DSN=${MESSENGER_TRANSPORT_DSN}" \
+            "CORS_ALLOW_ORIGIN=${CORS_ALLOW_ORIGIN}" \
+            "JWT_PASSPHRASE=${JWT_PASSPHRASE}" \
+            "JWT_SECRET_KEY=${JWT_SECRET_KEY}" \
+            "JWT_PUBLIC_KEY=${JWT_PUBLIC_KEY}" \
+            > .env
+
+      - name: Install Composer deps
+        working-directory: backend
+        env:
+          COMPOSER_MEMORY_LIMIT: -1
+          APP_ENV: dev
+        run: composer install --no-ansi --no-interaction --no-progress --prefer-dist --optimize-autoloader --no-scripts
+
+      - name: Wait for MySQL
+        run: |
+          for i in {1..60}; do
+            if mysqladmin ping -h 127.0.0.1 -uroot -proot --silent; then
+              echo "MySQL is up!"
+              exit 0
+            fi
+            echo "Waiting for MySQL ($i/60)..."
+            sleep 2
+          done
+          echo "MySQL did not become healthy in time"; exit 1
+
+      - name: Create test DB & grants
+        run: |
+          mysql -h 127.0.0.1 -uroot -proot -e "
+            CREATE DATABASE IF NOT EXISTS bfe_db_test
+              CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+            CREATE USER IF NOT EXISTS 'symfony'@'%' IDENTIFIED BY 'password';
+            CREATE USER IF NOT EXISTS 'symfony'@'localhost' IDENTIFIED BY 'password';
+            GRANT ALL PRIVILEGES ON bfe_db_test.* TO 'symfony'@'%';
+            GRANT ALL PRIVILEGES ON bfe_db_test.* TO 'symfony'@'localhost';
+            FLUSH PRIVILEGES;
+          "
+
+      - name: Generate JWT keys (tests)
+        working-directory: backend
+        env:
+          APP_ENV: test
+          JWT_PASSPHRASE: ""
+          JWT_SECRET_KEY: "%kernel.project_dir%/config/jwt/private.pem"
+          JWT_PUBLIC_KEY: "%kernel.project_dir%/config/jwt/public.pem"
+        run: |
+          mkdir -p config/jwt
+          php bin/console lexik:jwt:generate-keypair --skip-if-exists -n
+
+      - name: Prepare schema (migrations on test DB)
+        working-directory: backend
+        env:
+          APP_ENV: test
+          DATABASE_URL: ${{ env.DATABASE_URL }}
+        run: php bin/console doctrine:migrations:migrate --env=test -n
+
+      - name: PHPUnit (PCOV)
+        working-directory: backend
+        env:
+          APP_ENV: test
+          DATABASE_URL: ${{ env.DATABASE_URL }}
+        run: |
+          php -d pcov.enabled=1 -d pcov.directory=$(pwd) \
+            vendor/bin/phpunit -c phpunit.dist.xml \
+            --coverage-clover var/coverage.xml \
+            --coverage-text
+
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: backend/var/coverage.xml

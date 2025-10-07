@@ -18,10 +18,10 @@ require_once __DIR__ . '/../models/Database.php';
 // USER CREATION
 // =========================================================================
 
-if (isset($_POST['username'], $_POST['email'], $_POST['pword'], $_POST['ulevel'], $_POST['class'])) {
+if (isset($_POST['userName'], $_POST['email'], $_POST['pword'], $_POST['ulevel'], $_POST['class'])) {
     $con = Database::connect();
 
-    $username = trim($_POST['username']);
+    $username = trim($_POST['userName']);
     $email = trim($_POST['email']);
     $password = $_POST['pword'];
     $ulevel = intval($_POST['ulevel']);
@@ -48,7 +48,7 @@ if (isset($_POST['username'], $_POST['email'], $_POST['pword'], $_POST['ulevel']
         }
     }
 
-    $stmt = $con->prepare("INSERT INTO users (user_id, username, email, pword, ulevel, class) VALUES (?, ?, ?, ?, ?, ?)");
+    $stmt = $con->prepare("INSERT INTO users (user_id, userName, email, pword, ulevel, class) VALUES (?, ?, ?, ?, ?, ?)");
     $stmt->bind_param("isssii", $expected_id, $username, $email, $hashed_password, $ulevel, $class);
 
     if ($stmt->execute()) {
@@ -79,12 +79,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['updateUser'])) {
     $con = Database::connect();
 
     $id = $_POST['user_id'];
-    $username = $_POST['username'];
+    $username = $_POST['userName'];
     $email = $_POST['email'];
     $class = $_POST['class'];
     $ulevel = $_POST['ulevel'];
 
-    $stmt = $con->prepare("UPDATE users SET username=?, email=?, class=?, ulevel=? WHERE user_id=?");
+    $stmt = $con->prepare("UPDATE users SET userName=?, email=?, class=?, ulevel=? WHERE user_id=?");
     $stmt->bind_param("ssssi", $username, $email, $class, $ulevel, $id);
 
     if ($stmt->execute()) {

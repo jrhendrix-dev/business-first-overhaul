@@ -147,12 +147,12 @@ function handleUserCreateFormSubmit(e) {
 function handleEditUserClick() {
     const row = $(this).closest('tr');
     const id = row.data('id');
-    const username = row.find('.username').text();
+    const username = row.find('.userName').text();
     const email = row.find('.email').text();
     const currentClassId = row.find('.class').data('classid');
     const currentUlevel = row.find('.ulevel').text();
 
-    row.find('.username').html(`<input class="form-control" value="${username}">`);
+    row.find('.userName').html(`<input class="form-control" value="${username}">`);
     row.find('.email').html(`<input class="form-control" value="${email}">`);
 
     const ulevelSelect = $(`<select class='form-control'>
@@ -223,7 +223,7 @@ function handleCancelEditUserClick(e) {
 function handleSaveUserEditClick(e) {
     const row = $(this).closest('tr');
     const id = row.data('id');
-    const username = row.find('.username input').val();
+    const username = row.find('.userName input').val();
     const email = row.find('.email input').val();
     const clase = row.find('.class select').val();
     const ulevel = row.find('.ulevel select').val();

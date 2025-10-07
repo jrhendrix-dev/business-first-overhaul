@@ -68,11 +68,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['availableClasses'])) {
  * AJAX: Return <option> elements for teachers not assigned to any class.
  */
 if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['availableTeachers'])) {
-    $query = "SELECT user_id, username FROM users WHERE ulevel = 2 AND (class IS NULL OR class = '' OR class = '0')";
+    $query = "SELECT user_id, userName FROM users WHERE ulevel = 2 AND (class IS NULL OR class = '' OR class = '0')";
     $result = $con->query($query);
 
     while ($row = $result->fetch_assoc()) {
-        echo "<option value='{$row['user_id']}'>" . htmlspecialchars($row['username'] ?? '') . "</option>";
+        echo "<option value='{$row['user_id']}'>" . htmlspecialchars($row['userName'] ?? '') . "</option>";
     }
     exit;
 }
@@ -93,10 +93,10 @@ $classOptionsJS = json_encode($classOptions);
 
 /** @var string $teacherOptionsJS Preloaded HTML <option> string for all teachers (JSON encoded) */
 $teacherOptions = "";
-$profResult = $con->query("SELECT user_id, username FROM users WHERE ulevel = 2 ORDER BY username ASC");
+$profResult = $con->query("SELECT user_id, userName FROM users WHERE ulevel = 2 ORDER BY userName ASC");
 if ($profResult && $profResult->num_rows > 0) {
     while ($row = $profResult->fetch_assoc()) {
-        $teacherOptions .= "<option value='{$row['user_id']}'>" . htmlspecialchars($row['username'] ?? '') . "</option>";
+        $teacherOptions .= "<option value='{$row['user_id']}'>" . htmlspecialchars($row['userName'] ?? '') . "</option>";
     }
 }
 $teacherOptionsJS = json_encode($teacherOptions);
@@ -118,7 +118,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['loadUsers'])) {
         while ($row = $res->fetch_assoc()) {
             echo "<tr data-id='{$row['user_id']}'>
                     <td data-label='id: '>{$row['user_id']}</td>
-                    <td class='username' data-label='user: '>" . htmlspecialchars($row['username'] ?? '') . "</td>
+                    <td class='userName' data-label='user: '>" . htmlspecialchars($row['userName'] ?? '') . "</td>
                     <td class='email' data-label='email: '>" . htmlspecialchars($row['email'] ?? '') . "</td>
                     <td class='class' data-classid='{$row['class']}' data-label='class: '>" . htmlspecialchars($row['classname'] ?? '') . "</td>
                     <td class='ulevel' data-label='level: '>{$row['ulevel']}</td>
@@ -153,7 +153,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['loadClasses'])) {
             echo "<tr data-id='{$row['classid']}'>
                     <td data-label='id: '>{$row['classid']}</td>
                     <td class='classname' data-label='class: '>" . htmlspecialchars($row['classname']) . "</td>
-                    <td class='profesor' data-label='teacher: ' data-profid='{$row['user_id']}'>" . htmlspecialchars($row['username'] ?? '') . "</td>
+                    <td class='profesor' data-label='teacher: ' data-profid='{$row['user_id']}'>" . htmlspecialchars($row['userName'] ?? '') . "</td>
                     <td>
                         <button class='btn btn-sm btn-warning edit-class-btn edit-btn-class'>Edit</button>
                         <button class='btn btn-sm btn-danger delete-class-btn'>Delete</button>
@@ -177,12 +177,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['loadClasses'])) {
  */
 if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['loadNotas'])) {
     $res = $con->query("
-        SELECT u.user_id, u.username, c.classname, n.Nota1, n.Nota2, n.Nota3
+        SELECT u.user_id, u.userName, c.classname, n.Nota1, n.Nota2, n.Nota3
         FROM users u
         LEFT JOIN clases c ON u.class = c.classid
         LEFT JOIN notas n ON u.user_id = n.idAlumno
         WHERE u.ulevel = 3
-        ORDER BY c.classname, u.username
+        ORDER BY c.classname, u.userName
     ");
 
     if ($res && $res->num_rows > 0) {
@@ -191,7 +191,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['loadNotas'])) {
               </tr></thead><tbody>";
         while ($row = $res->fetch_assoc()) {
             echo "<tr data-id='{$row['user_id']}'>
-                    <td class='alumno' data-label='student: '>" . htmlspecialchars($row['username'] ?? '') . "</td>
+                    <td class='alumno' data-label='student: '>" . htmlspecialchars($row['userName'] ?? '') . "</td>
                     <td class='curso' data-label='class: '>" . htmlspecialchars($row['classname'] ?? '') . "</td>
                     <td class='nota1' data-label='grade 1: '>" . htmlspecialchars($row['Nota1'] ?? '') . "</td>
                     <td class='nota2' data-label='grade 2: '>" . htmlspecialchars($row['Nota2'] ?? '') . "</td>

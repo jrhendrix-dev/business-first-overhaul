@@ -69,12 +69,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' &&
     }
 
     $stmt = $con->prepare("
-        SELECT u.user_id, u.username, c.classname, n.Nota1, n.Nota2, n.Nota3
+        SELECT u.user_id, u.userName, c.classname, n.Nota1, n.Nota2, n.Nota3
         FROM users u
         LEFT JOIN clases c ON u.class = c.classid
         LEFT JOIN notas n ON u.user_id = n.idAlumno
         WHERE u.ulevel = 3 AND u.class = ?
-        ORDER BY u.username
+        ORDER BY u.userName
     ");
     $stmt->bind_param("i", $teacherClassId);
     $stmt->execute();
@@ -86,7 +86,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' &&
               </tr></thead><tbody>";
         while ($row = $result->fetch_assoc()) {
             echo "<tr data-id='" . htmlspecialchars($row['user_id']) . "'>
-                    <td class='alumno'>" . htmlspecialchars($row['username']) . "</td>
+                    <td class='alumno'>" . htmlspecialchars($row['userName']) . "</td>
                     <td class='curso'>" . htmlspecialchars($row['classname']) . "</td>
                     <td class='nota1'>" . (isset($row['Nota1']) ? htmlspecialchars($row['Nota1']) : '') . "</td>
                     <td class='nota2'>" . (isset($row['Nota2']) ? htmlspecialchars($row['Nota2']) : '') . "</td>

@@ -1,0 +1,13 @@
+{# templates/email/contact.html.twig #}
+<h2>New contact message</h2>
+<p><strong>From:</strong> {{ sender_name }} &lt;{{ sender_email }}&gt;</p>
+<p><strong>Consent:</strong> {{ consent ? 'Yes' : 'No' }}</p>
+<p><strong>Subject:</strong> {{ subject }}</p>
+<hr>
+<p style="white-space:pre-wrap">{{ message }}</p>
+<hr>
+<p style="color:#888">
+    Message ID: {{ id }}<br>
+    IP: {{ ip|default('-') }}<br>
+    UA: {{ user_agent|default('-') }}
+</p>

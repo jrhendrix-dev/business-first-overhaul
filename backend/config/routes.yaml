@@ -1,5 +1,35 @@
-controllers:
-    resource:
-        path: ../src/Controller/
-        namespace: App\Controller
+# config/routes.yaml
+
+# Public/API controllers (everything except Admin & Root)
+api_public:
+    resource: ../src/Controller/
     type: attribute
+    prefix: /api
+    exclude:
+        - '../src/Controller/Admin'
+        - '../src/Controller/Root'
+        - '../src/Controller/Web'
+
+# Admin controllers
+api_admin:
+    resource: ../src/Controller/Admin/
+    type: attribute
+    prefix: /api/admin
+
+# Dummy route (no controller) for json_login to catch
+api_login:
+    path: /api/login
+    methods: [POST]
+
+# Root controllers (no /api prefix)
+root_controllers:
+    resource: ../src/Controller/Root/
+    type: attribute
+
+# Optional redirect from "/" (only if the target exists & is public)
+home_redirect:
+    path: /
+    controller: Symfony\Bundle\FrameworkBundle\Controller\RedirectController::urlRedirectAction
+    defaults: { path: /api/docs, permanent: false }
+
+

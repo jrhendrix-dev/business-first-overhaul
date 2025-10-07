@@ -1,0 +1,21 @@
+<?php
+
+// src/DTO/AssignTeacherDto.php
+namespace App\Dto\User;
+
+use Symfony\Component\Validator\Constraints as Assert;
+
+final class AssignTeacherDto
+{
+    public function __construct(
+        #[Assert\NotNull] #[Assert\Positive]
+        public int $teacherId = 0,
+    ) {}
+
+    public static function fromArray(array $a): self
+    {
+        return new self(
+            teacherId: (int)($a['teacherId'] ?? 0),
+        );
+    }
+}

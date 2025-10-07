@@ -1,0 +1,4 @@
+framework:
+    validation:
+        enable_attributes: true
+        not_compromised_password: false

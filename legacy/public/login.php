@@ -3,7 +3,7 @@
  * login.php
  *
  * Handles user authentication for the Business First English Center application.
- * - Accepts POST requests with username and password.
+ * - Accepts POST requests with userName and password.
  * - Verifies credentials securely against the database.
  * - Implements session-based brute force protection.
  * - Uses secure cookie settings and regenerates session ID on login.
@@ -81,7 +81,7 @@ function handle_login(): void {
     }
 
     // Check for required POST params
-    if (empty($_POST['username']) || empty($_POST['password'])) {
+    if (empty($_POST['userName']) || empty($_POST['password'])) {
         send_json_response([
             'success' => false,
             'message' => 'Datos incompletos'
@@ -90,10 +90,10 @@ function handle_login(): void {
 
     // === Database lookup ===
     $con = Database::connect();
-    $username = $_POST['username'];
+    $username = $_POST['userName'];
     $password = $_POST['password'];
 
-    $stmt = $con->prepare("SELECT * FROM users WHERE username = ?");
+    $stmt = $con->prepare("SELECT * FROM users WHERE userName = ?");
     $stmt->bind_param("s", $username);
     $stmt->execute();
     $result = $stmt->get_result();
@@ -112,7 +112,7 @@ function handle_login(): void {
 
             // Store user session data
             $_SESSION['user_id'] = $user['user_id'];
-            $_SESSION['user']    = $user['username'];
+            $_SESSION['user']    = $user['userName'];
             $_SESSION['lvl']     = $user['ulevel'];
             $_SESSION['curso']   = $user['class'];
             $_SESSION['login']   = true;

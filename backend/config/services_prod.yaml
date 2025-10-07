@@ -1,0 +1,5 @@
+# config/services_prod.yaml
+services:
+    messenger.transport.sqs.factory:
+        class: Symfony\Component\Messenger\Bridge\AmazonSqs\Transport\AmazonSqsTransportFactory
+        tags: ['messenger.transport_factory']

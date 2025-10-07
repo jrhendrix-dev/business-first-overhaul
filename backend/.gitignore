@@ -13,8 +13,22 @@
 /phpunit.xml
 /.phpunit.cache/
 ###< phpunit/phpunit ###
-
+backend/.env.test
+.env.test
 ###> symfony/asset-mapper ###
 /public/assets/
 /assets/vendor/
 ###< symfony/asset-mapper ###
+
+###> lexik/jwt-authentication-bundle ###
+/config/jwt/*.pem
+###< lexik/jwt-authentication-bundle ###
+.env
+.env.local
+.env.test
+.env.dev
+# ignore all env files
+.env
+.env.*
+# but keep the example
+!.env.example

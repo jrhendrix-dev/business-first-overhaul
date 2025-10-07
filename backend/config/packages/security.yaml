@@ -1,39 +1,82 @@
+# config/packages/security.yaml
 security:
-    # https://symfony.com/doc/current/security.html#registering-the-user-hashing-passwords
     password_hashers:
         Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface: 'auto'
-    # https://symfony.com/doc/current/security.html#loading-the-user-the-user-provider
+
+    role_hierarchy:
+        ROLE_ADMIN:   [ROLE_TEACHER, ROLE_USER]
+        ROLE_TEACHER: [ROLE_USER]
+        ROLE_STUDENT: [ROLE_USER]
+
     providers:
-        users_in_memory: { memory: null }
+        app_user_provider:
+            entity:
+                class: App\Entity\User
+                property: email
+
     firewalls:
+        # Symfony dev tools (profiler, assets)
         dev:
             pattern: ^/(_(profiler|wdt)|css|images|js)/
             security: false
+
+        # Handles POST /api/login and returns JWT via Lexik handlers
+        login:
+            pattern: ^/api/login
+            stateless: true
+            json_login:
+                check_path: api_login
+                username_path: email
+                password_path: password
+                success_handler: lexik_jwt_authentication.handler.authentication_success
+                failure_handler: lexik_jwt_authentication.handler.authentication_failure
+
+        # All other /api endpoints secured with JWT
+        api:
+            pattern: ^/api
+            stateless: true
+            jwt: ~
+
+        # (Optional) everything else (/, assets, SPA shell) — no auth
         main:
+            pattern: ^/
             lazy: true
-            provider: users_in_memory
+            security: false
 
-            # activate different ways to authenticate
-            # https://symfony.com/doc/current/security.html#the-firewall
-
-            # https://symfony.com/doc/current/security/impersonating_user.html
-            # switch_user: true
-
-    # Easy way to control access for large sections of your site
-    # Note: Only the *first* access control that matches will be used
     access_control:
-        # - { path: ^/admin, roles: ROLE_ADMIN }
-        # - { path: ^/profile, roles: ROLE_USER }
+        # Most-specific rules FIRST
 
-when@test:
-    security:
-        password_hashers:
-            # By default, password hashers are resource intensive and take time. This is
-            # important to generate secure password hashes. In tests however, secure hashes
-            # are not important, waste resources and increase test times. The following
-            # reduces the work factor to the lowest possible values.
-            Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface:
-                algorithm: auto
-                cost: 4 # Lowest possible value for bcrypt
-                time_cost: 3 # Lowest possible value for argon
-                memory_cost: 10 # Lowest possible value for argon
+        # Public API docs (UI + JSON/YAML endpoints)
+        - { path: ^/api/docs(?:$|/), roles: PUBLIC_ACCESS }
+        - { path: ^/api/docs\.(?:json|jsonld|yaml|yamlopenapi|jsonopenapi)$, roles: PUBLIC_ACCESS }
+
+        # Static asset paths (whether using Asset Mapper or classic bundles)
+        - { path: ^/assets/,  roles: PUBLIC_ACCESS }
+        - { path: ^/bundles/, roles: PUBLIC_ACCESS }
+
+        # JSON-LD contexts (safe to expose)
+        - { path: ^/api/contexts/, roles: PUBLIC_ACCESS }
+
+        # Auth endpoints
+        - { path: ^/api/login$, roles: PUBLIC_ACCESS, methods: [POST] }
+
+        # Public endpoints you listed
+        - { path: ^/api/auth/register$,        roles: PUBLIC_ACCESS }
+        - { path: ^/api/password/forgot$, roles: PUBLIC_ACCESS }
+        - { path: ^/api/password/reset$,  roles: PUBLIC_ACCESS }
+        - { path: ^/api/contact$,         roles: PUBLIC_ACCESS }
+        - { path: ^/api/dev/test-mail$,   roles: PUBLIC_ACCESS }
+
+        # CORS preflight for any /api route (avoid spurious 401s on OPTIONS)
+        - { path: ^/api, roles: PUBLIC_ACCESS, methods: [OPTIONS] }
+
+        # Role-based exceptions
+        - { path: ^/api/classes/\d+/students, roles: ROLE_TEACHER }
+        - { path: ^/api/teacher, roles: ROLE_TEACHER }
+        - { path: ^/api/enrollments,          roles: ROLE_USER }
+
+        # Optionally keep "/" public if you add a redirect/home later
+        - { path: ^/$, roles: PUBLIC_ACCESS, methods: [GET] }
+
+        # Catch-all: everything else under /api requires a valid JWT
+        - { path: ^/api, roles: IS_AUTHENTICATED_FULLY }

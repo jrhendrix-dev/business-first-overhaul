@@ -1,0 +1,9 @@
+framework:
+    rate_limiter:
+        enabled: true
+        limiters:
+            contact_form:
+                policy: fixed_window
+                limit: 999999
+                interval: '1 minute'
+                storage_service: 'cache.rate_limiter'

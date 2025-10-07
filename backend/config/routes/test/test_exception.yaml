@@ -1,0 +1,4 @@
+# backend/config/routes/test/test_exception.yaml
+test_exception_routes:
+    resource: '../../../tests/Fixtures/Controller/'
+    type: attribute

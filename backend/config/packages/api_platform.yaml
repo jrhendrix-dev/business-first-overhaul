@@ -1,0 +1,10 @@
+# config/packages/api_platform.yaml
+api_platform:
+    title: 'Business First API'
+    version: '1.0.0'
+    enable_entrypoint: true
+    enable_docs: true
+    enable_swagger_ui: true      # <- must be true
+    enable_re_doc: true          # optional
+    swagger:
+        versions: [3]              # OpenAPI v3

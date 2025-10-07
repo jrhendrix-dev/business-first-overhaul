@@ -1,0 +1,8 @@
+# backend/config/services_test.yaml
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+
+    # Keep this alias only if something uses #[Autowire(service: 'contact_form.limiter')]
+    contact_form.limiter: '@limiter.contact_form'
