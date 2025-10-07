@@ -70,6 +70,10 @@ doctum.php
 docs/cache/
 
 
+/backend/config/jwt/public.pem
+/backend/config/jwt/private.pem
+/backend/.env
+/backend/.env.test
 
 backend/.env.test
 
