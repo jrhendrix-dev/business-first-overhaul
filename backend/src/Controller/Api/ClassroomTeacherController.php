@@ -66,9 +66,9 @@ final class ClassroomTeacherController extends AbstractController
                 'droppedAt'    => $e->getDroppedAt()?->format(\DATE_ATOM),
                 'student'      => [
                     'id'        => (int)$s->getId(),
-                    'firstName' => (string)$s->getFirstName(),
-                    'lastName'  => (string)$s->getLastName(),
-                    'email'     => (string)$s->getEmail(),
+                    'firstName' => $s->getFirstName(),
+                    'lastName'  => $s->getLastName(),
+                    'email'     => $s->getEmail(),
                 ],
             ];
         }, $rows);

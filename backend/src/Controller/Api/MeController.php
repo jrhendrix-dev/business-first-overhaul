@@ -12,8 +12,10 @@ use App\Mapper\Request\MeChangePasswordRequestMapper;
 use App\Mapper\Request\MeForgotPasswordRequestMapper;
 use App\Mapper\Request\MeResetPasswordRequestMapper;
 use App\Mapper\Request\UserUpdateRequestMapper;
+use App\Mapper\Response\ClassroomResponseMapper;
 use App\Mapper\Response\MeResponseMapper;
 use App\Mapper\Response\UserResponseMapper;
+use App\Service\ClassroomManager;
 use App\Service\UserManager;
 use App\Mapper\Response\GradeResponseMapper;
 use App\Service\GradeManager;
@@ -39,6 +41,8 @@ final class MeController extends AbstractController
         private readonly MeResponseMapper $toMeResponse,     // minimal self view
         private readonly UserManager $manager,
         private readonly GradeManager $grades,
+        private readonly ClassroomManager $classrooms,
+        private readonly ClassroomResponseMapper $classMapper,
         private readonly GradeResponseMapper $gradeResponseMapper,
         private readonly UserUpdateRequestMapper $updateMapper,
         private readonly MeChangePasswordRequestMapper $pwdMapper,
@@ -195,6 +199,19 @@ final class MeController extends AbstractController
 
         $grades = $this->grades->listForStudent($user, null);
         return $this->json($this->gradeResponseMapper->toStudentCollection($grades), Response::HTTP_OK);
+    }
+
+    #[Route('/classrooms', name: 'classroom_enrolled_in_public', requirements: ['id' => '\d+'], methods: ['GET'])]
+    public function enrolledIn(): JsonResponse
+    {
+        $user = $this->requireAuthenticatedUserEntity();
+        if (!$user->isStudent()) {
+            throw $this->createAccessDeniedException();
+        }
+
+        $userId=$user->getId();
+        $classes = $this->classrooms->getFindByStudent($userId);
+        return $this->json($this->classMapper->toCollection($classes));
     }
 
 

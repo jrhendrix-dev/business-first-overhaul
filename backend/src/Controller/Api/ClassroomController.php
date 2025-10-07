@@ -56,10 +56,5 @@ final class ClassroomController extends AbstractController
     }
 
 
-    #[Route('/enrolled-in/{id}', name: 'classroom_enrolled_in_public', requirements: ['id' => '\d+'], methods: ['GET'])]
-    public function enrolledIn(int $id): JsonResponse
-    {
-        $classes = $this->classrooms->getFindByStudent($id);
-        return $this->json($this->mapper->toCollection($classes));
-    }
+
 }
