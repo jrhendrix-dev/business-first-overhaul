@@ -25,4 +25,25 @@ return [
     '@hotwired/turbo' => [
         'version' => '7.3.0',
     ],
+    '@angular/core' => [
+        'version' => '20.3.4',
+    ],
+    'rxjs' => [
+        'version' => '7.8.2',
+    ],
+    '@angular/core/primitives/signals' => [
+        'version' => '20.3.4',
+    ],
+    '@angular/core/primitives/di' => [
+        'version' => '20.3.4',
+    ],
+    'rxjs/operators' => [
+        'version' => '7.8.2',
+    ],
+    'tslib' => [
+        'version' => '2.8.1',
+    ],
+    '@angular/common/http' => [
+        'version' => '20.3.4',
+    ],
 ];
