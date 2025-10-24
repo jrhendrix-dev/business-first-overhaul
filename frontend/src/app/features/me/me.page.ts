@@ -1,10 +1,12 @@
-// src/app/features/me/me.page.ts
 import { Component, EventEmitter, Input, OnInit, Output, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MeService, MeResponse } from './me.service';
 import { matchFields } from '@app/shared/validators/match-fields.validator';
 import { animate, state, style, transition, trigger } from '@angular/animations';
+
+import { ToastService } from '@/app/core/ui/toast.service';
+import { ToastContainerComponent } from '@/app/core/ui/toast-container.component';
 
 /** Reusable card used by all profile sections (title + subtitle + action button + body slot). */
 @Component({
@@ -38,25 +40,21 @@ export class MeSectionCard {
   @Output() action = new EventEmitter<void>();
 }
 
-
-// add alongside MeSectionCard in the same file (or split later if you prefer)
+/** Soft separator between sections. */
 @Component({
   selector: 'me-section-sep',
   standalone: true,
   template: `
-    <!-- soft fade under the previous card -->
     <div aria-hidden="true"
-         class="-mt-4 h-6 w-full rounded-b-2xl
-                bg-gradient-to-b from-black/5 to-transparent"></div>
+         class="-mt-4 h-6 w-full rounded-b-2xl bg-gradient-to-b from-black/5 to-transparent"></div>
   `,
 })
 export class MeSectionSeparator {}
 
-
 @Component({
   selector: 'app-me-page',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, MeSectionCard, MeSectionSeparator],
+  imports: [CommonModule, ReactiveFormsModule, MeSectionCard, MeSectionSeparator, ToastContainerComponent],
   animations: [
     trigger('accordion', [
       state('closed', style({ opacity: 0, height: '0px', overflow: 'hidden', paddingTop: 0, paddingBottom: 0 })),
@@ -68,9 +66,10 @@ export class MeSectionSeparator {}
     <section class="mx-auto w-full max-w-4xl px-4 py-8">
       <h1 class="text-4xl font-extrabold tracking-tight mb-8">Mi perfil</h1>
 
-      <!-- =======================
-           DATOS BÁSICOS
-           ======================= -->
+      <!-- ✅ Global toast container (shared style/behavior) -->
+      <app-toast-container></app-toast-container>
+
+      <!-- ======================= DATOS BÁSICOS ======================= -->
       <me-section-card
         [title]="'Datos básicos'"
         [subtitle]="'Información visible de tu perfil'"
@@ -142,9 +141,8 @@ export class MeSectionSeparator {}
       </me-section-card>
 
       <me-section-sep></me-section-sep>
-      <!-- =======================
-           CONTRASEÑA
-           ======================= -->
+
+      <!-- ======================= CONTRASEÑA ======================= -->
       <me-section-card
         class="mt-8"
         [title]="'Contraseña'"
@@ -154,7 +152,6 @@ export class MeSectionSeparator {}
 
         <div [@accordion]="changePwOpen() ? 'open' : 'closed'">
           <form *ngIf="changePwOpen()" [formGroup]="passwordForm" (ngSubmit)="changePassword()" class="px-6 py-5 grid gap-4">
-            <!-- Actual -->
             <div>
               <label for="currentPassword" class="block text-sm text-black/70 mb-1">Contraseña actual</label>
               <input id="currentPassword" type="password" formControlName="currentPassword" placeholder="Contraseña actual"
@@ -166,7 +163,6 @@ export class MeSectionSeparator {}
               </div>
             </div>
 
-            <!-- Nueva -->
             <div>
               <label for="newPassword" class="block text-sm text-black/70 mb-1">Nueva contraseña</label>
               <input id="newPassword" type="password" formControlName="newPassword" placeholder="Nueva contraseña"
@@ -182,7 +178,6 @@ export class MeSectionSeparator {}
               </div>
             </div>
 
-            <!-- Confirmación -->
             <div>
               <label for="confirmPassword" class="block text-sm text-black/70 mb-1">Confirmar nueva contraseña</label>
               <input id="confirmPassword" type="password" formControlName="confirmPassword" placeholder="Confirmar nueva contraseña"
@@ -211,9 +206,7 @@ export class MeSectionSeparator {}
 
       <me-section-sep></me-section-sep>
 
-      <!-- =======================
-           CORREO ELECTRÓNICO
-           ======================= -->
+      <!-- ======================= CORREO ELECTRÓNICO ======================= -->
       <me-section-card
         class="mt-8"
         [title]="'Correo electrónico'"
@@ -256,23 +249,12 @@ export class MeSectionSeparator {}
         </div>
       </me-section-card>
     </section>
-
-    <!-- Toast (bottom-right on md+, bottom-center on mobile) -->
-    <div *ngIf="toast()" (click)="toast.set(null)"
-         class="fixed z-[2000] cursor-pointer rounded-xl px-4 py-2 shadow text-white
-            bottom-4 left-1/2 -translate-x-1/2
-            md:bottom-6 md:left-auto md:right-6 md:translate-x-0"
-         [class.bg-emerald-600]="toast()?.type === 'success'"
-         [class.bg-rose-600]="toast()?.type === 'error'"
-         [attr.role]="toast()?.type === 'error' ? 'alert' : 'status'"
-         [attr.aria-live]="toast()?.type === 'error' ? 'assertive' : 'polite'">
-      {{ toast()?.text }}
-    </div>
   `,
 })
 export class MePage implements OnInit {
   private meSvc = inject(MeService);
   private fb = inject(NonNullableFormBuilder);
+  private toast = inject(ToastService);
 
   me = signal<MeResponse | null>(null);
 
@@ -287,8 +269,7 @@ export class MePage implements OnInit {
   pwLoading = signal(false);
   emailLoading = signal(false);
 
-  // toast
-  toast = signal<{ type: 'success' | 'error'; text: string } | null>(null);
+  //  Removed local toast signal and inline template
 
   profileForm = this.fb.group({
     userName: this.fb.control<string | null>(null),
@@ -302,11 +283,11 @@ export class MePage implements OnInit {
       newPassword:     this.fb.control<string>('', {
         validators: [
           Validators.required,
-          Validators.minLength(12),      // DTO: min 12
-          Validators.pattern(/[A-Z]/),   // al menos una mayúscula
-          Validators.pattern(/[a-z]/),   // al menos una minúscula
-          Validators.pattern(/\d/),      // al menos un número
-          Validators.pattern(/[^A-Za-z0-9]/), // al menos un símbolo
+          Validators.minLength(12),
+          Validators.pattern(/[A-Z]/),
+          Validators.pattern(/[a-z]/),
+          Validators.pattern(/\d/),
+          Validators.pattern(/[^A-Za-z0-9]/),
         ],
       }),
       confirmPassword: this.fb.control<string>('', { validators: [Validators.required] }),
@@ -335,57 +316,80 @@ export class MePage implements OnInit {
   toggleChangePassword() { this.changePwOpen.update(v => !v); }
   toggleChangeEmail()    { this.changeEmailOpen.update(v => !v); }
 
-  private showToast(text: string, type: 'success' | 'error' = 'success') {
-    this.toast.set({ type, text });
-    window.setTimeout(() => this.toast.set(null), 4000);
-  }
-
-  /** Inyecta errores del backend al formulario y devuelve un resumen legible. */
+  /** Map backend validation/domain errors into form controls and return a friendly summary. */
   private handleApiValidationError(e: unknown): string {
     const err: any = e as any;
-    const code = err?.error?.error?.code ?? err?.error?.code ?? 'ERROR';
-    const details = err?.error?.error?.details ?? err?.error?.details ?? {};
 
-    // Domain-code → campo + mensaje (ES)
+    // common shapes we’ve seen:
+    // { error: { code, message, details } }
+    // { error: { details: { message: 'bad_credentials', fieldA: '...' } } }
+    const topCode    = err?.error?.error?.code    ?? err?.error?.code    ?? '';
+    const topMessage = err?.error?.error?.message ?? err?.error?.message ?? '';
+    const details    = err?.error?.error?.details ?? err?.error?.details ?? {};
+
+    // domain token → friendly text + optional control to mark
     const domainToField: Record<string, { control?: string; msg: string }> = {
-      bad_credentials:         { control: 'currentPassword', msg: 'Contraseña actual incorrecta.' },
-      same_password:           { control: 'newPassword',     msg: 'La nueva contraseña no puede ser igual a la actual.' },
-      invalid_email:           { control: 'newEmail',        msg: 'Formato de email inválido.' },
-      email_taken:             { control: 'newEmail',        msg: 'Este email ya está en uso.' },
-      same_email:              { control: 'newEmail',        msg: 'Introduce un email distinto al actual.' },
-      email_taken_or_invalid:  { control: 'newEmail',        msg: 'Email inválido o ya está en uso.' },
+      bad_credentials:        { control: 'currentPassword', msg: 'Contraseña actual incorrecta.' },
+      same_password:          { control: 'newPassword',     msg: 'La nueva contraseña no puede ser igual a la actual.' },
+      invalid_email:          { control: 'newEmail',        msg: 'Formato de email inválido.' },
+      email_taken:            { control: 'newEmail',        msg: 'Este email ya está en uso.' },
+      same_email:             { control: 'newEmail',        msg: 'Introduce un email distinto al actual.' },
+      email_taken_or_invalid: { control: 'newEmail',        msg: 'Email inválido o ya está en uso.' },
     };
 
-    // 1) Si vienen errores por campo (nuestro ValidationException), colócalos en el control correcto
-    if (details && typeof details === 'object' && Object.keys(details).length > 0) {
-      Object.entries(details).forEach(([field, message]) => {
+    let friendlyFromToken = ''; // prefer returning this if we detect a known token
+    const addServerErr = (controlName: string, msg: string) => {
+      const ctrl =
+        this.passwordForm.get(controlName) ??
+        this.emailForm.get(controlName);
+      ctrl?.setErrors({ ...(ctrl.errors ?? {}), server: msg });
+    };
+
+    // 1) Apply per-field errors from details (skip raw 'message' in summary)
+    const summaryPairs: string[] = [];
+    if (details && typeof details === 'object') {
+      for (const [field, raw] of Object.entries(details as Record<string, string | string[]>)) {
+        const msgs = Array.isArray(raw) ? raw : [raw];
+
+        if (field === 'message') {
+          // details.message token → friendly mapping (don’t add to summary)
+          const token = String(msgs[0] ?? '').toLowerCase();
+          const map = domainToField[token];
+          if (map?.control) addServerErr(map.control, map.msg);
+          if (map?.msg) friendlyFromToken ||= map.msg;
+          continue;
+        }
+
+        // normal field errors
+        const text = msgs.filter(Boolean).join(', ');
         const ctrl =
           this.passwordForm.get(field) ??
           this.emailForm.get(field);
-        if (ctrl) {
-          const msg = Array.isArray(message) ? message.join(', ') : String(message);
-          ctrl.setErrors({ ...(ctrl.errors ?? {}), server: msg });
-        } else if (field === 'message') {
-          // a veces backend manda {details:{message:"bad_credentials"}}
-          const m = String(message);
-          const map = domainToField[m];
-          if (map?.control) {
-            const c = this.passwordForm.get(map.control) ?? this.emailForm.get(map.control);
-            c?.setErrors({ ...(c.errors ?? {}), server: map.msg });
-          }
+        if (ctrl && text) {
+          addServerErr(field, text);
         }
-      });
+        if (text) {
+          // Only include real fields in the summary (not the token)
+          summaryPairs.push(`${field}: ${text}`);
+        }
+      }
     }
 
-    // 2) Texto para el toast (en español)
-    if (typeof details === 'object' && Object.keys(details).length > 0) {
-      return Object.entries(details)
-        .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(', ') : String(v)}`)
-        .join(' · ');
+    // 2) If we got a known top-level token/code, prefer that message
+    const token = String((topMessage || topCode) ?? '').toLowerCase();
+    if (!friendlyFromToken && token && domainToField[token]) {
+      const map = domainToField[token];
+      if (map?.control) addServerErr(map.control, map.msg);
+      friendlyFromToken = map.msg;
     }
-    if (domainToField[code]) return domainToField[code].msg;
-    return code; // fallback
+
+    // 3) Choose best summary for the toast
+    if (friendlyFromToken) return friendlyFromToken;
+    if (summaryPairs.length > 0) return summaryPairs.join(' · ');
+    if (token) return token; // last resort (unlikely now)
+    return 'Error';          // generic fallback
   }
+
 
   saveProfile() {
     if (this.profileForm.invalid) return;
@@ -404,16 +408,15 @@ export class MePage implements OnInit {
         this.saving.set(false);
         this.saved.set(true);
         this.editProfile.set(false);
-        this.showToast('Cambios guardados', 'success');
+        this.toast.add('Cambios guardados', 'success');
       },
-      error: () => { this.saving.set(false); this.showToast('No se pudieron guardar los cambios', 'error'); },
+      error: () => { this.saving.set(false); this.toast.add('No se pudieron guardar los cambios', 'error'); },
     });
   }
 
   changePassword() {
     if (this.passwordForm.invalid) return;
 
-    // limpia errores de servidor previos
     ['currentPassword','newPassword','confirmPassword']
       .forEach(k => this.passwordForm.get(k)?.setErrors(null));
 
@@ -424,12 +427,12 @@ export class MePage implements OnInit {
         this.pwLoading.set(false);
         this.passwordForm.reset({ currentPassword: '', newPassword: '', confirmPassword: '' });
         this.changePwOpen.set(false);
-        this.showToast(r?.message ?? 'Contraseña actualizada', 'success');
+        this.toast.add(r?.message ?? 'Contraseña actualizada', 'success');
       },
       error: (e) => {
         this.pwLoading.set(false);
         const summary = this.handleApiValidationError(e);
-        this.showToast(`No se pudo cambiar la contraseña. ${summary}`, 'error');
+        this.toast.add(`No se pudo cambiar la contraseña. ${summary}`, 'error');
       },
     });
   }
@@ -437,7 +440,6 @@ export class MePage implements OnInit {
   startEmailChange() {
     if (this.emailForm.invalid) return;
 
-    // limpia errores previos de servidor
     ['newEmail','password'].forEach(k => this.emailForm.get(k)?.setErrors(null));
 
     this.emailLoading.set(true);
@@ -446,12 +448,12 @@ export class MePage implements OnInit {
       next: (r) => {
         this.emailLoading.set(false);
         this.changeEmailOpen.set(false);
-        this.showToast(r?.message ?? 'Correo de confirmación enviado', 'success');
+        this.toast.add(r?.message ?? 'Correo de confirmación enviado', 'success');
       },
       error: (e) => {
         this.emailLoading.set(false);
         const summary = this.handleApiValidationError(e);
-        this.showToast(`No se pudo iniciar el cambio de correo. ${summary}`, 'error');
+        this.toast.add(`No se pudo iniciar el cambio de correo. ${summary}`, 'error');
       },
     });
   }
