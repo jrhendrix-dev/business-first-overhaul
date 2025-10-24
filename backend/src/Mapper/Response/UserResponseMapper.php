@@ -43,10 +43,12 @@ final class UserResponseMapper implements ResponseMapperInterface
         return new MeResponseDto(
             id: (int) $u->getId(),
             email: $u->getEmail(),
-            role: $this->primaryRole($u), // <- single top role, same priority list
+            roles: $u->getRoles(),            // array for Angular .includes()
+            firstName: $u->getFirstName(),
+            lastName: $u->getLastName(),
+            primaryRole: $this->primaryRole($u), // <-- renamed from role:
         );
     }
-
 
     private function primaryRole(User $u): ?string
     {
@@ -56,7 +58,7 @@ final class UserResponseMapper implements ResponseMapperInterface
                 return $r;
             }
         }
-        // If user only has ROLE_USER (or something unexpected), return null or "ROLE_USER"
-        return null; // or: return in_array('ROLE_USER', $have, true) ? 'ROLE_USER' : null;
+        return null;
     }
+
 }

@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-namespace App\Controller\Auth;
+namespace App\Controller\Api;
 
 use App\Http\Exception\ValidationException;
 use App\Mapper\Request\MeForgotPasswordRequestMapper;

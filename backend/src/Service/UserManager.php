@@ -20,6 +20,8 @@ use App\Dto\User\Password\ResetPasswordDto;
 use Symfony\Component\Messenger\MessageBusInterface;
 use App\Message\EmailChangeConfirmMessage;
 use App\Message\EmailChangeNotifyOldMessage;
+use App\Http\Exception\ValidationException;
+use App\Message\WelcomeEmailMessage;
 
 /**
  * Service responsible for managing business logic related to User entities.
@@ -250,12 +252,17 @@ class UserManager
         string $password,
         UserRoleEnum $role
     ): User {
-        // Optional soft checks (good UX, not race-safe)
+        // Pre-checks: collect *all* conflicts so we can return multiple field errors
+        $details = [];
         if ($this->userRepository->findByEmail($email)) {
-            throw new \DomainException('email_taken');
+            $details['email'] = 'Este email ya está en uso.';
         }
         if ($this->userRepository->findOneBy(['userName' => $userName])) {
-            throw new \DomainException('username_taken');
+            $details['userName'] = 'Este nombre de usuario ya existe.';
+        }
+        if ($details) {
+            // NOTE: do NOT add a 'message' key here
+            throw new ValidationException($details);
         }
 
         $user = new User();
@@ -270,14 +277,26 @@ class UserManager
             $this->em->persist($user);
             $this->em->flush();
         } catch (UniqueConstraintViolationException $e) {
-            // The DB is the source of truth; map constraint to a friendly domain error.
-            // If you have named constraints, you can inspect $e to distinguish which one.
-            // For now, we check which one exists to return a stable message:
+            // Source of truth says unique constraint(s) failed—recompute both
+            $details = [];
             if ($this->userRepository->findByEmail($email)) {
-                throw new \DomainException('email_taken');
+                $details['email'] = 'Este email ya está en uso.';
             }
-            throw new \DomainException('username_taken');
+            if ($this->userRepository->findOneBy(['userName' => $userName])) {
+                $details['userName'] = 'Este nombre de usuario ya existe.';
+            }
+            // If we cannot determine which one, you may put a generic field message,
+            // but still don't add a 'message' key:
+            if (!$details) {
+                $details['email'] ??= 'Valor inválido.'; // safe generic
+            }
+            throw new ValidationException($details);
         }
+
+        // ✅ Send Welcome Message (asincrónico por Messenger)
+        $this->bus->dispatch(new WelcomeEmailMessage(
+            userId: $user->getId()
+        ));
 
         return $user;
     }
@@ -342,9 +361,11 @@ class UserManager
             payload: ['newEmail' => $newEmail]
         );
 
-        // Build link you’ll handle in your frontend or a confirm endpoint:
-        $base = rtrim($_ENV['APP_URL'] ?? 'http://localhost:8000', '/');
-        $confirmUrl = $base . '/api/me/change-email/confirm?token=' . urlencode($mint['raw']);
+        // Build link the user clicks (FRONTEND handles token and calls API)
+        $frontend = rtrim($_ENV['FRONTEND_URL'] ?? 'http://localhost:4200', '/');
+        // new route we'll add in Angular: /email/confirm
+        $confirmUrl = $frontend . '/email/confirm?token=' . urlencode($mint['raw']);
+
 
         $this->bus->dispatch(new EmailChangeConfirmMessage(
             userId: $user->getId(),
@@ -406,14 +427,18 @@ class UserManager
     {
         $user = $this->userRepository->findByEmail((string)$dto->email);
         if (!$user) {
-            // Do nothing; we return a generic 200 to avoid enumeration.
+            // Do nothing; return generic 200 to avoid user enumeration.
             return;
         }
 
         $expiresAt = (new \DateTimeImmutable())->modify('+1 hour');
         $mint      = $this->tokens->mint($user, AccountTokenType::PASSWORD_RESET, $expiresAt);
 
-        $resetUrl = sprintf('%s/api/me/password/reset?token=%s', $_ENV['APP_URL'] ?? 'http://localhost', $mint['raw']);
+        // Send user to the FRONTEND reset page, which will POST the token + new password to the API.
+        // Prefer FRONTEND_URL, fallback to a sensible local dev URL.
+        $frontendBase = rtrim($_ENV['FRONTEND_URL'] ?? $_ENV['APP_FRONTEND_URL'] ?? 'http://localhost:4200', '/');
+        $resetUrl     = sprintf('%s/password/reset?token=%s', $frontendBase, urlencode($mint['raw']));
+
         $this->mailer->sendPasswordResetLink($user, $resetUrl);
     }
 
