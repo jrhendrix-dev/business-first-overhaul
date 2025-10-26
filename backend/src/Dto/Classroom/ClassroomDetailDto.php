@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Dto\Classroom;
 
 /**
- * Detail model for a single classroom (extendable).
+ * Detail model for a single classrooms (extendable).
  *
  * @phpstan-type TeacherMini array{id:int, firstName:string, lastName:string, email:string}|null
  */

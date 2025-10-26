@@ -83,7 +83,7 @@ class UserManager
      * Handle all side-effects of moving between roles.
      *
      * Rules:
-     *  - FROM STUDENT → anything: drop all active enrollments, detach classroom seat.
+     *  - FROM STUDENT → anything: drop all active enrollments, detach classrooms seat.
      *  - TO   STUDENT ← from TEACHER/ADMIN: unassign as teacher from all classrooms.
      *  - NO-OP if roles are the same.
      *
@@ -165,12 +165,28 @@ class UserManager
         return $this->userRepository->searchByName($name, $role);
     }
 
+
     /**
-     * Verifies if a student belongs to a specific classroom.
+     * searches for users but with pagination
+     *
+     * @param string $q
+     * @param UserRoleEnum|null $role
+     * @param int $page
+     * @param int $size
+     * @return array
+     */
+    public function searchUsers(string $q, ?UserRoleEnum $role, int $page, int $size): array
+    {
+        return $this->userRepository->searchPaginated($q, $role, $page, $size);
+    }
+
+
+    /**
+     * Verifies if a student belongs to a specific classrooms.
      *
      * @param int $studentId The student's ID
-     * @param int $classroomId The classroom's ID
-     * @return User|null The student entity if found in the classroom, null otherwise
+     * @param int $classroomId The classrooms's ID
+     * @return User|null The student entity if found in the classrooms, null otherwise
      */
     public function getUserInClassroom(int $studentId, int $classroomId): ?User
     {
@@ -189,9 +205,9 @@ class UserManager
     }
 
     /**
-     * Retrieves students not assigned to any classroom.
+     * Retrieves students not assigned to any classrooms.
      *
-     * @return User[] Array of student User entities without classroom assignments
+     * @return User[] Array of student User entities without classrooms assignments
      */
     public function getStudentsWithoutClassroom(): ?array
     {
@@ -199,9 +215,9 @@ class UserManager
     }
 
     /**
-     * Retrieves teachers not assigned to any classroom.
+     * Retrieves teachers not assigned to any classrooms.
      *
-     * @return User[] Array of teacher User entities without classroom assignments
+     * @return User[] Array of teacher User entities without classrooms assignments
      */
     public function getTeachersWithoutClassroom(): ?array
     {
@@ -220,9 +236,9 @@ class UserManager
     }
 
     /**
-     * Unassigns all students from a classroom and clears the entity manager cache.
+     * Unassigns all students from a classrooms and clears the entity manager cache.
      *
-     * @param Classroom $classroom The classroom to unassign students from
+     * @param Classroom $classroom The classrooms to unassign students from
      * @return int Number of students unassigned
      */
     public function unassignAllStudentsFromClassroom(Classroom $classroom): int

@@ -60,7 +60,24 @@ class ClassroomRepository extends ServiceEntityRepository
     }
 
     /**
-     * Returns the classroom in which a specific student is enrolled.
+     * @param User $teacher
+     * @return array
+     */
+    public function findActiveByTeacher(User $teacher): array
+    {
+        return $this->createQueryBuilder('c')
+            ->select('c.id AS id, c.name AS name')
+            ->andWhere('c.teacher = :t')
+            ->andWhere('c.status = :s')
+            ->setParameter('t', $teacher)
+            ->setParameter('s', 'ACTIVE')
+            ->orderBy('c.name', 'ASC')
+            ->getQuery()
+            ->getArrayResult();
+    }
+
+    /**
+     * Returns the classrooms in which a specific student is enrolled.
      *
      * @param int $studentId The ID of the student.
      *
@@ -69,7 +86,7 @@ class ClassroomRepository extends ServiceEntityRepository
     public function findByStudent(int $studentId): array
     {
         return $this->createQueryBuilder('c')
-            ->innerJoin(Enrollment::class, 'e', 'WITH', 'e.classroom = c')
+            ->innerJoin(Enrollment::class, 'e', 'WITH', 'e.classrooms = c')
             ->andWhere('e.student = :sid')
             ->andWhere('c.status = :status')
             ->setParameter('sid', $studentId)

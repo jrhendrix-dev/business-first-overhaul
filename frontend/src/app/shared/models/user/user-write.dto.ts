@@ -6,7 +6,8 @@ export interface CreateUserDto {
   email: string;
   userName: string;
   password: string;
-  role: UserRole;          // backend expects string role (good)
+  role: UserRole;
+  classId?: number | null;   // optional: assign a class on create
 }
 
 /** Partial fields only; send what changes */
@@ -16,5 +17,7 @@ export type UpdateUserDto = Partial<{
   email: string;
   userName: string;
   password: string;        // only include if changing
-  role: UserRole | null;   // set if changing; omit otherwise
+  role: UserRole;          // include only if changing
+  isActive: boolean;       // admin enable/disable
+  classId: number | null;  // reassign or clear (null)
 }>;

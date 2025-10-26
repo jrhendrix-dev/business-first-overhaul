@@ -28,7 +28,7 @@ use Symfony\Component\Validator\ConstraintViolationInterface;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
 
 /**
- * Teacher-facing grade endpoints enforcing classroom ownership constraints.
+ * Teacher-facing grade endpoints enforcing classrooms ownership constraints.
  */
 #[Route('/teacher')]
 #[IsGranted('ROLE_TEACHER')]
@@ -174,7 +174,7 @@ final class GradeTeacherController extends AbstractController
     }
 
     /**
-     * List all grades in a classroom (across all students) that belongs to the teacher.
+     * List all grades in a classrooms (across all students) that belongs to the teacher.
      *
      * GET /api/teacher/classes/{classId}/grades
      */
@@ -186,7 +186,7 @@ final class GradeTeacherController extends AbstractController
         try {
             $items = $this->grades->listForClassOwnedByTeacher($teacher, $classId);
         } catch (\RuntimeException) {
-            // classroom not found
+            // classrooms not found
             throw $this->createNotFoundException();
         } catch (\DomainException $e) {
             // not owned by teacher

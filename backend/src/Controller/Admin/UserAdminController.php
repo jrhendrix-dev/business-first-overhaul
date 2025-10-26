@@ -38,13 +38,24 @@ final class UserAdminController extends AbstractController
     ) {}
 
     #[Route('', name: 'admin_users_list', methods: ['GET'])]
-    public function list(): JsonResponse
+    public function list(Request $request): JsonResponse
     {
         $entities = $this->users->getAllUsers();
-        $dtos = array_map(fn($u) => $this->toResponse->toResponse($u), $entities);
 
-        return $this->json($dtos, Response::HTTP_OK);
+        // Detect ?with=classes
+        $with = (string) $request->query->get('with', '');
+        $includeClasses = \in_array('classes', array_map('trim', explode(',', $with)), true);
+
+        // Use array payload with optional classes for the grid
+        $items = array_map(
+            fn($u) => $this->toResponse->toArray($u, $includeClasses),
+            $entities
+        );
+
+        return $this->json($items, Response::HTTP_OK);
     }
+
+
 
     #[Route('', name: 'admin_users_create', methods: ['POST'])]
     public function create(Request $request): JsonResponse
@@ -124,10 +135,10 @@ final class UserAdminController extends AbstractController
     }
 
     /**
-     * GET /users/search-in-classroom?studentId=..&classroomId=..
-     * Verify a student belongs to a classroom.
+     * GET /users/search-in-classrooms?studentId=..&classroomId=..
+     * Verify a student belongs to a classrooms.
      */
-    #[Route('/search-in-classroom', name: 'admin_users_in_classroom', methods: ['GET'])]
+    #[Route('/search-in-classrooms', name: 'admin_users_in_classroom', methods: ['GET'])]
     public function getUserInClassroom(Request $request): JsonResponse
     {
         $studentId   = (int) $request->query->get('studentId', 0);
@@ -192,8 +203,8 @@ final class UserAdminController extends AbstractController
     }
 
     /**
-     * GET /users/students/without-classroom
-     * List students without classroom assignment.
+     * GET /users/students/without-classrooms
+     * List students without classrooms assignment.
      */
     #[Route('/students/without-classroom', name: 'admin_students_without_classroom', methods: ['GET'])]
     public function getStudentsWithoutClassroom(): JsonResponse
@@ -206,8 +217,8 @@ final class UserAdminController extends AbstractController
 
 
     /**
-     * GET /users/teachers/without-classroom
-     * List teachers without classroom assignment.
+     * GET /users/teachers/without-classrooms
+     * List teachers without classrooms assignment.
      */
     #[Route('/teachers/without-classroom', name: 'admin_teachers_without_classroom', methods: ['GET'])]
     public function getTeachersWithoutClassroom(): JsonResponse
@@ -236,10 +247,10 @@ final class UserAdminController extends AbstractController
     }
 
     /**
-     * POST /users/classroom/{classroomId}/unassign-all
-     * Bulk-unassign every student from the given classroom.
+     * POST /users/classrooms/{classroomId}/unassign-all
+     * Bulk-unassign every student from the given classrooms.
      */
-    #[Route('/classroom/{classroomId<\d+>}/unassign-all', name: 'admin_unassign_all_students', methods: ['POST'])]
+    #[Route('/classrooms/{classroomId<\d+>}/unassign-all', name: 'admin_unassign_all_students', methods: ['POST'])]
     public function unassignAllStudentsFromClassroom(int $classroomId): JsonResponse
     {
         // get a reference; throws 404 if row truly not there when flushed later

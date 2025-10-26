@@ -1,12 +1,14 @@
 import { inject, Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { ApiClient } from '@/app/core/http/api-client.service';
-import { ClassroomDetailDto, ClassroomItemDto } from '@/app/shared/models/classroom/classroom-read.dto';
-import { AssignTeacherDto, CreateClassroomDto, RenameClassroomDto } from '@/app/shared/models/classroom/classroom-write.dto';
+import { ClassroomDetailDto, ClassroomItemDto } from '@shared/models/classrooms/classroom-read.dto';
+import { AssignTeacherDto, CreateClassroomDto, RenameClassroomDto } from '@shared/models/classrooms/classroom-write.dto';
 
 @Injectable({ providedIn: 'root' })
 export class ClassroomService {
   private readonly api = inject(ApiClient);
+
+
 
   // ---------- Public ----------
   /** GET /api/classrooms */

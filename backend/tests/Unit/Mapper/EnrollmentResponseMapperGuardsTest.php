@@ -15,7 +15,7 @@ final class EnrollmentResponseMapperGuardsTest extends TestCase
     public function it_throws_if_student_missing(): void
     {
         $this->expectException(\LogicException::class);
-        $e = new Enrollment(); // no student/classroom set
+        $e = new Enrollment(); // no student/classrooms set
         (new EnrollmentResponseMapper())->toItem($e);
     }
 }

@@ -24,7 +24,7 @@ class UserRepository extends ServiceEntityRepository
     }
 
     /**
-     * Return the student if they have an ACTIVE enrollment in the given classroom.
+     * Return the student if they have an ACTIVE enrollment in the given classrooms.
      *
      * @param int $studentId
      * @param int $classroomId
@@ -37,7 +37,7 @@ class UserRepository extends ServiceEntityRepository
             ->innerJoin(Enrollment::class, 'e', 'WITH', 'e.student = u')
             ->andWhere('u.id = :studentId')
             // compare by FK id, not object
-            ->andWhere('IDENTITY(e.classroom) = :classroomId')
+            ->andWhere('IDENTITY(e.classrooms) = :classroomId')
             ->andWhere('e.status = :active')
             ->setMaxResults(1)
             ->setParameter('studentId', $studentId)
@@ -107,7 +107,7 @@ class UserRepository extends ServiceEntityRepository
     }
 
     /**
-     * Students who are NOT actively enrolled in any classroom.
+     * Students who are NOT actively enrolled in any classrooms.
      *
      * @return User[]
      */
@@ -126,10 +126,10 @@ class UserRepository extends ServiceEntityRepository
     }
 
     /**
-     * Retrieves all teacher users without a classroom assignment.
-     * Uses a LEFT JOIN to identify teachers not associated with any classroom.
+     * Retrieves all teacher users without a classrooms assignment.
+     * Uses a LEFT JOIN to identify teachers not associated with any classrooms.
      *
-     * @return User[] Array of teacher user entities without classroom
+     * @return User[] Array of teacher user entities without classrooms
      */
     public function findTeachersWithoutClassroom(): array
     {
@@ -238,10 +238,10 @@ class UserRepository extends ServiceEntityRepository
     }
 
     /**
-     * Unassigns all users from a specific classroom in a bulk operation.
+     * Unassigns all users from a specific classrooms in a bulk operation.
      * This is a direct DQL update that skips entity lifecycle events.
      *
-     * @param Classroom $classroom The classroom to unassign users from
+     * @param Classroom $classroom The classrooms to unassign users from
      * @return int Number of affected rows (users unassigned)
      * @note This is a bulk operation and does not trigger entity events or flush the entity manager
      */
@@ -249,9 +249,44 @@ class UserRepository extends ServiceEntityRepository
     {
         // DQL bulk update (skips lifecycle events)
         $q = $this->getEntityManager()->createQuery(
-            'UPDATE App\Entity\User u SET u.classroom = NULL WHERE u.classroom = :classroom'
-        )->setParameter('classroom', $classroom);
+            'UPDATE App\Entity\User u SET u.classrooms = NULL WHERE u.classrooms = :classrooms'
+        )->setParameter('classrooms', $classroom);
 
         return $q->execute(); // affected rows
+    }
+
+    /**
+     * @param string $q
+     * @param UserRoleEnum|null $role
+     * @param int $page
+     * @param int $size
+     * @return array
+     */
+    public function searchPaginated(string $q, ?UserRoleEnum $role, int $page, int $size): array
+    {
+        $qb = $this->createQueryBuilder('u');
+
+        if ($q !== '') {
+            $qb->andWhere('LOWER(u.userName) LIKE :q OR LOWER(u.email) LIKE :q OR LOWER(u.firstName) LIKE :q OR LOWER(u.lastName) LIKE :q')
+                ->setParameter('q', '%'.mb_strtolower($q).'%');
+        }
+
+        if ($role) {
+            $qb->andWhere('u.role = :role')->setParameter('role', $role);
+        }
+
+        $qb->orderBy('u.id', 'ASC');
+
+        // Clone for total
+        $countQb = clone $qb;
+        $total = (int) $countQb->select('COUNT(u.id)')->getQuery()->getSingleScalarResult();
+
+        // Page slice
+        $items = $qb->setFirstResult(($page - 1) * $size)
+            ->setMaxResults($size)
+            ->getQuery()
+            ->getResult();
+
+        return [$items, $total];
     }
 }

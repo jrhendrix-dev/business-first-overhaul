@@ -1,4 +1,5 @@
 <?php
+declare(strict_types=1);
 
 namespace App\Repository;
 
@@ -15,7 +16,7 @@ use Doctrine\Persistence\ManagerRegistry;
  * Repository for Enrollment read/modify queries.
  *
  * Notes:
- * - Prefer repository QBs for SELECTS.
+ * - Use repository QBs for SELECTs.
  * - For bulk UPDATEs use the EntityManager's QueryBuilder (bypasses UoW).
  */
 final class EnrollmentRepository extends ServiceEntityRepository
@@ -27,17 +28,13 @@ final class EnrollmentRepository extends ServiceEntityRepository
 
     /**
      * Check whether a student is currently ACTIVE in a classroom.
-     *
-     * @param User      $student
-     * @param Classroom $classroom
-     * @return bool True if there is at least one ACTIVE enrollment.
      */
     public function isEnrolled(User $student, Classroom $classroom): bool
     {
         return (bool) $this->createQueryBuilder('e')
             ->select('1')
             ->andWhere('e.student = :s')->setParameter('s', $student)
-            ->andWhere('e.classroom = :c')->setParameter('c', $classroom)
+            ->andWhere('e.classroom = :c')->setParameter('c', $classroom)   // singular
             ->andWhere('e.status = :st')->setParameter('st', EnrollmentStatusEnum::ACTIVE)
             ->setMaxResults(1)
             ->getQuery()
@@ -46,158 +43,148 @@ final class EnrollmentRepository extends ServiceEntityRepository
 
     /**
      * Find an Enrollment by its primary key.
-     *
-     * @param int $id
-     * @return Enrollment|null
      */
     public function findEnrollmentById(int $id): ?Enrollment
     {
         return $this->createQueryBuilder('e')
             ->andWhere('e.id = :id')->setParameter('id', $id)
-            ->getQuery()
-            ->getOneOrNullResult();
+            ->getQuery()->getOneOrNullResult();
     }
 
     /**
      * Get all ACTIVE enrollments for a classroom (ordered oldest first).
      *
-     * @param Classroom $classroom
      * @return Enrollment[]
      */
     public function findActiveByClassroom(Classroom $classroom): array
     {
         return $this->createQueryBuilder('e')
-            ->addSelect('s')
-            ->leftJoin('e.student', 's')
-            ->andWhere('e.classroom = :c')->setParameter('c', $classroom)
-            ->andWhere('e.status = :st')->setParameter('st', \App\Enum\EnrollmentStatusEnum::ACTIVE)
+            ->leftJoin('e.student', 's')->addSelect('s')
+            ->andWhere('e.classroom = :c')->setParameter('c', $classroom)   // singular
+            ->andWhere('e.status = :st')->setParameter('st', EnrollmentStatusEnum::ACTIVE)
             ->orderBy('e.enrolledAt', 'ASC')
+            ->getQuery()->getResult();
+    }
+
+    /**
+     * Return every enrollment (any status) for a classroom id.
+     *
+     * @return Enrollment[]
+     */
+    public function findAllByClassroomId(int $classroomId): array
+    {
+        return $this->createQueryBuilder('e')
+            ->andWhere('e.classroom = :cid')->setParameter('cid', $classroomId)
+            ->addOrderBy('e.enrolledAt', 'DESC')
+            ->getQuery()->getResult();
+    }
+
+    /**
+     * Return ACTIVE enrollments for a classroom id.
+     *
+     * @return Enrollment[]
+     */
+    public function findActiveByClassroomId(int $classroomId): array
+    {
+        return $this->createQueryBuilder('e')
+            ->andWhere('e.classroom = :cid')->setParameter('cid', $classroomId)
+            ->andWhere('e.status = :status')->setParameter('status', EnrollmentStatusEnum::ACTIVE)
+            ->addOrderBy('e.enrolledAt', 'DESC')
             ->getQuery()->getResult();
     }
 
     /**
      * Get all enrollments (any status) for a classroom (ordered oldest first).
      *
-     * @param Classroom $classroom
      * @return Enrollment[]
      */
-
     public function findAnyByClassroom(Classroom $classroom): array
     {
         return $this->createQueryBuilder('e')
             ->leftJoin('e.student', 's')->addSelect('s')
-            ->leftJoin('e.classroom', 'c')->addSelect('c')
-            ->andWhere('e.classroom = :c')->setParameter('c', $classroom)
+            ->leftJoin('e.classroom', 'c')->addSelect('c')                  // singular
+            ->andWhere('e.classroom = :c')->setParameter('c', $classroom)   // singular
             ->orderBy('e.enrolledAt', 'ASC')
-            ->getQuery()
-            ->getResult();
+            ->getQuery()->getResult();
     }
 
     /**
      * Find any enrollment by scalar ids (useful for controller paths).
-     *
-     * @param int $studentId
-     * @param int $classId
-     * @return Enrollment|null
      */
     public function findOneByStudentIdAndClassId(int $studentId, int $classId): ?Enrollment
     {
         return $this->createQueryBuilder('e')
             ->andWhere('IDENTITY(e.student) = :sid')->setParameter('sid', $studentId)
-            ->andWhere('IDENTITY(e.classroom) = :cid')->setParameter('cid', $classId)
-            ->getQuery()
-            ->getOneOrNullResult();
+            ->andWhere('IDENTITY(e.classroom) = :cid')->setParameter('cid', $classId) // singular
+            ->getQuery()->getOneOrNullResult();
     }
 
     /**
      * Find the ACTIVE enrollment for a given student/classroom pair.
-     *
-     * @param User      $student
-     * @param Classroom $classroom
-     * @return Enrollment|null
      */
     public function findActiveOneByStudentAndClassroom(User $student, Classroom $classroom): ?Enrollment
     {
         return $this->createQueryBuilder('e')
             ->andWhere('e.student = :student')->setParameter('student', $student)
-            ->andWhere('e.classroom = :classroom')->setParameter('classroom', $classroom)
+            ->andWhere('e.classroom = :classroom')->setParameter('classroom', $classroom) // singular
             ->andWhere('e.status = :st')->setParameter('st', EnrollmentStatusEnum::ACTIVE)
-            ->getQuery()
-            ->getOneOrNullResult();
+            ->getQuery()->getOneOrNullResult();
     }
 
     /**
      * Find the most recent enrollment (any status) for a student/classroom pair.
-     *
-     * @param User      $student
-     * @param Classroom $classroom
-     * @return Enrollment|null
      */
     public function findAnyOneByStudentAndClassroom(User $student, Classroom $classroom): ?Enrollment
     {
         return $this->createQueryBuilder('e')
             ->andWhere('e.student = :student')->setParameter('student', $student)
-            ->andWhere('e.classroom = :classroom')->setParameter('classroom', $classroom)
+            ->andWhere('e.classroom = :classroom')->setParameter('classroom', $classroom) // singular
             ->orderBy('e.enrolledAt', 'DESC')
-            ->getQuery()
-            ->getOneOrNullResult();
+            ->getQuery()->getOneOrNullResult();
     }
 
     /**
      * Eager-load enrollments by classroom id (joins student & classroom).
      *
-     * @param int $classroomId
      * @return Enrollment[]
      */
     public function findByClassroomId(int $classroomId): array
     {
         return $this->createQueryBuilder('e')
             ->leftJoin('e.student', 's')->addSelect('s')
-            ->leftJoin('e.classroom', 'c')->addSelect('c')
+            ->leftJoin('e.classroom', 'c')->addSelect('c')                  // singular
             ->andWhere('c.id = :cid')->setParameter('cid', $classroomId)
-            ->getQuery()
-            ->getResult();
+            ->getQuery()->getResult();
     }
 
     /**
      * Soft-drop **all ACTIVE** enrollments in the given classroom via bulk DQL.
      *
-     * ⚠️ This bypasses the UnitOfWork; refresh entities you already hold.
-     *
-     * @param Classroom $classroom
      * @return int Number of affected rows.
      */
     public function softDropAllActiveByClassroom(Classroom $classroom): int
     {
-        $now = new \DateTimeImmutable();
-
-        return $this->getEntityManager()->createQueryBuilder()
+        return (int) $this->getEntityManager()->createQueryBuilder()
             ->update(Enrollment::class, 'e')
             ->set('e.status', ':dropped')
             ->set('e.droppedAt', ':now')
-            ->where('e.classroom = :class')
+            ->where('e.classroom = :class')                                 // singular
             ->andWhere('e.status = :active')
             ->setParameter('class', $classroom)
             ->setParameter('active', EnrollmentStatusEnum::ACTIVE)
             ->setParameter('dropped', EnrollmentStatusEnum::DROPPED)
-            ->setParameter('now', $now)
-            ->getQuery()
-            ->execute();
+            ->setParameter('now', new \DateTimeImmutable())
+            ->getQuery()->execute();
     }
 
     /**
      * Soft-drop **all ACTIVE** enrollments for a given student across classrooms.
      *
-     * ⚠️ Bypasses UnitOfWork; refresh entities you already hold.
-     *
-     * @param User $student
      * @return int Number of affected rows.
      */
     public function softDropAllActiveByStudent(User $student): int
     {
-        $now = new \DateTimeImmutable();
-
-        return $this->getEntityManager()->createQueryBuilder()
+        return (int) $this->getEntityManager()->createQueryBuilder()
             ->update(Enrollment::class, 'e')
             ->set('e.status', ':dropped')
             ->set('e.droppedAt', ':now')
@@ -206,9 +193,8 @@ final class EnrollmentRepository extends ServiceEntityRepository
             ->setParameter('student', $student)
             ->setParameter('active', EnrollmentStatusEnum::ACTIVE)
             ->setParameter('dropped', EnrollmentStatusEnum::DROPPED)
-            ->setParameter('now', $now)
-            ->getQuery()
-            ->execute();
+            ->setParameter('now', new \DateTimeImmutable())
+            ->getQuery()->execute();
     }
 
     /**
@@ -217,26 +203,23 @@ final class EnrollmentRepository extends ServiceEntityRepository
     public function findActiveByStudent(User $student): array
     {
         return $this->createQueryBuilder('e')
-            ->leftJoin('e.classroom', 'c')->addSelect('c')
+            ->leftJoin('e.classroom', 'c')->addSelect('c')                   // singular
             ->leftJoin('c.teacher', 't')->addSelect('t')
             ->andWhere('e.student = :s')->setParameter('s', $student)
-            ->andWhere('e.status = :st')->setParameter('st', \App\Enum\EnrollmentStatusEnum::ACTIVE)
+            ->andWhere('e.status = :st')->setParameter('st', EnrollmentStatusEnum::ACTIVE)
             ->orderBy('c.name', 'ASC')
             ->getQuery()->getResult();
     }
 
-
-
-    /** Count ACTIVE enrollments in a classroom (you already added this, keep as-is) */
+    /**
+     * Count ACTIVE enrollments in a classroom.
+     */
     public function countActiveByClassroom(Classroom $classroom): int
     {
         return (int) $this->createQueryBuilder('e')
             ->select('COUNT(e.id)')
-            ->andWhere('e.classroom = :c')->setParameter('c', $classroom)
+            ->andWhere('e.classroom = :c')->setParameter('c', $classroom)    // singular
             ->andWhere('e.status = :st')->setParameter('st', EnrollmentStatusEnum::ACTIVE)
-            ->getQuery()
-            ->getSingleScalarResult();
+            ->getQuery()->getSingleScalarResult();
     }
-
-
 }

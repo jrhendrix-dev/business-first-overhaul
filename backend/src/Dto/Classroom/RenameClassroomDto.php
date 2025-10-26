@@ -6,7 +6,7 @@ namespace App\Dto\Classroom;
 
 use Symfony\Component\Validator\Constraints as Assert;
 
-/** Payload for renaming a classroom. */
+/** Payload for renaming a classrooms. */
 final class RenameClassroomDto
 {
     public function __construct(

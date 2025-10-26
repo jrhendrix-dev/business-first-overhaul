@@ -15,7 +15,7 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 /**
  * Service responsible for managing business logic related to Classroom entities.
- * Provides methods for classroom creation, assignment, unassignment, and retrieval operations.
+ * Provides methods for classrooms creation, assignment, unassignment, and retrieval operations.
  */
 class ClassroomManager
 {
@@ -23,7 +23,7 @@ class ClassroomManager
      * ClassroomManager constructor.
      *
      * @param EntityManagerInterface $em The Doctrine entity manager for database operations
-     * @param ClassroomRepository $classroomRepository Repository for classroom data access
+     * @param ClassroomRepository $classroomRepository Repository for classrooms data access
      */
     public function __construct(
         private EntityManagerInterface $em,
@@ -38,9 +38,9 @@ class ClassroomManager
     }
 
     /**
-     * Assigns a teacher to a classroom after validating the role.
+     * Assigns a teacher to a classrooms after validating the role.
      *
-     * @param Classroom $classroom The classroom to assign the teacher to
+     * @param Classroom $classroom The classrooms to assign the teacher to
      * @param User $teacher The user to assign as teacher
      *
      * @throws LogicException If the user is not a teacher
@@ -49,10 +49,10 @@ class ClassroomManager
     public function assignTeacher(Classroom $classroom, User $teacher): void
     {
         if ($classroom->isDropped()) {
-            throw new LogicException('Cannot assign a teacher to a dropped classroom.');
+            throw new LogicException('Cannot assign a teacher to a dropped classrooms.');
         }
         if (!$teacher->isTeacher()) {
-            throw new LogicException('Only teachers can be assigned to a classroom as a teacher');
+            throw new LogicException('Only teachers can be assigned to a classrooms as a teacher');
         }
 
         // Compare object identity; IDs may be null in unit tests (I used to compare id, and it was failing tests)
@@ -64,9 +64,9 @@ class ClassroomManager
     }
 
     /**
-     * Unassigns all teachers and students from a classroom.
+     * Unassigns all teachers and students from a classrooms.
      *
-     * @param Classroom $classroom The classroom to reset
+     * @param Classroom $classroom The classrooms to reset
      * @note Uses toArray() to avoid modifying collection during iteration
      */
     public function unassignAll(Classroom $classroom): void
@@ -118,9 +118,9 @@ class ClassroomManager
     }
 
     /**
-     * Retrieves a classroom by its ID.
+     * Retrieves a classrooms by its ID.
      *
-     * @param int $id The classroom's unique identifier
+     * @param int $id The classrooms's unique identifier
      * @return Classroom|null The found Classroom entity or null if not found
      */
     public function getClassById(int $id): ?Classroom
@@ -173,9 +173,9 @@ class ClassroomManager
 
 
     /**
-     * Creates a new classroom with the specified name.
+     * Creates a new classrooms with the specified name.
      *
-     * @param string $rawName The name of the classroom
+     * @param string $rawName The name of the classrooms
      * @return Classroom The newly created and persisted Classroom entity
      */
     public function createClassroom(string $rawName): Classroom
@@ -187,7 +187,7 @@ class ClassroomManager
 
         // app-level duplicate guard
         if ($this->classroomRepository->findOneBy(['name' => $name])) {
-            throw new \DomainException('A classroom with that name already exists.');
+            throw new \DomainException('A classrooms with that name already exists.');
         }
 
         $c = new Classroom();
@@ -199,7 +199,7 @@ class ClassroomManager
             $this->em->flush();
         } catch (UniqueConstraintViolationException $e) {
             // race-condition fallback -> surface as a friendly duplicate
-            throw new \DomainException('A classroom with that name already exists.');
+            throw new \DomainException('A classrooms with that name already exists.');
         }
 
         return $c;
@@ -214,7 +214,7 @@ class ClassroomManager
 
         // Skip check if unchanged
         if ($name !== $classroom->getName() && $this->classroomRepository->findOneBy(['name' => $name])) {
-            throw new \DomainException('A classroom with that name already exists.');
+            throw new \DomainException('A classrooms with that name already exists.');
         }
 
         $classroom->setName($name);
@@ -222,17 +222,17 @@ class ClassroomManager
         try {
             $this->em->flush();
         } catch (UniqueConstraintViolationException $e) {
-            throw new \DomainException('A classroom with that name already exists.');
+            throw new \DomainException('A classrooms with that name already exists.');
         }
 
         return $classroom;
     }
 
     /**
-     * Delete a classroom or soft-delete when active enrollments exist.
+     * Delete a classrooms or soft-delete when active enrollments exist.
      *
-     * @param Classroom $classroom The classroom to remove.
-     * @return bool True when the classroom was hard-deleted, false when marked DROPPED.
+     * @param Classroom $classroom The classrooms to remove.
+     * @return bool True when the classrooms was hard-deleted, false when marked DROPPED.
      */
     public function removeClassroom(Classroom $classroom): bool
     {
@@ -254,22 +254,22 @@ class ClassroomManager
     }
 
     /**
-     * Soft-drop the ACTIVE enrollment for $student in the given $classroom.
+     * Soft-drop the ACTIVE enrollment for $student in the given $classrooms.
      *
      * Delegates to EnrollmentManager and bubbles its NotFoundHttpException when:
-     *  - no ACTIVE enrollment exists for this (student, classroom) pair
+     *  - no ACTIVE enrollment exists for this (student, classrooms) pair
      *
      * @throws NotFoundHttpException when no active enrollment is found
      */
     public function removeStudentFromClassroom(User $student, Classroom $classroom): void
     {
-        // Single line delegation keeps classroom-facing controllers tidy,
+        // Single line delegation keeps classrooms-facing controllers tidy,
         // while the enrollment rules live in EnrollmentManager.
         $this->enrollments->dropActiveForStudent($student, $classroom);
     }
 
     /**
-     * Detach a student from every classroom by soft-dropping all ACTIVE enrollments.
+     * Detach a student from every classrooms by soft-dropping all ACTIVE enrollments.
      *
      * Idempotent: safe to call repeatedly.
      *

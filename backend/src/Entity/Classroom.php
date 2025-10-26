@@ -17,7 +17,7 @@ use Symfony\Component\Serializer\Annotation\MaxDepth;
 #[ORM\Entity(repositoryClass: ClassroomRepository::class)]
 #[ORM\Table(name: 'classes')]
 #[ORM\UniqueConstraint(name: "uniq_class_name", columns: ["name"])]
-#[UniqueEntity(fields: ['name'], message: 'A classroom with this name already exists.')]
+#[UniqueEntity(fields: ['name'], message: 'A classrooms with this name already exists.')]
 class Classroom
 {
     #[ORM\Id]

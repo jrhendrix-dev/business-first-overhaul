@@ -12,5 +12,47 @@ export const routes: Routes = [
   { path: 'password/reset',  loadComponent: () => import('./features/auth/reset-password.page').then(m => m.ResetPasswordPage) },
   { path: 'register', loadComponent: () => import('./features/auth/register.page').then(m => m.RegisterPage) },
   { path: '', redirectTo: 'me', pathMatch: 'full' },
-  { path: '**', redirectTo: '' }
+
+  // --- Admin area (NEW): shell + children ---
+  {
+    path: 'admin',
+    loadComponent: () =>
+      import('./features/admin/admin-shell.component')
+        .then(m => m.AdminShellComponent),
+    // If you have an admin/auth guard, add it here:
+    // canMatch: [adminGuard],
+    children: [
+      { path: '', redirectTo: 'users', pathMatch: 'full' },
+
+      {
+        path: 'users',
+        title: 'Admin • Users',
+        loadComponent: () =>
+          import('./features/admin/users/users.page')
+            .then(m => m.UsersPage),
+      },
+      {
+        path: 'classes',
+        title: 'Admin • Classes',
+        loadComponent: () =>
+          import('./features/admin/classes/classes.page')
+            .then(m => m.ClassesPage),
+      },
+      {
+        path: 'grades',
+        title: 'Admin • Grades',
+        loadComponent: () =>
+          import('./features/admin/grades/grades.page')
+            .then(m => m.GradesPage),
+      },
+    ],
+  },
+
+  // --- 404 ---
+  {
+    path: '**',
+    loadComponent: () =>
+      import('./shared/pages/not-found.page').then(m => m.NotFoundPage),
+  },
 ];
+

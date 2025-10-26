@@ -4,7 +4,7 @@
   <!-- Top-level non-validation errors -->
   <div *ngIf="error() as err" class="text-red-600">{{ err }}</div>
 
-  <!-- Create classroom -->
+  <!-- Create classrooms -->
   <form [formGroup]="createForm" (ngSubmit)="create()" class="grid gap-3 max-w-lg border rounded p-4">
     <h2 class="font-semibold">Create classroom</h2>
     <input class="border p-2 rounded" placeholder="Name" formControlName="name">

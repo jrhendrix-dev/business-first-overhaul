@@ -1,13 +1,14 @@
-import { UserRole } from './user-role';
-
 export interface UserItemDto {
   id: number;
-  userName: string;
-  email: string;
-  firstName: string;
-  lastName: string;
-  role: UserRole | null;
-  isActive: boolean;
-  createdAt: string;   // ISO 8601
-  fullName: string;
+  firstName?: string;
+  lastName?: string;
+  fullName?: string;
+  userName?: string;
+  email?: string;
+  role?: string;
+  isActive?: boolean;
+  createdAt?: string;
+
+  /** Optional list of classes (only when include=classes) */
+  classes?: { id: number; name: string }[];
 }

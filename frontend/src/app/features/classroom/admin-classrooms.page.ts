@@ -12,22 +12,22 @@ import { ClassroomService } from './classroom.service';
 import {
   ClassroomItemDto,
   ClassroomDetailDto,
-} from '@/app/shared/models/classroom/classroom-read.dto';
+} from '@shared/models/classrooms/classroom-read.dto';
 
 /**
  * Admin Classrooms Page (standalone component)
  *
  * What you can do here:
- *  - View the admin classroom list
- *  - Create a new classroom
- *  - Select a classroom, then rename it
+ *  - View the admin classrooms list
+ *  - Create a new classrooms
+ *  - Select a classrooms, then rename it
  *  - Assign or unassign a teacher by teacherId
  *
  * Notes:
  *  - We rely on the global error interceptor to normalize backend errors into:
  *    { status, code, details }, e.g. { error: { code: "VALIDATION_FAILED", details: {...} } }
  *  - Forms are typed via NonNullableFormBuilder. We let Angular infer types.
- *  - We use signals for simple state (selected classroom id, isLoading, error text).
+ *  - We use signals for simple state (selected classrooms id, isLoading, error text).
  */
 @Component({
   standalone: true,
@@ -41,7 +41,7 @@ export class AdminClassroomsPage {
   private readonly fb = inject(NonNullableFormBuilder);
 
   // ============ UI state (signals) ============
-  // selected classroom id in the list (null when none selected)
+  // selected classrooms id in the list (null when none selected)
   readonly selectedId = signal<number | null>(null);
   // top-level error text to show (non-validation)
   readonly error = signal<string | null>(null);
@@ -49,17 +49,17 @@ export class AdminClassroomsPage {
   readonly busy = signal(false);
 
   // ============ Forms ============
-  /** Create a classroom (POST /admin/classrooms) */
+  /** Create a classrooms (POST /admin/classrooms) */
   readonly createForm = this.fb.group({
     name: ['', [Validators.required, Validators.maxLength(255)]],
   });
 
-  /** Rename selected classroom (PUT /admin/classrooms/{id}) */
+  /** Rename selected classrooms (PUT /admin/classrooms/{id}) */
   readonly renameForm = this.fb.group({
     name: ['', [Validators.required, Validators.maxLength(255)]],
   });
 
-  /** Assign/unassign teacher for selected classroom (PUT/DELETE) */
+  /** Assign/unassign teacher for selected classrooms (PUT/DELETE) */
   readonly assignForm = this.fb.group({
     teacherId: this.fb.control<number | null>(null, { validators: [Validators.required, Validators.min(1)] }),
   });
@@ -107,7 +107,7 @@ export class AdminClassroomsPage {
   );
 
   /**
-   * Selected classroom details as an Observable:
+   * Selected classrooms details as an Observable:
    * - Whenever `selectedId` OR `refreshTick` changes, re-fetch detail.
    * - If nothing selected, emit null.
    */
@@ -128,7 +128,7 @@ export class AdminClassroomsPage {
     this.assignForm.reset({ teacherId: detail.teacher?.id ?? null });
   }
 
-  /** Create a classroom, then refresh the list. */
+  /** Create a classrooms, then refresh the list. */
   async create() {
     this.error.set(null);
     if (this.createForm.invalid) { this.createForm.markAllAsTouched(); return; }
@@ -150,7 +150,7 @@ export class AdminClassroomsPage {
     }
   }
 
-  /** Rename currently selected classroom. */
+  /** Rename currently selected classrooms. */
   async rename() {
     this.error.set(null);
     const id = this.selectedId();
@@ -172,7 +172,7 @@ export class AdminClassroomsPage {
     }
   }
 
-  /** Assign teacherId to the selected classroom (PUT). */
+  /** Assign teacherId to the selected classrooms (PUT). */
   async assignTeacher() {
     this.error.set(null);
     const id = this.selectedId();
@@ -194,7 +194,7 @@ export class AdminClassroomsPage {
     }
   }
 
-  /** Remove the teacher from the selected classroom (DELETE). */
+  /** Remove the teacher from the selected classrooms (DELETE). */
   async unassignTeacher() {
     this.error.set(null);
     const id = this.selectedId();

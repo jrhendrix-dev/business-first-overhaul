@@ -21,14 +21,14 @@ use App\Entity\User;
     }
 
     /**
-     * Fetch a grade with its enrollment, classroom and student associations eagerly loaded.
+     * Fetch a grade with its enrollment, classrooms and student associations eagerly loaded.
      */
     public function findOneWithRelations(int $id): ?Grade
     {
         return $this->createQueryBuilder('g')
             ->addSelect('e', 'c', 's')
             ->leftJoin('g.enrollment', 'e')
-            ->leftJoin('e.classroom', 'c')
+            ->leftJoin('e.classrooms', 'c')
             ->leftJoin('e.student', 's')
             ->andWhere('g.id = :id')->setParameter('id', $id)
             ->getQuery()
@@ -43,7 +43,7 @@ use App\Entity\User;
         return $this->createQueryBuilder('g')
             ->addSelect('e', 'c', 's')
             ->leftJoin('g.enrollment', 'e')
-            ->leftJoin('e.classroom', 'c')
+            ->leftJoin('e.classrooms', 'c')
             ->leftJoin('e.student', 's')
             ->andWhere('g.enrollment = :enrollment')->setParameter('enrollment', $enrollment)
             ->orderBy('g.gradedAt', 'ASC')
@@ -59,7 +59,7 @@ use App\Entity\User;
         $qb = $this->createQueryBuilder('g')
             ->addSelect('e', 'c')
             ->leftJoin('g.enrollment', 'e')
-            ->leftJoin('e.classroom', 'c')
+            ->leftJoin('e.classrooms', 'c')
             ->andWhere('e.student = :student')->setParameter('student', $student)
             ->orderBy('g.gradedAt', 'ASC');
 
@@ -71,7 +71,7 @@ use App\Entity\User;
     }
 
      /**
-      * List every grade in a classroom, eager-loading enrollment, classroom and student.
+      * List every grade in a classrooms, eager-loading enrollment, classrooms and student.
       *
       * @return Grade[]
       */
@@ -80,7 +80,7 @@ use App\Entity\User;
          return $this->createQueryBuilder('g')
              ->addSelect('e', 'c', 's')
              ->leftJoin('g.enrollment', 'e')
-             ->leftJoin('e.classroom', 'c')
+             ->leftJoin('e.classrooms', 'c')
              ->leftJoin('e.student', 's')
              ->andWhere('c.id = :cid')->setParameter('cid', $classId)
              ->orderBy('s.lastName', 'ASC')
@@ -98,7 +98,7 @@ use App\Entity\User;
          return $this->createQueryBuilder('g')
              ->addSelect('e', 'c', 's')
              ->leftJoin('g.enrollment', 'e')
-             ->leftJoin('e.classroom', 'c')
+             ->leftJoin('e.classrooms', 'c')
              ->leftJoin('e.student',  's')
              ->andWhere('c.teacher = :t')->setParameter('t', $teacher)
              ->orderBy('c.name', 'ASC')
@@ -117,7 +117,7 @@ use App\Entity\User;
          return $this->createQueryBuilder('g')
              ->addSelect('e', 'c', 's')
              ->leftJoin('g.enrollment', 'e')
-             ->leftJoin('e.classroom', 'c')
+             ->leftJoin('e.classrooms', 'c')
              ->leftJoin('e.student',  's')
              ->orderBy('c.name', 'ASC')
              ->addOrderBy('s.lastName', 'ASC')

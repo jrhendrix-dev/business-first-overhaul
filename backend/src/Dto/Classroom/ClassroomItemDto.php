@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Dto\Classroom;
 
 /**
- * Summary model for classroom listings.
+ * Summary model for classrooms listings.
  *
  * @phpstan-type TeacherMini array{id:int, firstName:string, lastName:string, email:string}|null
  */

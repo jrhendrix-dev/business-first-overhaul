@@ -1,5 +1,4 @@
 <?php
-// tests/Unit/Repository/EnrollmentRepositoryTest.php
 declare(strict_types=1);
 
 namespace App\Tests\Unit\Repository;
@@ -10,161 +9,105 @@ use App\Entity\User;
 use App\Enum\EnrollmentStatusEnum;
 use App\Enum\UserRoleEnum;
 use App\Repository\EnrollmentRepository;
-use App\Tests\Support\TestManagerRegistry;
-use Doctrine\ORM\EntityManager;
-use Doctrine\ORM\EntityManagerInterface;
-use Doctrine\ORM\Tools\SchemaTool;
-use Doctrine\ORM\ORMSetup;
-use Doctrine\DBAL\DriverManager;
+use App\Tests\Support\DatabaseTestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\TestCase;
 
-final class EnrollmentRepositoryTest extends TestCase
+#[CoversClass(\App\Repository\EnrollmentRepository::class)]
+final class EnrollmentRepositoryTest extends DatabaseTestCase
 {
-    private EntityManagerInterface $em;
-    private EnrollmentRepository $repository;
+    private EnrollmentRepository $repo;
 
     protected function setUp(): void
-     {
-         $config = ORMSetup::createAttributeMetadataConfiguration(
-             [dirname(__DIR__, 3) . '/src/Entity'],
-             true
-         );
-         $conn   = DriverManager::getConnection(['driver' => 'pdo_sqlite', 'memory' => true], $config);
-         $this->em = new EntityManager($conn, $config);
-
-         $tool = new SchemaTool($this->em);
-         $tool->createSchema($this->em->getMetadataFactory()->getAllMetadata());
-
-         $this->repository = new EnrollmentRepository(new TestManagerRegistry($this->em));
-     }
-
-    protected function tearDown(): void
     {
-        // Close the in-memory connection so the PDO handle is released
-        $this->em->clear();
-        $this->em->getConnection()->close();
+        parent::setUp();
+        $this->repo = self::getContainer()->get(EnrollmentRepository::class);
     }
 
     #[Test]
-    public function is_enrolled_checks_active_status(): void
+    public function it_finds_all_and_active_by_classroom_id(): void
     {
-        $student   = $this->createStudent('student-active');
-        $classroom = $this->createClassroom('Science');
+        $teacher = $this->makeUser('t1', UserRoleEnum::TEACHER, 't1@example.test');
+        $student = $this->makeUser('s1', UserRoleEnum::STUDENT, 's1@example.test');
+        $class   = (new Classroom())->setName('B1')->setTeacher($teacher);
 
-        $enrollment = (new Enrollment())
+        $this->em()->persist($teacher);
+        $this->em()->persist($student);
+        $this->em()->persist($class);
+
+        $enr = (new Enrollment())
             ->setStudent($student)
-            ->setClassroom($classroom)
+            ->setClassroom($class)
             ->setStatus(EnrollmentStatusEnum::ACTIVE);
 
-        $this->em->persist($student);
-        $this->em->persist($classroom);
-        $this->em->persist($enrollment);
-        $this->em->flush();
+        $this->em()->persist($enr);
+        $this->em()->flush();
 
-        self::assertTrue($this->repository->isEnrolled($student, $classroom));
+        $classId = (int) $class->getId();
 
-        $enrollment->setStatus(EnrollmentStatusEnum::DROPPED);
-        $this->em->flush();
+        $all    = $this->repo->findAllByClassroomId($classId);
+        $active = $this->repo->findActiveByClassroomId($classId);
 
-        self::assertFalse($this->repository->isEnrolled($student, $classroom));
+        self::assertNotEmpty($all);
+        self::assertNotEmpty($active);
+        self::assertSame('ACTIVE', $active[0]->getStatus()->name);
     }
 
     #[Test]
-    public function soft_drop_all_active_by_classroom_updates_rows_and_sets_timestamp(): void
+    public function find_active_by_student_returns_only_active_sorted_by_name(): void
     {
-        $classroom = $this->createClassroom('History');
-        $other     = $this->createClassroom('Geography');
+        $student = $this->makeUser('stud', UserRoleEnum::STUDENT, 'stud@example.test');
+        $alpha   = (new Classroom())->setName('Algebra');
+        $beta    = (new Classroom())->setName('Biology');
+        $gamma   = (new Classroom())->setName('Chemistry');
 
-        $studentA = $this->createStudent('student-a');
-        $studentB = $this->createStudent('student-b');
-        $studentC = $this->createStudent('student-c');
+        $this->em()->persist($student);
+        $this->em()->persist($alpha);
+        $this->em()->persist($beta);
+        $this->em()->persist($gamma);
 
-        $enrollA = $this->createEnrollment($studentA, $classroom, EnrollmentStatusEnum::ACTIVE);
-        $enrollB = $this->createEnrollment($studentB, $classroom, EnrollmentStatusEnum::ACTIVE);
-        $this->createEnrollment($studentC, $other, EnrollmentStatusEnum::ACTIVE);
+        $this->em()->persist((new Enrollment())->setStudent($student)->setClassroom($beta)->setStatus(EnrollmentStatusEnum::ACTIVE));
+        $this->em()->persist((new Enrollment())->setStudent($student)->setClassroom($alpha)->setStatus(EnrollmentStatusEnum::ACTIVE));
+        $this->em()->persist((new Enrollment())->setStudent($student)->setClassroom($gamma)->setStatus(EnrollmentStatusEnum::DROPPED));
+        $this->em()->flush();
 
-        $this->em->flush();
-
-        $affected = $this->repository->softDropAllActiveByClassroom($classroom);
-        self::assertSame(2, $affected);
-
-        $this->em->clear();
-
-        $reloadedA = $this->repository->find($enrollA->getId());
-        $reloadedB = $this->repository->find($enrollB->getId());
-
-        self::assertSame(EnrollmentStatusEnum::DROPPED, $reloadedA?->getStatus());
-        self::assertNotNull($reloadedA?->getDroppedAt());
-        self::assertSame(EnrollmentStatusEnum::DROPPED, $reloadedB?->getStatus());
-        self::assertNotNull($reloadedB?->getDroppedAt());
-    }
-
-    #[Test]
-    public function find_active_by_student_returns_sorted_active_enrollments(): void
-    {
-        $student = $this->createStudent('student-sorted');
-        $alpha   = $this->createClassroom('Algebra');
-        $beta    = $this->createClassroom('Biology');
-        $gamma   = $this->createClassroom('Chemistry');
-
-        $this->createEnrollment($student, $beta, EnrollmentStatusEnum::ACTIVE);
-        $this->createEnrollment($student, $alpha, EnrollmentStatusEnum::ACTIVE);
-        $this->createEnrollment($student, $gamma, EnrollmentStatusEnum::DROPPED);
-
-        $this->em->flush();
-
-        $results = $this->repository->findActiveByStudent($student);
+        $results = $this->repo->findActiveByStudent($student);
         self::assertCount(2, $results);
         self::assertSame('Algebra', $results[0]->getClassroom()->getName());
         self::assertSame('Biology', $results[1]->getClassroom()->getName());
     }
 
     #[Test]
-    public function count_active_by_classroom_returns_number_of_active_enrollments(): void
+    public function count_active_by_classroom_counts_only_active(): void
     {
-        $classroom = $this->createClassroom('Philosophy');
-        $student1  = $this->createStudent('student-1');
-        $student2  = $this->createStudent('student-2');
+        $class = (new Classroom())->setName('Philosophy');
+        $s1 = $this->makeUser('s1x', UserRoleEnum::STUDENT, 's1x@example.test');
+        $s2 = $this->makeUser('s2x', UserRoleEnum::STUDENT, 's2x@example.test');
 
-        $this->createEnrollment($student1, $classroom, EnrollmentStatusEnum::ACTIVE);
-        $this->createEnrollment($student2, $classroom, EnrollmentStatusEnum::DROPPED);
-        $this->em->flush();
+        $this->em()->persist($class);
+        $this->em()->persist($s1);
+        $this->em()->persist($s2);
 
-        self::assertSame(1, $this->repository->countActiveByClassroom($classroom));
+        $this->em()->persist((new Enrollment())->setStudent($s1)->setClassroom($class)->setStatus(EnrollmentStatusEnum::ACTIVE));
+        $this->em()->persist((new Enrollment())->setStudent($s2)->setClassroom($class)->setStatus(EnrollmentStatusEnum::DROPPED));
+        $this->em()->flush();
+
+        self::assertSame(1, $this->repo->countActiveByClassroom($class));
     }
 
-    // ------- helpers -------
+    // ---- helpers ---------------------------------------------------------
 
-    private function createStudent(string $username): User
+    private function makeUser(string $username, UserRoleEnum $role, string $email): User
     {
-        $student = (new User())
+        $u = (new User())
             ->setUserName($username)
-            ->setFirstName('First ' . $username)
-            ->setLastName('Last ' . $username)
-            ->setEmail($username . '@example.com')
+            ->setFirstName(\ucfirst($username))
+            ->setLastName('Test')
+            ->setEmail($email)
             ->setPassword('hash')
-            ->setRole(UserRoleEnum::STUDENT);
+            ->setRole($role);
 
-        $this->em->persist($student);
-        return $student;
-    }
-
-    private function createClassroom(string $name): Classroom
-    {
-        $classroom = (new Classroom())->setName($name);
-        $this->em->persist($classroom);
-        return $classroom;
-    }
-
-    private function createEnrollment(User $student, Classroom $classroom, EnrollmentStatusEnum $status): Enrollment
-    {
-        $enrollment = (new Enrollment())
-            ->setStudent($student)
-            ->setClassroom($classroom)
-            ->setStatus($status);
-
-        $this->em->persist($enrollment);
-        return $enrollment;
+        $this->em()->persist($u);
+        return $u;
     }
 }

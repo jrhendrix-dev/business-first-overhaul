@@ -51,7 +51,7 @@ final class ClassroomTeacherController extends AbstractController
 
         $status = strtolower((string)$request->query->get('status', 'active'));
         if ($status === 'all') {
-            $rows = $this->enrollments->findBy(['classroom' => $class], ['enrolledAt' => 'ASC']);
+            $rows = $this->enrollments->findBy(['classrooms' => $class], ['enrolledAt' => 'ASC']);
         } else {
             // assumes you have a helper like findActiveByClassroom(Classroom $c)
             $rows = $this->enrollments->findActiveByClassroom($class);

@@ -6,7 +6,7 @@ namespace App\Dto\Classroom;
 
 use Symfony\Component\Validator\Constraints as Assert;
 
-/** Payload for creating a classroom. */
+/** Payload for creating a classrooms. */
 final class CreateClassroomDto
 {
     public function __construct(

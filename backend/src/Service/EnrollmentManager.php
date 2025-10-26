@@ -27,7 +27,7 @@ final class EnrollmentManager implements EnrollmentPort
     ) {}
 
     /**
-     * Ensure the student is ACTIVE in the classroom (idempotent).
+     * Ensure the student is ACTIVE in the classrooms (idempotent).
      *
      * Flow:
      *  - If ACTIVE exists -> return it (no DB writes).
@@ -89,7 +89,7 @@ final class EnrollmentManager implements EnrollmentPort
             ->setStatus(EnrollmentStatusEnum::DROPPED)
             ->setDroppedAt(new \DateTimeImmutable());
 
-        // Keep classroom link for history; do NOT null it out.
+        // Keep classrooms link for history; do NOT null it out.
         $this->em->flush();
     }
 
@@ -120,7 +120,7 @@ final class EnrollmentManager implements EnrollmentPort
     }
 
 
-    /** Port implementation: bulk drop all ACTIVE enrollments for the classroom */
+    /** Port implementation: bulk drop all ACTIVE enrollments for the classrooms */
     public function dropAllActiveForClassroom(Classroom $classroom): void
     {
         $this->enrollments->softDropAllActiveByClassroom($classroom);
@@ -171,7 +171,7 @@ final class EnrollmentManager implements EnrollmentPort
     {
         $enrollment = $this->enrollments->findOneBy([
             'student'   => $studentId,
-            'classroom' => $classId,
+            'classrooms' => $classId,
         ]);
 
         if (!$enrollment) {
