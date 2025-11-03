@@ -29,7 +29,8 @@ export class AuthApiService {
   }
 
   login(email: string, password: string) {
-    return this.http.post<LoginResponse>(this.apiPath('auth/login'), { email, password });
+    console.debug('[AuthApi] POST /api/login', { email });
+    return this.http.post<LoginResponse>(this.apiPath('login'), { email, password });
   }
 
   requestPasswordReset(email: string) {

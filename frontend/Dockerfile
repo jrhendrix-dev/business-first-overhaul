@@ -1,21 +1,20 @@
 # frontend/Dockerfile
-# frontend/Dockerfile
-FROM node:20.19-alpine
+FROM node:20-bookworm-slim
 
-# Set working directory
+ENV NODE_ENV=development
 WORKDIR /app
 
-# Copy package.json and package-lock.json
-COPY package*.json ./
+# Good hygiene if your deps pull from git
+RUN apt-get update && apt-get install -y --no-install-recommends git \
+  && rm -rf /var/lib/apt/lists/*
 
-# Install dependencies
-RUN npm install
+# Install deps first to leverage layer cache
+COPY package.json package-lock.json ./
+RUN npm ci --no-audit --no-fund
 
-# Copy the rest of the app
+# Bring the rest of the sources
 COPY . .
 
-# Expose port used by Angular dev server
+# Angular dev server will run in the CMD
 EXPOSE 4200
-
-# Default command
-CMD ["npm", "run", "start"]
+CMD ["npm", "run", "start", "--", "--host", "0.0.0.0"]

@@ -1,8 +1,9 @@
+// src/app/layout/navbar.component.ts
 import { Component, ElementRef, HostListener, OnDestroy, inject } from '@angular/core';
 import { Router, NavigationEnd, RouterLink, RouterLinkActive } from '@angular/router';
 import { NgIf } from '@angular/common';
 import { Subject, takeUntil } from 'rxjs';
-import { AuthService } from '../core/auth.service';
+import { AuthStateService } from '@/app/core/auth/auth.service';
 
 @Component({
   selector: 'app-navbar',
@@ -57,35 +58,26 @@ import { AuthService } from '../core/auth.service';
               </div>
             </div>
           </li>
-          <!-- Note: no top-level Admin link by design -->
         </ul>
 
         <!-- Right side: CTA / Account -->
         <div class="flex items-center justify-end gap-3">
           <!-- Logged out -->
-          <ng-container *ngIf="!auth.isLoggedIn()">
-            <!-- Secondary CTA: Registrarse (outline) -->
-            <a
-              routerLink="/register"
-              class="rounded-md border border-white/60 px-3 py-2 font-semibold
-             text-white/90 transition hover:text-white hover:border-white
-             hover:bg-white/10"
-            >
+          <ng-container *ngIf="!auth.loggedIn()">
+            <a routerLink="/register"
+               class="rounded-md border border-white/60 px-3 py-2 font-semibold text-white/90 transition
+                      hover:text-white hover:border-white hover:bg-white/10">
               Registrarse
             </a>
 
-            <!-- Primary CTA: Iniciar sesión (solid) -->
-            <a
-              routerLink="/login"
-              class="rounded-md bg-brand-crimson px-3 py-2 font-semibold text-white transition
-            hover:bg-red-700 whitespace-nowrap"
-            >
+            <a routerLink="/login"
+               class="rounded-md bg-brand-crimson px-3 py-2 font-semibold text-white transition hover:bg-red-700 whitespace-nowrap">
               Iniciar sesión
             </a>
           </ng-container>
 
           <!-- Logged in account -->
-          <div *ngIf="auth.isLoggedIn()" class="relative group">
+          <div *ngIf="auth.loggedIn()" class="relative group">
             <button
               class="relative flex items-center gap-2 px-2 py-1 transition-colors hover:text-brand-crimson"
               (click)="toggleAccountMenu()"
@@ -100,13 +92,17 @@ import { AuthService } from '../core/auth.service';
                  class="absolute right-0 z-20 mt-3 w-72 overflow-hidden rounded-md bg-brand-navy text-white shadow-lg ring-1 ring-black/10">
               <div class="px-4 py-3 text-sm">
                 <p class="font-semibold">{{ fullName() }}</p>
-                <p class="truncate text-white/70">{{ auth.user()?.email }}</p>
+                <p class="truncate text-white/70">{{ userEmail() }}</p>
               </div>
               <div class="border-t border-white/10"></div>
 
               <a routerLink="/me" class="block px-4 py-2 hover:bg-brand-crimson" (click)="closeMenus()">Mi perfil</a>
-              <a *ngIf="panelRoute() as pr" [routerLink]="pr" class="block px-4 py-2 hover:bg-brand-crimson" (click)="closeMenus()">{{ panelLabel() }}</a>
-              <button class="block w-full px-4 py-2 text-left hover:bg-brand-crimson" (click)="closeMenus(); logout()">Cerrar sesión</button>
+              <a *ngIf="panelRoute() as pr" [routerLink]="pr" class="block px-4 py-2 hover:bg-brand-crimson" (click)="closeMenus()">
+                {{ panelLabel() }}
+              </a>
+              <button class="block w-full px-4 py-2 text-left hover:bg-brand-crimson" (click)="closeMenus(); logout()">
+                Cerrar sesión
+              </button>
             </div>
           </div>
         </div>
@@ -134,19 +130,19 @@ import { AuthService } from '../core/auth.service';
         <a routerLink="/clases-espanol" class="block px-4 py-3 hover:bg-white/10" (click)="open=false">Español para extranjeros</a>
 
         <!-- Auth-aware items -->
-        <a *ngIf="!auth.isLoggedIn()" routerLink="/login" class="block px-4 py-3 hover:bg-white/10" (click)="open=false">
+        <a *ngIf="!auth.loggedIn()" routerLink="/login" class="block px-4 py-3 hover:bg-white/10" (click)="open=false">
           Iniciar sesión
         </a>
-        <a *ngIf="!auth.isLoggedIn()" routerLink="/register" class="block px-4 py-3 hover:bg-white/10" (click)="open=false">
+        <a *ngIf="!auth.loggedIn()" routerLink="/register" class="block px-4 py-3 hover:bg-white/10" (click)="open=false">
           Registrarse
         </a>
-        <a *ngIf="auth.isLoggedIn()" routerLink="/me" class="block px-4 py-3 hover:bg-white/10" (click)="open=false">
+        <a *ngIf="auth.loggedIn()" routerLink="/me" class="block px-4 py-3 hover:bg-white/10" (click)="open=false">
           Mi perfil
         </a>
-        <a *ngIf="auth.isLoggedIn() && panelRoute() as pr" [routerLink]="pr" class="block px-4 py-3 hover:bg-white/10" (click)="open=false">
+        <a *ngIf="auth.loggedIn() && panelRoute() as pr" [routerLink]="pr" class="block px-4 py-3 hover:bg-white/10" (click)="open=false">
           {{ panelLabel() }}
         </a>
-        <button *ngIf="auth.isLoggedIn()" class="block w-full text-left px-4 py-3 hover:bg-white/10" (click)="open=false; logout()">
+        <button *ngIf="auth.loggedIn()" class="block w-full text-left px-4 py-3 hover:bg-white/10" (click)="open=false; logout()">
           Cerrar sesión
         </button>
       </div>
@@ -154,7 +150,7 @@ import { AuthService } from '../core/auth.service';
   `
 })
 export class NavbarComponent implements OnDestroy {
-  auth = inject(AuthService);
+  auth = inject(AuthStateService);
   private router = inject(Router);
   private host = inject(ElementRef<HTMLElement>);
   private destroy$ = new Subject<void>();
@@ -173,9 +169,6 @@ export class NavbarComponent implements OnDestroy {
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }
       });
-
-    // Hydrate user on app load/refresh
-    this.auth.hydrate();
   }
 
   /** Close dropdowns on Escape */
@@ -202,45 +195,58 @@ export class NavbarComponent implements OnDestroy {
   /** Home link behavior: if already on '/', just scroll to top */
   goHome(ev: MouseEvent) {
     const path = this.router.url.replace(/[?#].*$/, '');
-    const atHome = path === '/';
-    if (atHome) {
+    if (path === '/') {
       ev.preventDefault();
       window.scrollTo({ top: 0, behavior: 'smooth' });
       if (this.open) this.open = false;
     }
   }
 
-  toggleAccountMenu() {
-    this.accountOpen = !this.accountOpen;
+  toggleAccountMenu() { this.accountOpen = !this.accountOpen; }
+  closeMenus() { this.accountOpen = false; this.open = false; }
+
+  /** ===== Helpers that read info from the JWT payload ===== */
+
+  private decodePayload(): any {
+    const token = this.auth.getAccessToken();
+    if (!token) return null;
+    try {
+      const first = token.indexOf('.');
+      const second = token.indexOf('.', first + 1);
+      if (first <= 0 || second <= first + 1) return null;
+      const b64url = token.slice(first + 1, second);
+      const pad = '==='.slice((b64url.length + 3) % 4);
+      const json = atob((b64url + pad).replace(/-/g, '+').replace(/_/g, '/'));
+      return JSON.parse(json);
+    } catch { return null; }
   }
 
-  closeMenus() {
-    this.accountOpen = false;
-    this.open = false; // mobile menu too
+  userEmail(): string {
+    return this.decodePayload()?.email ?? '';
+  }
+
+  userRoles(): string[] {
+    const r = this.decodePayload()?.roles;
+    return Array.isArray(r) ? r : [];
   }
 
   /** Full name preferred, fallback to email, then 'Cuenta' */
-  fullName() {
-    const u = this.auth.user();
-    const name = [u?.firstName, u?.lastName].filter(Boolean).join(' ').trim();
-    return name || u?.email || 'Cuenta';
+  fullName(): string {
+    const p = this.decodePayload();
+    const name = [p?.firstName, p?.lastName].filter(Boolean).join(' ').trim();
+    return name || p?.email || 'Cuenta';
   }
 
-  /**
-   * Route to the user’s role panel.
-   * Adjust routes if your app uses different paths.
-   */
   panelRoute(): string | null {
-    const roles = this.auth.user()?.roles ?? [];
+    const roles = this.userRoles();
     if (roles.includes('ROLE_ADMIN'))   return '/admin';
     if (roles.includes('ROLE_TEACHER')) return '/teacher';
     if (roles.includes('ROLE_STUDENT')) return '/student';
     return null;
   }
 
-  /** Localized label for the role panel link */
   panelLabel(): string {
-    const roles = this.auth.user()?.roles ?? [];
+    const roles = this.userRoles();
     if (roles.includes('ROLE_ADMIN'))   return 'Panel de administrador';
     if (roles.includes('ROLE_TEACHER')) return 'Panel de profesor';
     if (roles.includes('ROLE_STUDENT')) return 'Mi panel';
@@ -248,6 +254,7 @@ export class NavbarComponent implements OnDestroy {
   }
 
   logout() {
-    this.auth.logout().subscribe(() => this.router.navigateByUrl('/'));
+    this.auth.clearAuth();
+    void this.router.navigateByUrl('/login');
   }
 }

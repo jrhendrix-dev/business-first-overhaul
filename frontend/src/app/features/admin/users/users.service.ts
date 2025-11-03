@@ -25,46 +25,60 @@ export interface UsersPageDto {
 export class UsersService {
   private http = inject(HttpClient);
 
+
   /** List users (supports array or paginated object responses) */
   list(query: UsersQuery): Observable<UsersPageDto> {
-    let params = new HttpParams()
-      .set('with', 'classes');
-    if (query.q)    params = params.set('q', query.q);
-    if (query.role) params = params.set('role', query.role);
+    // Ask backend to embed classrooms relation (single, not array param; switch to with[] if your controller expects arrays)
+    let params = new HttpParams().set('with', 'classrooms');
+
+    if (query.q)          params = params.set('q', query.q);
+    if (query.role)       params = params.set('role', query.role);
     if (query.page != null) params = params.set('page', String(query.page));
     if (query.size != null) params = params.set('size', String(query.size));
 
-    params = params.set('include', 'classes');
-
-    // ✅ include /api here so we hit http://localhost:8000/api/admin/users
     const url = `${API}/api/admin/users`;
 
     if (isDevMode()) console.log('[UsersService] GET', url, 'params=', params.toString());
 
     return this.http.get<any>(url, { params }).pipe(
       tap(res => isDevMode() && console.log('[UsersService] response:', res)),
+
       map((res: any) => {
+        // Normalize payload to always expose .items and .classes[]
+        const rawItems: UserItemDto[] = Array.isArray(res) ? (res as UserItemDto[]) : (res?.items ?? []);
+
+        const items = (rawItems ?? []).map((u: any) => {
+          // prefer `classes`, otherwise map `classrooms` -> `classes`
+          const classes = Array.isArray(u?.classes) ? u.classes
+            : Array.isArray(u?.classrooms) ? u.classrooms
+              : [];
+          return { ...u, classes };
+        });
+
         if (Array.isArray(res)) {
           return {
-            items: res as UserItemDto[],
-            total: res.length,
+            items,
+            total: items.length,
             page: query.page ?? 1,
-            size: query.size ?? res.length,
+            size: query.size ?? items.length,
           };
         }
+
         return {
-          items: (res?.items ?? []) as UserItemDto[],
-          total: Number(res?.total ?? res?.items?.length ?? 0),
+          items,
+          total: Number(res?.total ?? items.length ?? 0),
           page: Number(res?.page ?? query.page ?? 1),
-          size: Number(res?.size ?? query.size ?? res?.items?.length ?? 0),
+          size: Number(res?.size ?? query.size ?? items.length ?? 0),
         };
       }),
+
       catchError(err => {
         console.error('[UsersService] list() failed', err);
         return throwError(() => err);
       })
     );
   }
+
 
   /** Create new user */
   create(dto: CreateUserDto): Observable<UserItemDto> {

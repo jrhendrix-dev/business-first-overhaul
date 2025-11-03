@@ -2,13 +2,13 @@
 import { Component, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { AuthService } from './auth.service';
-import { RouterLink } from '@angular/router';
+import { AuthApiService } from './auth-api.service';
+
 
 @Component({
   standalone: true,
   selector: 'app-forgot-password',
-  imports: [CommonModule, ReactiveFormsModule, RouterLink],
+  imports: [CommonModule, ReactiveFormsModule],
   template: `
     <section class="mx-auto w-full max-w-5xl px-4 py-16">
       <h1 class="text-5xl font-extrabold tracking-tight mb-10">Recuperar contraseña</h1>
@@ -45,7 +45,7 @@ import { RouterLink } from '@angular/router';
 })
 export class ForgotPasswordPage {
   private fb = inject(FormBuilder);
-  private auth = inject(AuthService);
+  private auth = inject(AuthApiService);
 
   form = this.fb.group({
     email: ['', [Validators.required, Validators.email]],

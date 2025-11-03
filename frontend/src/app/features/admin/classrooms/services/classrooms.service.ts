@@ -1,69 +1,46 @@
+// src/app/features/admin/classrooms/services/classrooms.service.ts
 import { Injectable, inject, isDevMode } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { Observable, catchError, map, throwError, forkJoin } from 'rxjs';
+import { Observable, catchError, map, throwError } from 'rxjs';
 import { environment } from '@/environments/environment';
 import { ClassroomItemDto, ClassroomDetailDto } from '@/app/shared/models/classrooms/classroom-read.dto';
 import { UserItemDto } from '@/app/shared/models/user/user-read.dto';
+import { EnrollmentMini, TeacherOption, StudentOption } from '../models/enrollment-mini.model';
 
 const API  = environment.apiBase;
 const BASE = `${API}/api/admin/classrooms`;
 const ENR  = `${API}/api/admin/enrollments`;
-const USERS= `${API}/api/admin/users`;
-const USERS_TEACHERS = `${API}/api/admin/users/teachers`;
-const USERS_TEACHERS_WITHOUT   = `${USERS}/teachers/without-classroom`;
-const USERS_STUDENTS           = `${USERS}/students`;
-const USERS_STUDENTS_WITHOUT   = (classId: number) => `${USERS}/students/without-classroom/${classId}`;
+const USERS = `${API}/api/admin/users`;
+const USERS_TEACHERS = `${USERS}/teachers`;
+const USERS_TEACHERS_WITHOUT = `${USERS}/teachers/without-classroom`;
 
-const mapEnrollments = (res: any): EnrollmentMini[] =>
-  extractArray<any>(res).map(toEnrollmentMini);
-
-function isActive(e: EnrollmentMini) {
-  return (e.status || 'ACTIVE').toUpperCase() === 'ACTIVE';
-}
-
-/** UI picklist option for assigning teachers (avoid name clash with DTO TeacherMini). */
-export type TeacherOption = { id: number; name: string; email?: string | null };
-
-/** UI picklist for assigning students */
-export type StudentOption = { id: number; name: string; email?: string | null };
-
-/** Normalized enrollment item shape for the roster drawer. */
-export type EnrollmentMini = {
-  student: { id: number; firstName: string; lastName: string; email?: string | null };
-  status: string;
-  enrolledAt?: string | null;
-};
+// ----------------------- types & mappers -----------------------
 
 /** Service-level error format with a user-facing message. */
-type ServiceError = { code: string; userMessage: string; cause?: any };
+type ServiceError = { code: string; userMessage: string; cause?: unknown };
 
-/* ------------- mappers ------------- */
 const toTeacherOption = (t: UserItemDto): TeacherOption => ({
   id: t.id,
   name: t.fullName || `${t.firstName ?? ''} ${t.lastName ?? ''}`.trim(),
   email: t.email ?? null,
 });
+
 const toStudentOption = (s: UserItemDto): StudentOption => ({
   id: s.id,
   name: s.fullName || `${s.firstName ?? ''} ${s.lastName ?? ''}`.trim(),
   email: s.email ?? null,
 });
 
-/* ----------------------- helpers ----------------------- */
-
-/** Extract arrays from common paginated shapes. */
 function extractArray<T>(payload: unknown): T[] {
   if (Array.isArray(payload)) return payload as T[];
   if (payload && typeof payload === 'object') {
     const obj = payload as any;
-    if (Array.isArray(obj.items))   return obj.items as T[];
-    if (Array.isArray(obj.data))    return obj.data as T[];
+    if (Array.isArray(obj.items)) return obj.items as T[];
+    if (Array.isArray(obj.data)) return obj.data as T[];
     if (Array.isArray(obj.content)) return obj.content as T[];
   }
   return [];
 }
-
-
 
 function toEnrollmentMini(raw: any): EnrollmentMini {
   const s = raw?.student ?? raw?.user ?? raw ?? {};
@@ -71,7 +48,7 @@ function toEnrollmentMini(raw: any): EnrollmentMini {
     student: {
       id: Number(s.id),
       firstName: String(s.firstName ?? s.firstname ?? ''),
-      lastName:  String(s.lastName  ?? s.lastname  ?? ''),
+      lastName: String(s.lastName ?? s.lastname ?? ''),
       email: (s.email ?? null) as string | null,
     },
     status: String(raw?.status ?? raw?.enrollmentStatus ?? 'ACTIVE'),
@@ -79,22 +56,32 @@ function toEnrollmentMini(raw: any): EnrollmentMini {
   };
 }
 
+const mapEnrollments = (res: unknown): EnrollmentMini[] =>
+  extractArray<any>(res).map(toEnrollmentMini);
 
-function hasTeacherRole(u: any, assumeFiltered: boolean): boolean {
-  if (Array.isArray(u?.roles)) return u.roles.includes('ROLE_TEACHER');
-  if (typeof u?.role === 'string') return u.role === 'ROLE_TEACHER';
-  // If server was asked to filter but didn't include a per-item role,
-  // assume the list is already teachers.
-  return assumeFiltered;
+function isActive(e: EnrollmentMini) {
+  return (e.status || 'ACTIVE').toUpperCase() === 'ACTIVE';
 }
 
-/* ----------------------- service ----------------------- */
+function normalizeToStudentOptions(
+  list: UserItemDto[] | StudentOption[]
+): StudentOption[] {
+  const first = (list as any[])[0];
+  const shaped = first && 'id' in first && 'name' in first;
+  return (list as any[]).map(
+    shaped ? (x: any) => x as StudentOption : toStudentOption
+  );
+}
+
+// ----------------------------- service -----------------------------
 
 @Injectable({ providedIn: 'root' })
 export class ClassroomsService {
   private http = inject(HttpClient);
 
-  list(params?: { name?: string; unassigned?: boolean; teacherId?: number }): Observable<ClassroomItemDto[]> {
+  // -------- classrooms (list/search/detail/crud) --------
+
+  list(params?: { name?: string; unassigned?: boolean; teacherId?: number; studentId?: number }): Observable<ClassroomItemDto[]> {
     if (params?.name) {
       const httpParams = new HttpParams().set('name', params.name);
       return this.http.get<ClassroomItemDto[]>(`${BASE}/search`, { params: httpParams });
@@ -104,6 +91,10 @@ export class ClassroomsService {
     }
     if (params?.teacherId != null) {
       return this.http.get<ClassroomItemDto[]>(`${BASE}/taught-by/${params.teacherId}`);
+    }
+    // NEW: student filter
+    if (params?.studentId != null) {
+      return this.http.get<ClassroomItemDto[]>(`${BASE}/enrolled-in/${params.studentId}`);
     }
     return this.http.get<ClassroomItemDto[]>(BASE);
   }
@@ -117,7 +108,7 @@ export class ClassroomsService {
     );
   }
 
-  create(name: string) {
+  create(name: string): Observable<ClassroomDetailDto> {
     return this.http.post<ClassroomDetailDto>(BASE, { name }).pipe(
       catchError((cause): Observable<never> =>
         this.fail({ code: 'CLASS_CREATE_FAILED', userMessage: 'Create failed', cause })
@@ -125,7 +116,7 @@ export class ClassroomsService {
     );
   }
 
-  rename(id: number, name: string) {
+  rename(id: number, name: string): Observable<ClassroomDetailDto> {
     return this.http.put<ClassroomDetailDto>(`${BASE}/${id}`, { name }).pipe(
       catchError((cause): Observable<never> =>
         this.fail({ code: 'CLASS_RENAME_FAILED', userMessage: 'Rename failed', cause })
@@ -133,8 +124,8 @@ export class ClassroomsService {
     );
   }
 
-  /** Backend returns 204 -> avoid JSON parse error by using text-as-json. */
-  assignTeacher(id: number, teacherId: number) {
+  /** Backend may return 204: use text-as-json to avoid parse error. */
+  assignTeacher(id: number, teacherId: number): Observable<void> {
     return this.http.put<void>(`${BASE}/${id}/teacher`, { teacherId }, { responseType: 'text' as 'json' }).pipe(
       catchError((cause): Observable<never> =>
         this.fail({ code: 'ASSIGN_TEACHER_FAILED', userMessage: 'Failed to assign teacher', cause })
@@ -142,7 +133,7 @@ export class ClassroomsService {
     );
   }
 
-  unassignTeacher(id: number) {
+  unassignTeacher(id: number): Observable<void> {
     return this.http.delete<void>(`${BASE}/${id}/teacher`, { responseType: 'text' as 'json' }).pipe(
       catchError((cause): Observable<never> =>
         this.fail({ code: 'UNASSIGN_TEACHER_FAILED', userMessage: 'Failed to unassign teacher', cause })
@@ -150,37 +141,31 @@ export class ClassroomsService {
     );
   }
 
-  reactivate(id: number) {
-    return this.http.post<ClassroomDetailDto>(`${BASE}/${id}/reactivate`, {}).pipe(
-      catchError((cause): Observable<never> =>
-        this.fail({ code: 'CLASS_REACTIVATE_FAILED', userMessage: 'Reactivate failed', cause })
-      )
-    );
+  /** Reactivate a dropped classroom */
+  reactivate(id: number): Observable<void> {
+    return this.http.patch<void>(`${BASE}/${id}/reactivate`, {});
   }
 
-  delete(id: number) {
-    return this.http.delete(`${BASE}/${id}`).pipe(
-      catchError((cause): Observable<never> =>
-        this.fail({ code: 'CLASS_DELETE_FAILED', userMessage: 'Delete failed', cause })
-      )
-    );
+  /** Permanently delete a classroom */
+  delete(id: number): Observable<void> {
+    return this.http.delete<void>(`${BASE}/${id}`);
   }
 
+  // ----------------------- enrollments -----------------------
 
-  /* ----------------------- enrollments ----------------------- */
-
-  /** List ACTIVE enrollments with robust fallback:
-   *  - try /active-enrollments
-   *  - on ANY error (404/500/etc) try /enrollments and filter ACTIVE client-side
+  /**
+   * List ACTIVE enrollments with a robust fallback:
+   * 1) try `/active-enrollments`
+   * 2) on error, try `/enrollments` and filter ACTIVE client-side
    */
   listActiveEnrollments(classId: number): Observable<EnrollmentMini[]> {
-    const primary  = `${ENR}/class/${classId}/active-enrollments`;
+    const primary = `${ENR}/class/${classId}/active-enrollments`;
     const fallback = `${ENR}/class/${classId}/enrollments`;
 
-    return this.http.get<any>(primary).pipe(
+    return this.http.get<unknown>(primary).pipe(
       map(mapEnrollments),
       catchError(() =>
-        this.http.get<any>(fallback).pipe(
+        this.http.get<unknown>(fallback).pipe(
           map(mapEnrollments),
           map(list => list.filter(isActive)),
           catchError((err): Observable<never> =>
@@ -195,7 +180,7 @@ export class ClassroomsService {
     );
   }
 
-  enrollStudent(classId: number, studentId: number) {
+  enrollStudent(classId: number, studentId: number): Observable<unknown> {
     return this.http.put(`${ENR}/class/${classId}/student/${studentId}`, {}).pipe(
       catchError((cause): Observable<never> =>
         this.fail({ code: 'ENROLL_STUDENT_FAILED', userMessage: 'Enroll failed', cause })
@@ -203,7 +188,7 @@ export class ClassroomsService {
     );
   }
 
-  dropStudent(classId: number, studentId: number) {
+  dropStudent(classId: number, studentId: number): Observable<unknown> {
     return this.http.delete(`${ENR}/class/${classId}/student/${studentId}`).pipe(
       catchError((cause): Observable<never> =>
         this.fail({ code: 'DROP_STUDENT_FAILED', userMessage: 'Drop failed', cause })
@@ -211,7 +196,7 @@ export class ClassroomsService {
     );
   }
 
-  hardDropStudent(classId: number, studentId: number) {
+  hardDropStudent(classId: number, studentId: number): Observable<unknown> {
     return this.http.delete(`${ENR}/class/${classId}/student/${studentId}/hard`).pipe(
       catchError((cause): Observable<never> =>
         this.fail({ code: 'HARD_DROP_STUDENT_FAILED', userMessage: 'Drop failed', cause })
@@ -219,11 +204,11 @@ export class ClassroomsService {
     );
   }
 
-  /* ----------------------- teachers (picklist) ----------------------- */
+  // ----------------------- teachers (picklist) -----------------------
 
-
-  /** Teachers picklist.
-   * when onlyVacant=true uses `/users/teachers/without-classroom` (server-side filter),
+  /**
+   * Teachers picklist.
+   * When `onlyVacant=true` uses `/users/teachers/without-classroom` (server-side filter),
    * otherwise `/users/teachers`.
    */
   listTeachers(opts?: { onlyVacant?: boolean }): Observable<TeacherOption[]> {
@@ -236,42 +221,103 @@ export class ClassroomsService {
     );
   }
 
-  /* ----------------------- students (picklist) ----------------------- */
+  // ----------------------- students (picklist) -----------------------
 
-  /** Students picklist for roster enrollment.
-   * Tries `/users/students/without-classroom/{classId}` when onlyVacant=true.
-   * Falls back to `/users/students` and client-side filtering if backend route is absent.
+// src/app/features/admin/classrooms/services/classrooms.service.ts
+
+
+  /**
+   * List candidate students for enrolling into a class.
+   * - Toggle ON  (onlyWithoutAnyEnrollment = true): uses /users/students/without-classroom
+   * - Toggle OFF (default): uses /users/students and filters out the current roster (excludeIds)
    */
   listStudentsForClass(
     classId: number,
-    opts?: { onlyVacant?: boolean }
+    opts?: {
+      /** default true: never offer students already in THIS class */
+      onlyNotEnrolled?: boolean;
+      /** checkbox: students with NO active enrollment ANYWHERE */
+      onlyWithoutAnyEnrollment?: boolean;
+      /** safety net for fallback filtering */
+      excludeIds?: number[];
+    }
   ): Observable<StudentOption[]> {
-    if (opts?.onlyVacant) {
-      // try server-side “not enrolled in the class”
-      return this.http.get<UserItemDto[]>(USERS_STUDENTS_WITHOUT(classId)).pipe(
-        map(list => list.map(toStudentOption)),
-        // fallback: load all students and subtract current active roster
-        catchError(() =>
-          this.http.get<UserItemDto[]>(USERS_STUDENTS).pipe(
-            map(list => list.map(toStudentOption))
-          )
-        ),
+    // Toggle ON → global “no enrollment anywhere” endpoint (NO class id)
+    if (opts?.onlyWithoutAnyEnrollment) {
+      const url = `${USERS}/students/without-classroom`;
+      if (isDevMode()) console.log('[ClassroomsService] GET (GLOBAL no-enrollment)', url);
+
+      return this.http.get<UserItemDto[] | StudentOption[]>(url).pipe(
+        map((list): StudentOption[] => {
+          let mapped = normalizeToStudentOptions(list);
+          if (opts?.excludeIds?.length) {
+            const ban = new Set(opts.excludeIds);
+            mapped = mapped.filter(s => !ban.has(s.id));
+          }
+          return mapped;
+        }),
         catchError((cause): Observable<never> =>
-          this.fail({ code: 'STUDENTS_LOAD_FAILED', userMessage: 'Failed to load students', cause })
+          this.fail({ code: 'STUDENTS_LOAD_FAILED', userMessage: 'Failed to load students list', cause })
         )
       );
     }
 
-    // plain all students
-    return this.http.get<UserItemDto[]>(USERS_STUDENTS).pipe(
-      map(list => list.map(toStudentOption)),
+    // Toggle OFF → fetch all students and filter out current class roster client-side
+    const url = `${USERS}/students`; // ✅ no /:classId here
+    if (isDevMode()) console.log('[ClassroomsService] GET (ALL students, client-filter)', url);
+
+    return this.http.get<UserItemDto[] | StudentOption[]>(url).pipe(
+      map((list): StudentOption[] => {
+        let mapped = normalizeToStudentOptions(list);
+        if (opts?.excludeIds?.length) {
+          const ban = new Set(opts.excludeIds);
+          mapped = mapped.filter(s => !ban.has(s.id));
+        }
+        return mapped;
+      }),
       catchError((cause): Observable<never> =>
-        this.fail({ code: 'STUDENTS_LOAD_FAILED', userMessage: 'Failed to load students', cause })
+        this.fail({ code: 'STUDENTS_LOAD_FAILED', userMessage: 'Failed to load students list', cause })
       )
     );
   }
 
-  /* ----------------------- shared fail helper ----------------------- */
+  /** List enrollments; when includeDropped=true, returns ACTIVE + DROPPED */
+  listEnrollments(classId: number, opts?: { includeDropped?: boolean }) {
+    const url = `${ENR}/class/${classId}/enrollments`;
+    return this.http.get<unknown>(url).pipe(
+      map(mapEnrollments),
+      map(list => opts?.includeDropped ? list : list.filter(isActive)),
+      catchError((err): Observable<never> =>
+        this.fail({
+          code: 'ENROLLMENTS_LOAD_FAILED',
+          userMessage: 'Failed to load students',
+          cause: err,
+        })
+      )
+    );
+  }
+
+  /** Restore previously dropped enrollments; returns { restored, item } */
+  restoreRoster(classId: number): Observable<{ restored: number; item: ClassroomDetailDto }> {
+    return this.http.post<{ restored: number; item: ClassroomDetailDto }>(`${BASE}/${classId}/restore-roster`, {});
+  }
+
+  /** List dropped enrollments (history) */
+  listDroppedEnrollments(classId: number): Observable<{ id:number; student:{id:number;name:string;email?:string|null}; droppedAt?: string; status: string }[]> {
+    return this.http.get<{items:any[]}>(`${BASE}/${classId}/dropped-enrollments`).pipe(map(r => r.items ?? []));
+  }
+
+  /** Discard a single dropped enrollment (hard delete) */
+  discardEnrollment(enrollmentId: number): Observable<{deleted: true}> {
+    return this.http.delete<{deleted: true}>(`${API}/api/admin/enrollments/${enrollmentId}/discard`);
+  }
+
+  /** Dismiss the restore banner for this classroom */
+  dismissRestoreBanner(classId: number): Observable<{ok: true}> {
+    return this.http.post<{ok: true}>(`${BASE}/${classId}/restore-banner/dismiss`, {});
+  }
+
+  // ----------------------- shared fail helper -----------------------
 
   private fail<T>(err: ServiceError): Observable<T> {
     if (isDevMode()) console.error('[ClassroomsService]', err.code, err.cause ?? err);

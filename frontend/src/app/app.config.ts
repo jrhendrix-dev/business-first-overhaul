@@ -1,17 +1,17 @@
-import { ApplicationConfig, provideBrowserGlobalErrorListeners, provideZoneChangeDetection } from '@angular/core';
+import { ApplicationConfig } from '@angular/core';
 import { provideRouter } from '@angular/router';
-import { provideHttpClient, withInterceptors } from '@angular/common/http';
-import { authInterceptor } from './core/http/auth.interceptor';
-import { provideAnimations } from '@angular/platform-browser/animations';
-
 import { routes } from './app.routes';
+
+import { provideHttpClient, withInterceptors } from '@angular/common/http';
+import { authInterceptor } from './core/auth/auth.interceptor';
+import { provideZoneChangeDetection } from '@angular/core';
+import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
 
 export const appConfig: ApplicationConfig = {
   providers: [
-    provideBrowserGlobalErrorListeners(),
     provideZoneChangeDetection({ eventCoalescing: true }),
+    provideRouter(routes),
     provideHttpClient(withInterceptors([authInterceptor])),
-    provideAnimations(),
-    provideRouter(routes)
-  ]
+    provideAnimationsAsync(), // ✅ fixes @accordion animation error
+  ],
 };

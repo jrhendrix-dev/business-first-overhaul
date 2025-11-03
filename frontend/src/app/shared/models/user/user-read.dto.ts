@@ -9,6 +9,6 @@ export interface UserItemDto {
   isActive?: boolean;
   createdAt?: string;
 
-  /** Optional list of classes (only when include=classes) */
+  /** Optional list of classrooms (only when include=classrooms) */
   classes?: { id: number; name: string }[];
 }

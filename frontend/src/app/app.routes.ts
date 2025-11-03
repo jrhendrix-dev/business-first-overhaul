@@ -1,4 +1,5 @@
 import { Routes } from '@angular/router';
+import {AuthGuard} from '@app/core/auth/auth.guard';
 
 export const routes: Routes = [
   { path: '', pathMatch: 'full', loadComponent: () => import('./features/home/home.page').then(m => m.HomePage) },
@@ -16,6 +17,7 @@ export const routes: Routes = [
   // --- Admin area (NEW): shell + children ---
   {
     path: 'admin',
+    canActivate: [AuthGuard],
     loadComponent: () =>
       import('./features/admin/admin-shell.component')
         .then(m => m.AdminShellComponent),
@@ -35,7 +37,7 @@ export const routes: Routes = [
         path: 'classes',
         title: 'Admin • Classes',
         loadComponent: () =>
-          import('./features/admin/classes/classes.page')
+          import('@app/features/admin/classrooms/pages/classes.page')
             .then(m => m.ClassesPage),
       },
       {

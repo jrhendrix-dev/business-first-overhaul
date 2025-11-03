@@ -3,6 +3,48 @@
 @tailwind utilities;
 
 
+/* ---- Button system (components layer) ---- */
+@layer components {
+  /* Base */
+  .btn {
+    @apply inline-flex items-center justify-center gap-2
+    rounded-md px-3 py-1.5 text-sm font-medium
+    transition-colors select-none
+    border border-transparent
+    focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2
+    disabled:opacity-50 disabled:pointer-events-none;
+  }
+
+  /* Sizes */
+  .btn-sm { @apply px-2 py-1 text-xs; }
+  .btn-lg { @apply px-4 py-2 text-base; }
+
+  /* Variants */
+  .btn-primary  { @apply bg-blue-600 text-white hover:bg-blue-700 shadow-sm focus-visible:ring-blue-600; }
+  .btn-outline  { @apply bg-white text-blue-700 border-blue-600 hover:bg-blue-50 focus-visible:ring-blue-600; }
+  .btn-ghost    { @apply bg-transparent text-slate-700 border-transparent hover:bg-slate-50 focus-visible:ring-slate-400; }
+  .btn-secondary{ @apply bg-slate-700 text-white hover:bg-slate-800 focus-visible:ring-slate-700; }
+  .btn-success  { @apply bg-emerald-600 text-white hover:bg-emerald-700 focus-visible:ring-emerald-600; }
+  .btn-danger   { @apply bg-rose-600 text-white hover:bg-rose-700 focus-visible:ring-rose-600; }
+  .btn-warning  { @apply bg-amber-500 text-black hover:bg-amber-600 focus-visible:ring-amber-500; }
+  .btn-outline-muted {
+    @apply bg-white text-slate-700 border-slate-300
+    hover:bg-slate-50 hover:border-slate-400
+    focus-visible:ring-slate-400;
+  }
+
+  /* Icon / link variants */
+  .btn-icon { @apply p-2 aspect-square; }
+  .btn-link {
+    @apply p-0 h-auto bg-transparent border-transparent
+    text-blue-700 underline underline-offset-2
+    hover:no-underline focus-visible:ring-blue-600;
+  }
+}
+
+/* keep utilities after components */
+@tailwind utilities;
+
 :root{
   /* Azul corporativo (puedes adaptar el tono exacto) */
   --brand: #0b135a;          /* azul medianoche */
@@ -10,9 +52,15 @@
 
   /* Texto base del sitio (si quieres todo el sitio en azul) */
   --text-main: var(--brand);
+
+  /* Admin navbar height */
+  --admin-navbar-h: 7.5rem; /* adjust if needed (4rem / 4.5rem / 76px, etc.) */
+
+
 }
 
 /* optional app-wide utility */
 .scroll-smooth { scroll-behavior: smooth; }
 
 body { color: var(--text-main); }
+

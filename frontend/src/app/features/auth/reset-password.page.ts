@@ -3,7 +3,7 @@ import { Component, OnDestroy, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { AuthService } from './auth.service';
+import { AuthApiService } from './auth-api.service';
 
 @Component({
   standalone: true,
@@ -57,7 +57,7 @@ import { AuthService } from './auth.service';
 })
 export class ResetPasswordPage implements OnDestroy {
   private fb = inject(FormBuilder);
-  private auth = inject(AuthService);
+  private auth = inject(AuthApiService);
   private route = inject(ActivatedRoute);
   private router = inject(Router);
 

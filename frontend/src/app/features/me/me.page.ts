@@ -5,8 +5,8 @@ import { MeService, MeResponse } from './me.service';
 import { matchFields } from '@app/shared/validators/match-fields.validator';
 import { animate, state, style, transition, trigger } from '@angular/animations';
 
-import { ToastService } from '@/app/core/ui/toast.service';
-import { ToastContainerComponent } from '@/app/core/ui/toast-container.component';
+import { ToastService } from '@app/core/ui/toast/toast.service';
+import { ToastContainerComponent } from '@app/core/ui/toast/toast-container.component';
 
 /** Reusable card used by all profile sections (title + subtitle + action button + body slot). */
 @Component({

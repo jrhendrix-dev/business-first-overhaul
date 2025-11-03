@@ -1,0 +1,79 @@
+<app-toast-container></app-toast-container>
+
+<app-admin-header title="Grades">
+</app-admin-header>
+<!-- Header / Filters -->
+<div class="flex items-end gap-3 mb-5 mt-4">
+  <div>
+    <label class="block text-xs text-slate-600">Search</label>
+    <input
+      class="border rounded px-2 py-1 w-64"
+      placeholder="component, student, classroom"
+      [value]="q()"
+      (input)="onSearchInput($event)"
+    />
+  </div>
+
+  <div>
+    <label class="block text-xs text-slate-600">Enrollment ID</label>
+    <input
+      class="border rounded px-2 py-1 w-40"
+      type="number"
+      inputmode="numeric"
+      placeholder="e.g. 12"
+      [value]="enrollmentFilter() ?? ''"
+      (input)="onEnrollmentFilterInput($event)"
+    />
+  </div>
+
+  <button class="ml-auto btn btn-success" (click)="openCreate()">+ Add grade</button>
+</div>
+
+<!-- Grid -->
+<div class="border rounded overflow-hidden">
+  <table class="min-w-full text-sm">
+    <thead class="bg-slate-50 border-b">
+    <tr>
+      <th class="text-left px-3 py-2">Component</th>
+      <th class="text-left px-3 py-2">Student</th>
+      <th class="text-left px-3 py-2">Classroom</th>
+      <th class="text-left px-3 py-2">Score</th>
+      <th class="text-left px-3 py-2">%</th>
+      <th class="text-left px-3 py-2 w-40">Actions</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    <tr *ngFor="let g of filtered(); trackBy: track" class="border-b hover:bg-slate-50">
+      <td class="px-3 py-2">{{ g.componentLabel }}</td>
+      <td class="px-3 py-2">{{ g.student?.firstName }} {{ g.student?.lastName }}</td>
+      <td class="px-3 py-2">{{ g.classrooms.name }}</td>
+      <td class="px-3 py-2">{{ g.score }} / {{ g.maxScore }}</td>
+      <td class="px-3 py-2">{{ g.percent | number:'1.0-1' }}%</td>
+      <td class="px-3 py-2">
+        <div class="flex items-center gap-2 min-h-[2.25rem]">
+          <button class="btn btn-primary btn-sm" (click)="openEdit(g)">Edit</button>
+          <button class="btn btn-danger btn-sm" (click)="remove(g)">Delete</button>
+        </div>
+      </td>
+    </tr>
+
+    <tr *ngIf="filtered().length === 0">
+      <td [attr.colspan]="6" class="px-3 py-6 text-center text-slate-500">No grades yet.</td>
+    </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- Drawer  -->
+<bf-drawer-grade
+  [open]="drawerOpen()"
+  [editMode]="editMode()"
+  [form]="form"
+  [students]="studentOptions()"
+  [enrollments]="enrollmentOptions()"
+  [loadingEnrollments]="loadingEnrollments()"
+  (studentChange)="onStudentChange($event)"
+  (cancel)="drawerOpen.set(false)"
+  (save)="submit()">
+</bf-drawer-grade>

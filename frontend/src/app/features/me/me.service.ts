@@ -45,7 +45,7 @@ export class MeService {
   getMe(): Observable<MeResponse> {
     return this.http.get<MeResponse>(`${API}/api/me`).pipe(
       tap(m => {
-        // keep AuthService reactive user in sync if fields exist
+        // keep AuthApiService reactive user in sync if fields exist
         const u = this.auth.user();
         if (u) this.auth.user.set({ ...u, firstName: m.firstName ?? '', lastName: m.lastName ?? '' } as any);
       })

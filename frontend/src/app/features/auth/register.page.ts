@@ -4,10 +4,10 @@ import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { HttpErrorResponse } from '@angular/common/http';
-import { AuthService, RegisterDto } from './auth.service';
-
-import { ToastService } from '@/app/core/ui/toast.service';
-import { ToastContainerComponent } from '@/app/core/ui/toast-container.component';
+import { AuthApiService, RegisterDto } from './auth-api.service';
+import { FormErrorMapper } from '@app/core/errors/form-error.mapper';
+import { ToastService } from '@app/core/ui/toast/toast.service';
+import { ToastContainerComponent } from '@app/core/ui/toast/toast-container.component';
 
 type FormKey = 'firstName' | 'lastName' | 'userName' | 'email' | 'password' | 'hp'; // + hp
 
@@ -19,11 +19,12 @@ type FormKey = 'firstName' | 'lastName' | 'userName' | 'email' | 'password' | 'h
 })
 export class RegisterPage {
   private fb         = inject(FormBuilder);
-  private auth       = inject(AuthService);
+  private auth       = inject(AuthApiService);
   private router     = inject(Router);
   private toast      = inject(ToastService);
   private platformId = inject(PLATFORM_ID);
   private isBrowser  = isPlatformBrowser(this.platformId);
+  private errmap = inject(FormErrorMapper);
 
   /** ====== UI base ====== */
   private readonly baseInput =
@@ -81,7 +82,7 @@ export class RegisterPage {
     const base = showRed
       ? `${this.baseInput} ring-2 ring-rose-500 focus:ring-rose-500 border border-rose-300 bg-rose-50/40`
       : `${this.baseInput} ring-[color:var(--brand)]/25`;
-    const pulsing = this.pulse().has(ctrl) ? ' ring-4 ring-rose-400 ring-offset-2' : '';
+    const pulsing = this.pulse().has(ctrl) ? ' ring-3 ring-rose-400 ring-offset-1' : '';
     return base + pulsing;
   }
   ariaInvalid(ctrl: Exclude<FormKey,'hp'>) {
@@ -305,10 +306,23 @@ export class RegisterPage {
       error: (err: HttpErrorResponse) => {
         this.loading.set(false);
 
-        const applied = this.applyServerErrors(err);
-        const norm = this.normalizeError(err);
+        const fieldMap = {
+          firstName: 'firstName',
+          lastName:  'lastName',
+          userName:  'userName',
+          username:  'userName',
+          email:     'email',
+          password:  'password',
+        } as const;
 
-        this.toastFromDetails(norm);
+        const { applied, norm } = this.errmap.applyToForm(
+          this.form,
+          fieldMap,
+          err,
+          (ctrl) => this.pulseOn(ctrl)   // keep sticky red outline
+        );
+
+        this.errmap.toastFromDetails(norm, this.toast);
         this.highlightAllErrors();
 
         if (!applied && !norm.details) {

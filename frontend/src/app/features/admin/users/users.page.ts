@@ -1,57 +1,60 @@
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ReactiveFormsModule, NonNullableFormBuilder, Validators } from '@angular/forms';
+import { ReactiveFormsModule, NonNullableFormBuilder } from '@angular/forms';
 import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
-import { ToastContainerComponent } from '@/app/core/ui/toast-container.component';
-import { ToastService } from '@/app/core/ui/toast.service';
+import { ToastContainerComponent } from '@app/core/ui/toast/toast-container.component';
+import { ToastService } from '@app/core/ui/toast/toast.service';
 import { UsersService, UsersQuery } from './users.service';
 import { UserItemDto } from '@/app/shared/models/user/user-read.dto';
-import { CreateUserDto, UpdateUserDto } from '@/app/shared/models/user/user-write.dto';
-import { UserRole } from '@/app/shared/models/user/user-role';
 import { RouterLink } from '@angular/router';
+
+
+// new drawers
+import { DrawerCreateUserComponent } from './components/drawer-create-user.component';
+import { DrawerEditUserComponent } from './components/drawer-edit-user.component';
+import {AdminHeaderComponent} from '@app/core/ui/admin-header.component';
 
 @Component({
   standalone: true,
   selector: 'app-admin-users',
-  imports: [CommonModule, ReactiveFormsModule, ToastContainerComponent, RouterLink],
+  imports: [
+    CommonModule,
+    ReactiveFormsModule,
+    ToastContainerComponent,
+    RouterLink,
+    DrawerCreateUserComponent,
+    AdminHeaderComponent,
+    DrawerEditUserComponent
+  ],
   templateUrl: './users.page.html',
 })
 export class UsersPage implements OnInit {
-  private fb = inject(NonNullableFormBuilder);
-  private api = inject(UsersService);
+  private fb    = inject(NonNullableFormBuilder);
+  private api   = inject(UsersService);
   private toast = inject(ToastService);
 
-  // Raw data from API
+  // ====== Data / paging ======
   items = signal<UserItemDto[]>([]);
   total = signal(0);
-  page = signal(1);
-  size = signal(10);
+  page  = signal(1);
+  size  = signal(10);
 
-  // Filters (debounced)
+  // ====== Filters ======
   filters = this.fb.group({
-    q: this.fb.control<string>(''),
+    q:    this.fb.control<string>(''),
     role: this.fb.control<string>(''),
   });
 
-  // Drawer/form state
-  drawerOpen = signal(false);
-  editMode = signal(false);
-  editingId: number | null = null;
+  // ====== Drawer state ======
+  createOpen = signal(false);
+  editOpen   = signal(false);
+  editing    = signal<UserItemDto | null>(null);
 
-  form = this.fb.group({
-    firstName: this.fb.control('', { validators: [Validators.required, Validators.minLength(2)] }),
-    lastName:  this.fb.control('', { validators: [Validators.required, Validators.minLength(2)] }),
-    email:     this.fb.control('', { validators: [Validators.required, Validators.email] }),
-    userName:  this.fb.control('', { validators: [Validators.required, Validators.minLength(2)] }),
-    password:  this.fb.control('', { validators: [] }), // only for create
-    role:      this.fb.control<UserRole | null>(null, { validators: [Validators.required] }),
-  });
-
-  // Client-side filtered view (fallback if backend ignores q/role)
+  // ====== Computed view ======
   viewItems = computed(() => {
-    const q = (this.filters.controls.q.value || '').toLowerCase().trim();
+    const q    = (this.filters.controls.q.value || '').toLowerCase().trim();
     const role = this.filters.controls.role.value || '';
-    let data = [...this.items()];
+    let data   = [...this.items()];
     if (q) {
       data = data.filter(u =>
         (u.userName || '').toLowerCase().includes(q) ||
@@ -66,35 +69,23 @@ export class UsersPage implements OnInit {
   });
   filteredTotal = computed(() => this.viewItems().length);
 
-  manageQuery(u: UserItemDto) {
-    // Send them to Classes page filtered by the person in context
-    return u.role === 'ROLE_TEACHER'
-      ? { teacherId: u.id }
-      : { studentId: u.id };
-  }
-
   ngOnInit(): void {
     this.load();
-
-
-
-    // Debounce filter changes to avoid spamming server
     this.filters.valueChanges
       .pipe(debounceTime(300), distinctUntilChanged())
-      .subscribe(() => {
-        this.page.set(1);
-        this.load(); // server-side filtering if supported
-      });
+      .subscribe(() => { this.page.set(1); this.load(); });
   }
 
-  // ---- Data ----
-  load(): void {
-    const qVal = this.filters.controls.q.value?.trim();
-    const roleVal = this.filters.controls.role.value?.trim();
+  /** Build Classes page query params for a given user row */
+  manageQuery(u: UserItemDto) {
+    return u.role === 'ROLE_TEACHER' ? { teacherId: u.id } : { studentId: u.id };
+  }
 
+  // ====== Data ======
+  load(): void {
     const query: UsersQuery = {
-      ...(qVal ? { q: qVal } : {}),
-      ...(roleVal ? { role: roleVal } : {}),
+      ...(this.filters.controls.q.value?.trim() ? { q: this.filters.controls.q.value!.trim() } : {}),
+      ...(this.filters.controls.role.value?.trim() ? { role: this.filters.controls.role.value!.trim() } : {}),
       page: this.page(),
       size: this.size(),
     };
@@ -107,20 +98,21 @@ export class UsersPage implements OnInit {
         this.size.set(res.size ?? this.size());
       },
       error: () => {
-        this.items.set([]);
-        this.total.set(0);
+        this.items.set([]); this.total.set(0);
+        this.toast.add('No se pudieron cargar los usuarios.', 'error');
       }
     });
   }
   next(){ this.page.update(p => p + 1); this.load(); }
   prev(){ this.page.update(p => Math.max(1, p - 1)); this.load(); }
 
-  // after total/page/size signals
   visibleStart = computed(() => (this.total() === 0 ? 0 : (this.page() - 1) * this.size() + 1));
   visibleEnd   = computed(() => Math.min(this.page() * this.size(), this.total()));
 
-
-  // ---- Helpers for view ----
+  classesOf(u: UserItemDto): Array<{ id: number; name: string }> {
+    const anyU = u as any;
+    return (anyU.classes ?? anyU.classrooms ?? []) as Array<{ id: number; name: string }>;
+  }
   nameOf(u: UserItemDto): string {
     return (u.fullName?.trim() || `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim()) || '—';
   }
@@ -130,75 +122,27 @@ export class UsersPage implements OnInit {
     return isNaN(d.getTime()) ? iso : d.toLocaleString();
   }
 
-  // ---- CRUD ----
-  openCreate(){
-    this.editMode.set(false);
-    this.editingId = null;
-    this.form.reset({
-      firstName: '',
-      lastName: '',
-      email: '',
-      userName: '',
-      password: '',
-      role: null,
-    });
-    this.drawerOpen.set(true);
-  }
+  // ====== Drawer actions ======
+  openCreate(){ this.createOpen.set(true); }
+  openEdit(u: UserItemDto){ this.editing.set(u); this.editOpen.set(true); }
 
-  openEdit(u: UserItemDto){
-    this.editMode.set(true);
-    this.editingId = u.id;
-    this.form.reset({
-      firstName: u.firstName ?? '',
-      lastName:  u.lastName ?? '',
-      email:     u.email ?? '',
-      userName:  u.userName ?? '',
-      password:  '',
-      role:      (u.role as UserRole) ?? null,
-    });
-    this.drawerOpen.set(true);
-  }
+  onDrawerClosed(){ this.createOpen.set(false); this.editOpen.set(false); this.editing.set(null); }
+  onSaved(){ this.onDrawerClosed(); this.load(); }
 
-  close(){ this.drawerOpen.set(false); }
-
-  submit(){
-    if (this.editMode()) {
-      const dto: UpdateUserDto = {
-        firstName: this.form.value.firstName!,
-        lastName:  this.form.value.lastName!,
-        email:     this.form.value.email!,
-        userName:  this.form.value.userName!,
-        role:      this.form.value.role!,
-        ...(this.form.value.password ? { password: this.form.value.password! } : {}),
-      };
-      this.api.update(this.editingId!, dto).subscribe(() => {
-        this.toast.add('User updated', 'success');
-        this.close(); this.load();
-      });
-    } else {
-      const dto: CreateUserDto = {
-        firstName: this.form.value.firstName!,
-        lastName:  this.form.value.lastName!,
-        email:     this.form.value.email!,
-        userName:  this.form.value.userName!,
-        password:  this.form.value.password!,
-        role:      this.form.value.role!,
-      };
-      this.api.create(dto).subscribe(() => {
-        this.toast.add('User created', 'success');
-        this.close(); this.load();
-      });
-    }
-  }
-
+  // ====== Delete ======
   confirmDelete(u: UserItemDto){
     const ok = window.confirm(`Delete user "${this.nameOf(u)}"?`);
     if (!ok) return;
-    this.api.remove(u.id).subscribe(() => {
-      this.toast.add('User deleted', 'success');
-      const wasLast = this.items().length === 1 && this.page() > 1;
-      if (wasLast) this.page.update(p => p - 1);
-      this.load();
+    this.api.remove(u.id).subscribe({
+      next: () => {
+        this.toast.add('User deleted', 'success');
+        const wasLast = this.items().length === 1 && this.page() > 1;
+        if (wasLast) this.page.update(p => p - 1);
+        this.load();
+      },
+      error: () => this.toast.add('No se pudo eliminar el usuario.', 'error')
     });
   }
+
+
 }

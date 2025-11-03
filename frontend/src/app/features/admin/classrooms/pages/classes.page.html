@@ -1,7 +1,9 @@
 <app-toast-container />
 
 <!-- Header / Filters -->
-<div class="flex items-end gap-3 mb-5">
+<app-admin-header title="Classes">
+</app-admin-header>
+<div class="flex items-end gap-3 mb-5 mt-4">
   <div>
     <label class="block text-xs text-slate-600">Search by name</label>
     <input class="border rounded px-2 py-1 w-64" [formControl]="filters.controls.q" placeholder="e.g. B1, Classroom 2">
@@ -13,8 +15,8 @@
   </label>
 
   <div class="ml-auto flex gap-2">
-    <button *ngIf="isFiltered()" class="px-3 py-1.5 rounded border" (click)="resetToAll()">All classes</button>
-    <button class="px-3 py-1.5 rounded bg-slate-800 text-white" (click)="openCreate()">+ New class</button>
+    <button *ngIf="isFiltered()" class="btn btn-outline" (click)="resetToAll()">All classes</button>
+    <button class="btn btn-success" (click)="openCreate()">+ New class</button>
   </div>
 </div>
 
@@ -35,56 +37,48 @@
       <td class="px-3 py-2">{{ c.id }}</td>
       <td class="px-3 py-2">{{ c.name }}</td>
       <td class="px-3 py-2">
-        <span *ngIf="c.teacher; else noTeacher">{{ c.teacher?.name }}</span>
-        <ng-template #noTeacher>—</ng-template>
+        <span *ngIf="c.teacher; else noTeacher">{{ c.teacher.name }}</span>
+        <ng-template #noTeacher><em>Unassigned</em></ng-template>
       </td>
       <td class="px-3 py-2">
         <span class="inline-flex items-center gap-1">
-          <span class="h-2.5 w-2.5 rounded-full"
-                [class.bg-emerald-500]="!isDropped(c)"
-                [class.bg-slate-400]="isDropped(c)"></span>
+          <span class="h-2.5 w-2.5 rounded-full" [class.bg-emerald-500]="!isDropped(c)" [class.bg-slate-400]="isDropped(c)"></span>
           {{ c.status }}
         </span>
       </td>
       <td class="px-3 py-2">
         <div class="flex items-center gap-2 min-h-[2.25rem]">
-          <!-- Students (always present) -->
-          <button class="px-2 py-1 border rounded" (click)="openRoster(c)">Students</button>
+          <button class="btn btn-primary btn-sm" (click)="openRoster(c)">Students</button>
 
-          <!-- Rename (always present) -->
-          <button class="px-2 py-1 border rounded" (click)="openRename(c)">Rename</button>
+          <button class="btn btn-outline btn-sm" (click)="openRename(c)">Rename</button>
 
-          <!-- Assign/Change -->
-          <button
-            class="px-2 py-1 border rounded"
-            (click)="openAssign(c)">
+          <button class="btn btn-outline btn-sm"
+                  [disabled]="!canAssign(c)"
+                  title="{{ canAssign(c) ? '' : 'Reactivate the class to assign a teacher' }}"
+                  (click)="openAssign(c)">
             {{ c.teacher ? 'Change teacher' : 'Assign teacher' }}
           </button>
 
-          <!-- Unassign placeholder keeps the row stable -->
-          <button
-            class="px-2 py-1 border rounded"
-            [class.invisible]="!c.teacher"
-            [disabled]="!c.teacher"
-            (click)="c.teacher && unassign(c)">
+          <button class="btn btn-outline-muted btn-sm"
+                  [class.invisible]="!c.teacher"
+                  [disabled]="!c.teacher"
+                  (click)="c.teacher && unassign(c)">
             Unassign
           </button>
 
-          <!-- Reactivate placeholder mirrors dropped state -->
-          <button
-            class="px-2 py-1 border rounded"
-            [class.invisible]="!isDropped(c)"
-            [disabled]="!isDropped(c)"
-            (click)="isDropped(c) && reactivate(c)">
+          <button class="btn btn-success btn-sm"
+                  *ngIf="isDropped(c)"
+                  (click)="reactivate(c)">
             Reactivate
           </button>
 
-          <!-- Delete (always visible, right-aligned if you prefer) -->
-          <button class="ml-auto px-2 py-1 rounded bg-rose-600 text-white" (click)="remove(c)">Delete</button>
+          <button class="btn btn-danger btn-sm" (click)="remove(c)">
+            Delete
+          </button>
         </div>
       </td>
-
     </tr>
+
     <tr *ngIf="!items().length && !loading()">
       <td [attr.colspan]="5" class="px-3 py-6 text-center text-slate-500">No results</td>
     </tr>
@@ -92,82 +86,38 @@
   </table>
 </div>
 
-<!-- Create / Rename Drawer -->
-<div *ngIf="drawerOpen()" class="fixed inset-0 bg-black/30" (click)="closeDrawer()"></div>
-<div *ngIf="drawerOpen()" class="fixed top-0 right-0 h-full w-[28rem] bg-white shadow-xl p-5 overflow-y-auto">
-  <h2 class="text-lg font-semibold mb-4">{{ editMode() ? 'Rename classroom' : 'Create classroom' }}</h2>
-  <form [formGroup]="form" class="space-y-3" (ngSubmit)="saveName()">
-    <div>
-      <label class="block text-xs text-slate-600 mb-1">Name</label>
-      <input class="w-full border rounded px-2 py-1" formControlName="name">
-    </div>
-    <div class="pt-2 flex justify-end gap-2">
-      <button type="button" class="px-3 py-1 rounded border" (click)="closeDrawer()">Cancel</button>
-      <button class="px-3 py-1 rounded bg-emerald-600 text-white" [disabled]="form.invalid">
-        {{ editMode() ? 'Save' : 'Create' }}
-      </button>
-    </div>
-  </form>
-</div>
+<!-- Drawers (unchanged) -->
+<bf-drawer-create-class
+  [open]="drawerOpen()"
+  [editMode]="editMode()"
+  [form]="form"
+  (cancel)="closeDrawer()"
+  (submit)="saveName()">
+</bf-drawer-create-class>
 
-<!-- Assign Teacher Drawer -->
-<div *ngIf="assignOpen()" class="fixed inset-0 bg-black/30" (click)="assignOpen.set(false)"></div>
-<div *ngIf="assignOpen()" class="fixed top-0 right-0 h-full w-[28rem] bg-white shadow-xl p-5 overflow-y-auto">
-  <h2 class="text-lg font-semibold mb-4">Assign teacher</h2>
+<bf-drawer-assign-teacher
+  [open]="assignOpen()"
+  [form]="assignForm"
+  [teachers]="teachers()"
+  [loading]="teacherLoading()"
+  (cancel)="assignOpen.set(false)"
+  (submit)="assign()">
+</bf-drawer-assign-teacher>
 
-  <form [formGroup]="assignForm" class="space-y-3" (ngSubmit)="assign()">
-    <label class="inline-flex items-center gap-2">
-      <input type="checkbox" formControlName="onlyVacant">
-      <span class="text-sm">Only unassigned teachers</span>
-    </label>
-
-    <div>
-      <label class="block text-xs text-slate-600 mb-1">Select teacher</label> <!-- clearer label -->
-      <select class="w-full border rounded px-2 py-1" formControlName="teacherId">
-        <option [ngValue]="null" disabled>— Select a teacher —</option>
-        <option *ngFor="let t of teachers()" [ngValue]="t.id">
-          {{ t.name }} <span *ngIf="t.email">— {{ t.email }}</span>
-        </option>
-      </select>
-      <div *ngIf="teacherLoading()" class="text-xs text-slate-500 mt-1">Loading teachers…</div>
-    </div>
-
-    <div class="pt-2 flex justify-end gap-2">
-      <button type="button" class="px-3 py-1 rounded border" (click)="assignOpen.set(false)">Cancel</button>
-      <button class="px-3 py-1 rounded bg-emerald-600 text-white" [disabled]="assignForm.invalid">Assign</button>
-    </div>
-  </form>
-  <p class="text-xs text-slate-500 mt-3">Tip: toggle “Only unassigned teachers” to limit the list.</p>
-</div>
-
-<!-- Roster Drawer -->
-<div *ngIf="rosterOpen()" class="fixed inset-0 bg-black/30" (click)="closeRoster()"></div>
-<div *ngIf="rosterOpen()" class="fixed top-0 right-0 h-full w-[34rem] bg-white shadow-xl p-5 overflow-y-auto">
-  <h2 class="text-lg font-semibold mb-2">
-    Students — {{ rosterClass?.name }}
-    <span class="text-xs text-slate-500 ml-2">Active: {{ roster().length }}</span>
-  </h2>
-
-  <form [formGroup]="rosterEnrollForm" class="space-y-2 mb-3" (ngSubmit)="enrollStudent()">
-    <label class="inline-flex items-center gap-2">
-      <input type="checkbox" formControlName="onlyNotEnrolled">
-      <span class="text-sm">Only students not in this class</span>
-    </label>
-
-    <div>
-      <label class="block text-xs text-slate-600 mb-1">Select student</label>
-      <select class="w-full border rounded px-2 py-1" formControlName="studentId">
-        <option [ngValue]="null" disabled>— Choose a student —</option>
-        <option *ngFor="let s of studentOptions()" [ngValue]="s.id">
-          {{ s.name }} <span *ngIf="s.email">— {{ s.email }}</span>
-        </option>
-      </select>
-      <div *ngIf="studentsLoading()" class="text-xs text-slate-500 mt-1">Loading students…</div>
-    </div>
-
-    <div class="flex justify-end">
-      <button class="px-3 py-1.5 rounded bg-emerald-600 text-white" [disabled]="rosterEnrollForm.invalid">Enroll</button>
-    </div>
-  </form>
-
-</div>
+<bf-drawer-roster
+  [open]="rosterOpen()"
+  [className]="rosterClass?.name || ''"
+  [classStatus]="rosterClass?.status || 'ACTIVE'"
+  [form]="rosterEnrollForm"
+  [roster]="roster()"
+  [studentOptions]="studentOptions()"
+  [studentsLoading]="studentsLoading()"
+  [droppedCount]="droppedCount()"
+  [droppedItems]="droppedList()"
+  (close)="closeRoster()"
+  (enroll)="enrollStudent()"
+  (drop)="dropStudent($event)"
+  (restore)="restoreRoster()"
+  (dismiss)="dismissRestoreBanner()"
+  (discard)="discardDropped($event)">
+</bf-drawer-roster>

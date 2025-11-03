@@ -1,8 +1,9 @@
-
 <app-toast-container />
 
+<app-admin-header title="Users">
+</app-admin-header>
 <!-- Filters -->
-<div class="flex items-end gap-3 mb-5">
+<div class="flex items-end gap-3 mb-5 mt-4 justify-between">
   <div>
     <label class="block text-xs text-slate-600">Search</label>
     <input class="border rounded px-2 py-1 w-64"
@@ -20,9 +21,7 @@
     </select>
   </div>
 
-  <button class="ml-auto px-3 py-1.5 rounded bg-slate-800 text-white" (click)="openCreate()">
-    + Add user
-  </button>
+  <button class="ml-auto btn btn-success" (click)="openCreate()">+ Add user</button>
 </div>
 
 <!-- Grid -->
@@ -35,7 +34,6 @@
       <th class="text-left px-3 py-2">Username</th>
       <th class="text-left px-3 py-2">Email</th>
       <th class="text-left px-3 py-2 w-28">Role</th>
-      <!-- NEW: Classes column -->
       <th class="text-left px-3 py-2 w-48">Classes</th>
       <th class="text-left px-3 py-2 w-24">Active</th>
       <th class="text-left px-3 py-2 w-40">Created</th>
@@ -51,22 +49,19 @@
       <td class="px-3 py-2">{{ u.email }}</td>
       <td class="px-3 py-2">{{ u.role || '—' }}</td>
 
-      <!--  Classes cell -->
       <td class="px-3 py-2">
-        <ng-container *ngIf="u.classes?.length; else none">
-          <!-- show up to two class chips -->
-          <ng-container *ngFor="let c of u.classes | slice:0:2">
-      <span class="inline-block px-2 py-0.5 rounded-full border mr-1 text-xs">
-        {{ c.name }}
-      </span>
+        <ng-container *ngIf="classesOf(u).length; else none">
+          <ng-container *ngFor="let c of classesOf(u) | slice:0:2">
+            <span class="inline-block px-2 py-0.5 rounded-full border mr-1 text-xs">
+              {{ c.name }}
+            </span>
           </ng-container>
-          <span *ngIf="(u.classes?.length ?? 0) > 2" class="text-xs text-slate-500">
-      +{{ (u.classes?.length ?? 0) - 2 }} more
-    </span>
+          <span *ngIf="classesOf(u).length > 2" class="text-xs text-slate-500">
+            +{{ classesOf(u).length - 2 }} more
+          </span>
         </ng-container>
         <ng-template #none>—</ng-template>
 
-        <!-- Manage link -->
         <a
           [routerLink]="['/admin/classes']"
           [queryParams]="manageQuery(u)"
@@ -76,27 +71,24 @@
       </td>
 
       <td class="px-3 py-2">
-          <span class="inline-flex items-center gap-1">
-            <span class="h-2.5 w-2.5 rounded-full" [class.bg-emerald-500]="u.isActive" [class.bg-slate-300]="!u.isActive"></span>
-            {{ u.isActive ? 'Yes' : 'No' }}
-          </span>
+        <span class="inline-flex items-center gap-1">
+          <span class="h-2.5 w-2.5 rounded-full" [class.bg-emerald-500]="u.isActive" [class.bg-slate-300]="!u.isActive"></span>
+          {{ u.isActive ? 'Yes' : 'No' }}
+        </span>
       </td>
       <td class="px-3 py-2">{{ formatDate(u.createdAt) }}</td>
       <td class="px-3 py-2">
-        <button class="px-2 py-1 rounded border mr-2" (click)="openEdit(u)">Edit</button>
-        <button class="px-2 py-1 rounded bg-rose-600 text-white" (click)="confirmDelete(u)">Delete</button>
+        <button class="btn btn-primary btn-sm mr-2" (click)="openEdit(u)">Edit</button>
+        <button class="btn btn-danger btn-sm" (click)="confirmDelete(u)">Delete</button>
       </td>
     </tr>
 
-    <!-- NOTE: colspan now 9 (we added a column) -->
     <tr *ngIf="!viewItems().length">
       <td [attr.colspan]="9" class="px-3 py-6 text-center text-slate-500">No results</td>
     </tr>
     </tbody>
   </table>
 </div>
-
-
 
 <!-- Footer / Pager -->
 <div class="mt-3 flex items-center justify-between text-sm">
@@ -107,72 +99,23 @@
     </ng-container>
   </div>
   <div class="flex gap-1">
-    <button class="px-2 py-1 border rounded" [disabled]="page()<=1" (click)="prev()">Prev</button>
+    <button class="btn btn-ghost btn-sm" [disabled]="page()<=1" (click)="prev()">Prev</button>
     <span class="px-2 py-1">Page {{ page() }}</span>
-    <button class="px-2 py-1 border rounded" [disabled]="page()*size() >= total()" (click)="next()">Next</button>
+    <button class="btn btn-ghost btn-sm" [disabled]="page()*size() >= total()" (click)="next()">Next</button>
   </div>
 </div>
 
+<!-- Drawers -->
+<app-drawer-create-user
+  [open]="createOpen()"
+  (close)="onDrawerClosed()"
+  (saved)="onSaved()">
+</app-drawer-create-user>
 
-<!-- Backdrop -->
-<div
-  *ngIf="drawerOpen()"
-  class="fixed inset-0 z-[9000] bg-black/30"
-  (click)="close()">
-</div>
-
-<!-- Drawer -->
-<div
-  *ngIf="drawerOpen()"
-  class="fixed top-0 right-0 z-[9001] h-full w-[30rem] bg-white shadow-2xl p-5 overflow-y-auto"
-  role="dialog"
-  aria-modal="true">
-  <h2 class="text-lg font-semibold mb-4">{{ editMode() ? 'Edit user' : 'Create user' }}</h2>
-
-
-  <form [formGroup]="form" class="space-y-3" (ngSubmit)="submit()">
-    <div class="grid grid-cols-2 gap-3">
-      <div>
-        <label class="block text-xs text-slate-600 mb-1">First name</label>
-        <input class="w-full border rounded px-2 py-1" formControlName="firstName">
-      </div>
-      <div>
-        <label class="block text-xs text-slate-600 mb-1">Last name</label>
-        <input class="w-full border rounded px-2 py-1" formControlName="lastName">
-      </div>
-    </div>
-
-    <div>
-      <label class="block text-xs text-slate-600 mb-1">Email</label>
-      <input class="w-full border rounded px-2 py-1" type="email" formControlName="email">
-    </div>
-
-    <div>
-      <label class="block text-xs text-slate-600 mb-1">Username</label>
-      <input class="w-full border rounded px-2 py-1" formControlName="userName">
-    </div>
-
-    <div *ngIf="!editMode()">
-      <label class="block text-xs text-slate-600 mb-1">Password</label>
-      <input class="w-full border rounded px-2 py-1" type="password" formControlName="password">
-    </div>
-
-    <div>
-      <label class="block text-xs text-slate-600 mb-1">Role</label>
-      <select class="w-full border rounded px-2 py-1" formControlName="role">
-        <option [ngValue]="null">Select...</option>
-        <option value="ROLE_STUDENT">Student</option>
-        <option value="ROLE_TEACHER">Teacher</option>
-        <option value="ROLE_ADMIN">Admin</option>
-      </select>
-    </div>
-
-
-    <div class="pt-2 flex justify-end gap-2">
-      <button type="button" class="px-3 py-1 rounded border" (click)="close()">Cancel</button>
-      <button class="px-3 py-1 rounded bg-emerald-600 text-white" [disabled]="form.invalid">
-        {{ editMode() ? 'Save' : 'Create' }}
-      </button>
-    </div>
-  </form>
-</div>
+<app-drawer-edit-user
+  [open]="editOpen()"
+  [user]="editing()"
+  [users]="items()"
+  (close)="onDrawerClosed()"
+  (saved)="onSaved()">
+</app-drawer-edit-user>

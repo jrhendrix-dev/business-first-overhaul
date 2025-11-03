@@ -1,4 +1,4 @@
-import { Injectable, isDevMode } from '@angular/core';
+import { Injectable } from '@angular/core';
 import { BehaviorSubject } from 'rxjs';
 import { Toast, ToastKind } from './toast.model';
 
@@ -11,15 +11,17 @@ export class ToastService {
 
   add(message: string, kind: ToastKind = 'info', ms = 3500): void {
     const t: Toast = { id: ++this.seq, kind, message };
-
     const list = this._toasts.getValue().slice();
-    if (list.length >= this.max) list.shift();       // remove oldest
+    if (list.length >= this.max) list.shift();
     list.push(t);
     this._toasts.next(list);
-
-    // auto-dismiss
     window.setTimeout(() => this.remove(t.id), ms);
   }
+
+  // 🔽 Convenience helpers used across the app
+  success(message: string, ms = 3500) { this.add(message, 'success', ms); }
+  error(message: string, ms = 3500)   { this.add(message, 'error', ms); }
+  info(message: string, ms = 3500)    { this.add(message, 'info', ms); }
 
   remove(id: number): void {
     const list = this._toasts.getValue();
