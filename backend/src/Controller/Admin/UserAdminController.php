@@ -42,11 +42,11 @@ final class UserAdminController extends AbstractController
     {
         $entities = $this->users->getAllUsers();
 
-        // Detect ?with=classes
+        // Detect ?with=classrooms
         $with = (string) $request->query->get('with', '');
-        $includeClasses = \in_array('classes', array_map('trim', explode(',', $with)), true);
+        $includeClasses = \in_array('classrooms', array_map('trim', explode(',', $with)), true);
 
-        // Use array payload with optional classes for the grid
+        // Use array payload with optional classrooms for the grid
         $items = array_map(
             fn($u) => $this->toResponse->toArray($u, $includeClasses),
             $entities
@@ -263,5 +263,7 @@ final class UserAdminController extends AbstractController
         // Keep it simple and idempotent
         return $this->json(null, Response::HTTP_NO_CONTENT);
     }
+
+
 
 }

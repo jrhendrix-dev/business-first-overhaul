@@ -27,8 +27,8 @@ final class ClassroomTeacherController extends AbstractController
         private readonly EnrollmentRepository $enrollments,
     ) {}
 
-    // GET /api/teacher/classes
-    #[Route('/classes', name: 'teacher_classes_list', methods: ['GET'])]
+    // GET /api/teacher/classrooms
+    #[Route('/classrooms', name: 'teacher_classes_list', methods: ['GET'])]
     public function listClasses(): JsonResponse
     {
         /** @var User $teacher */
@@ -43,8 +43,8 @@ final class ClassroomTeacherController extends AbstractController
         return $this->json($out, Response::HTTP_OK);
     }
 
-    // GET /api/teacher/classes/{classId}/students?status=active|all
-    #[Route('/classes/{classId<\d+>}/students', name: 'teacher_class_roster', methods: ['GET'])]
+    // GET /api/teacher/classrooms/{classId}/students?status=active|all
+    #[Route('/classrooms/{classId<\d+>}/students', name: 'teacher_class_roster', methods: ['GET'])]
     public function roster(int $classId, Request $request): JsonResponse
     {
         $class = $this->requireOwnedClass($classId);

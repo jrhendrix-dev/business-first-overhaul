@@ -86,7 +86,7 @@ class ClassroomRepository extends ServiceEntityRepository
     public function findByStudent(int $studentId): array
     {
         return $this->createQueryBuilder('c')
-            ->innerJoin(Enrollment::class, 'e', 'WITH', 'e.classrooms = c')
+            ->innerJoin(Enrollment::class, 'e', 'WITH', 'e.classroom = c')
             ->andWhere('e.student = :sid')
             ->andWhere('c.status = :status')
             ->setParameter('sid', $studentId)

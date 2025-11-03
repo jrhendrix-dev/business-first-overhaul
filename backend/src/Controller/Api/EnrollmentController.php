@@ -24,7 +24,7 @@ final class EnrollmentController extends AbstractController
     ) {}
 
     /**
-     * GET /api/classes/{classId}/active-enrollments
+     * GET /api/classrooms/{classId}/active-enrollments
      */
     #[Route(
         '/class/{classId}/active-enrollments',

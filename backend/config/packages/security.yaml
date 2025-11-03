@@ -59,6 +59,7 @@ security:
 
         # Auth endpoints
         - { path: ^/api/login$, roles: PUBLIC_ACCESS, methods: [POST] }
+        - { path: ^/api, roles: PUBLIC_ACCESS, methods: [ OPTIONS ] }
 
         # Public endpoints you listed
         - { path: ^/api/auth/register$,        roles: PUBLIC_ACCESS }
@@ -71,7 +72,8 @@ security:
         - { path: ^/api, roles: PUBLIC_ACCESS, methods: [OPTIONS] }
 
         # Role-based exceptions
-        - { path: ^/api/classes/\d+/students, roles: ROLE_TEACHER }
+        - { path: ^/api/admin, roles: ROLE_ADMIN }
+        - { path: ^/api/classrooms/\d+/students, roles: ROLE_TEACHER }
         - { path: ^/api/teacher, roles: ROLE_TEACHER }
         - { path: ^/api/enrollments,          roles: ROLE_USER }
 

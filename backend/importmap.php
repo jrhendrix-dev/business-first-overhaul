@@ -26,16 +26,16 @@ return [
         'version' => '7.3.0',
     ],
     '@angular/core' => [
-        'version' => '20.3.4',
+        'version' => '20.3.9',
     ],
     'rxjs' => [
         'version' => '7.8.2',
     ],
     '@angular/core/primitives/signals' => [
-        'version' => '20.3.4',
+        'version' => '20.3.9',
     ],
     '@angular/core/primitives/di' => [
-        'version' => '20.3.4',
+        'version' => '20.3.9',
     ],
     'rxjs/operators' => [
         'version' => '7.8.2',
@@ -45,5 +45,14 @@ return [
     ],
     '@angular/common/http' => [
         'version' => '20.3.4',
+    ],
+    '@angular/cdk/a11y' => [
+        'version' => '20.2.10',
+    ],
+    '@angular/common' => [
+        'version' => '20.3.9',
+    ],
+    '@angular/forms' => [
+        'version' => '20.3.9',
     ],
 ];

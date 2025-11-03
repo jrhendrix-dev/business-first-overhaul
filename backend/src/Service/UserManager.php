@@ -474,6 +474,8 @@ class UserManager
         $this->mailer->notifyPasswordChanged($user);
     }
 
+
+
     /**
      * Deletes a user from the database.
      *

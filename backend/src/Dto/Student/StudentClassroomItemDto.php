@@ -10,6 +10,7 @@ namespace App\Dto\Student;
 final class StudentClassroomItemDto
 {
     public function __construct(
+        public int $enrollmentId,     //enrollment
         /** Classroom id */
         public int $classId,
         /** Classroom name */

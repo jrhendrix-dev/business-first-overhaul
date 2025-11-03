@@ -2,10 +2,12 @@
 
 namespace App\Service;
 
+use App\Domain\Classroom\Exception\ClassroomInactiveException;
 use App\Entity\Classroom;
 use App\Entity\Enrollment;
 use App\Entity\User;
 use App\Enum\EnrollmentStatusEnum;
+use App\Enum\ClassroomStatusEnum;
 use App\Repository\EnrollmentRepository;
 use App\Service\Contracts\EnrollmentPort;
 use Doctrine\ORM\EntityManagerInterface;
@@ -189,4 +191,63 @@ final class EnrollmentManager implements EnrollmentPort
     {
         return $this->enrollments->countActiveByClassroom($classroom);
     }
+
+    /**
+     * Restore all DROPPED enrollments belonging to the given classroom.
+     *
+     * @param Classroom $classroom
+     * @return int Number of enrollments restored to ACTIVE
+     *
+     * @throws ClassroomInactiveException When classroom is not ACTIVE
+     */
+    public function restoreAllDroppedForClassroom(Classroom $classroom): int
+    {
+        if ($classroom->getStatus() !== ClassroomStatusEnum::ACTIVE) {
+            throw new ClassroomInactiveException($classroom->getStatus()->value);
+        }
+
+        /** @var Enrollment[] $dropped */
+        $dropped = $this->enrollments->findDroppedByClassroom($classroom);
+        $count   = 0;
+
+        foreach ($dropped as $enr) {
+            // If you need extra business rules (e.g., student already active elsewhere),
+            // check here and skip accordingly.
+            $enr->setStatus(EnrollmentStatusEnum::ACTIVE);
+            $this->em->persist($enr);
+            $count++;
+        }
+
+        if ($count > 0) {
+            $this->em->flush();
+        }
+
+        return $count;
+    }
+
+    public function listDroppedForClassroom(Classroom $classroom, ?\DateTimeImmutable $notOlderThan = null): array
+    {
+        return $this->enrollments->findDroppedByClassroomLimited($classroom, $notOlderThan);
+    }
+
+    /**
+     * Hard-delete a single DROPPED enrollment.
+     *
+     * @throws \DomainException if the enrollment is not DROPPED
+     */
+    public function discardDropped(Enrollment $enrollment): void
+    {
+        if ($enrollment->getStatus() !== EnrollmentStatusEnum::DROPPED) {
+            throw new \DomainException('Only dropped enrollments can be discarded.');
+        }
+        $this->enrollments->remove($enrollment);
+        $this->em->flush();
+    }
+
+    /** Optional nightly purge for retention window, e.g., 90 days */
+    public function purgeDroppedOlderThan(\DateTimeImmutable $before): int
+    {
+        return $this->enrollments->purgeDroppedOlderThan($before);
+    }
+
 }

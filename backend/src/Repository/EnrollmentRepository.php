@@ -222,4 +222,92 @@ final class EnrollmentRepository extends ServiceEntityRepository
             ->andWhere('e.status = :st')->setParameter('st', EnrollmentStatusEnum::ACTIVE)
             ->getQuery()->getSingleScalarResult();
     }
+
+    /**
+     * Get all DROPPED enrollments for a classroom.
+     *
+     * @param Classroom $classroom
+     * @return Enrollment[]
+     */
+    public function findDroppedByClassroom(Classroom $classroom): array
+    {
+        return $this->createQueryBuilder('e')
+            ->andWhere('e.classroom = :c')
+            ->andWhere('e.status = :st')
+            ->setParameter('c', $classroom)
+            ->setParameter('st', EnrollmentStatusEnum::DROPPED)
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
+     * Count DROPPED enrollments for a classroom.
+     */
+    public function countDroppedByClassroom(Classroom $classroom): int
+    {
+        return (int) $this->createQueryBuilder('e')
+            ->select('COUNT(e.id)')
+            ->andWhere('e.classroom = :c')
+            ->andWhere('e.status = :st')
+            ->setParameter('c', $classroom)
+            ->setParameter('st', EnrollmentStatusEnum::DROPPED)
+            ->getQuery()
+            ->getSingleScalarResult();
+    }
+
+    public function findDroppedByClassroomLimited(Classroom $classroom, ?\DateTimeImmutable $notOlderThan = null): array
+    {
+        $qb = $this->createQueryBuilder('e')
+            ->andWhere('e.classroom = :c')
+            ->andWhere('e.status = :st')
+            ->setParameter('c', $classroom)
+            ->setParameter('st', EnrollmentStatusEnum::DROPPED);
+
+        if ($notOlderThan) {
+            $qb->andWhere('e.droppedAt IS NOT NULL AND e.droppedAt >= :since')
+                ->setParameter('since', $notOlderThan);
+        }
+
+        return $qb->getQuery()->getResult();
+    }
+
+    /** Hard delete a DROPPED enrollment (guard in manager). */
+    public function remove(Enrollment $enrollment): void
+    {
+        $this->_em->remove($enrollment);
+    }
+
+    /** Bulk purge DROPPED older than a cutoff */
+    public function purgeDroppedOlderThan(\DateTimeImmutable $before): int
+    {
+        return (int)$this->createQueryBuilder('e')
+            ->delete()
+            ->andWhere('e.status = :st')
+            ->andWhere('e.droppedAt IS NOT NULL AND e.droppedAt < :before')
+            ->setParameter('st', EnrollmentStatusEnum::DROPPED)
+            ->setParameter('before', $before)
+            ->getQuery()
+            ->execute();
+    }
+
+    /**
+     * Permanently delete a DROPPED enrollment by id.
+     * Returns number of rows affected (0 or 1).
+     */
+    public function hardDeleteIfDropped(int $id): int
+    {
+        // If you use an enum, prefer parameterizing by its value:
+        $dropped = \defined(EnrollmentStatusEnum::class)
+            ? EnrollmentStatusEnum::DROPPED->value
+            : 'DROPPED';
+
+        return $this->createQueryBuilder('e')
+            ->delete()
+            ->where('e.id = :id')
+            ->andWhere('e.status = :status')
+            ->setParameter('id', $id)
+            ->setParameter('status', $dropped)
+            ->getQuery()
+            ->execute();
+    }
 }

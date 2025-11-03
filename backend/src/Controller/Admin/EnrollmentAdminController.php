@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Controller\Admin;
 
+use App\Repository\EnrollmentRepository;
 use App\Service\ClassroomManager;
 use App\Service\Contracts\EnrollmentPort;
 use App\Service\EnrollmentManager;
@@ -51,10 +52,10 @@ final class EnrollmentAdminController extends AbstractController
      * @param EnrollmentResponseMapper  $enrollmentMapper    Maps Enrollment entities to API arrays.
      */
     public function __construct(
-        private readonly EnrollmentPort $enrollmentManager,
-        private readonly ClassroomManager $classroomManager,
-        private readonly RequestEntityResolver $resolver,
-        private readonly EnrollmentResponseMapper $enrollmentMapper,
+        private readonly EnrollmentPort           $enrollmentManager,
+        private readonly ClassroomManager         $classroomManager,
+        private readonly RequestEntityResolver    $resolver,
+        private readonly EnrollmentResponseMapper $enrollmentMapper, private readonly EnrollmentRepository $enrollmentRepository,
     ) {}
 
     /**
@@ -244,4 +245,24 @@ final class EnrollmentAdminController extends AbstractController
 
         return $this->json($this->enrollmentMapper->toCollection($items));
     }
+
+    // DELETE /api/admin/enrollments/{id}/discard  (only if DROPPED)
+    #[Route('/{id}/discard', name: 'admin_enrollment_discard', requirements: ['id' => '\d+'], methods: ['DELETE'])]
+    public function discard(int $id, EnrollmentRepository $repo): JsonResponse
+    {
+        $affected = $repo->hardDeleteIfDropped($id);
+
+        if ($affected === 0) {
+            // Not found or not in DROPPED state — surface a clean conflict
+            return $this->json([
+                'error' => [
+                    'code' => 'CONFLICT',
+                    'details' => ['state' => 'Only DROPPED enrollments can be discarded'],
+                ],
+            ], 409);
+        }
+
+        return $this->json(['deleted' => true], 200);
+    }
+
 }

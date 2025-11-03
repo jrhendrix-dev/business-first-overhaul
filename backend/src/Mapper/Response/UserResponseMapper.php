@@ -41,7 +41,7 @@ fullName:   trim((string)$u->getFirstName().' '.(string)$u->getLastName()),
 
 /**
 * ✅ Helper for list endpoints:
-* Build a plain array and optionally include classes.
+* Build a plain array and optionally include classrooms.
 */
 public function toArray(User $u, bool $includeClasses = false): array
 {
@@ -86,7 +86,7 @@ $classes[] = [
 }
 }
 
-$data['classes'] = $classes;
+$data['classrooms'] = $classes;
 }
 
 return $data;

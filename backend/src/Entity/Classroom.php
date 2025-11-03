@@ -44,6 +44,9 @@ class Classroom
     #[ORM\Column(type: 'string', enumType: ClassroomStatusEnum::class)]
     private ClassroomStatusEnum $status = ClassroomStatusEnum::ACTIVE;
 
+    #[ORM\Column(type: 'json', options: ['jsonb' => true])]
+    private array $meta = []; // generic bag
+
     public function __construct()
     {
         $this->enrollments = new ArrayCollection();
@@ -144,4 +147,10 @@ class Classroom
     {
         return $this->status === ClassroomStatusEnum::DROPPED;
     }
+
+    public function getMeta(): array { return $this->meta; }
+    public function setMeta(array $meta): self { $this->meta = $meta; return $this; }
+    public function isRestoreBannerDismissed(): bool { return (bool)($this->meta['restoreBannerDismissed'] ?? false); }
+    public function dismissRestoreBanner(): self { $this->meta['restoreBannerDismissed'] = true; return $this; }
+    public function resetRestoreBanner(): self { unset($this->meta['restoreBannerDismissed']); return $this; }
 }

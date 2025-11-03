@@ -289,4 +289,28 @@ class UserRepository extends ServiceEntityRepository
 
         return [$items, $total];
     }
+
+    /**
+     * Return students that do NOT have any ACTIVE enrollment.
+     *
+     * @return array<int, array{id:int, fullName:string|null, firstName:string|null, lastName:string|null, email:string|null}>
+     */
+    public function findStudentsWithoutActiveEnrollment(): array
+    {
+        // Assumptions:
+        // - Role for student is 'ROLE_STUDENT' (adjust if different in your project)
+        // - Enrollment entity is App\Entity\Enrollment with fields: student (ManyToOne to User), status (string)
+        // - Active status literal is 'ACTIVE' (adjust if you have an Enum)
+        $qb = $this->createQueryBuilder('u')
+            ->select('u.id, u.fullName, u.firstName, u.lastName, u.email')
+            ->andWhere('JSON_CONTAINS(u.roles, :role) = 1')
+            ->setParameter('role', json_encode('ROLE_STUDENT'))
+            ->andWhere('NOT EXISTS (
+                SELECT 1 FROM App\Entity\Enrollment e
+                WHERE e.student = u AND UPPER(e.status) = :active
+            )')
+            ->setParameter('active', 'ACTIVE');
+
+        return $qb->getQuery()->getArrayResult();
+    }
 }

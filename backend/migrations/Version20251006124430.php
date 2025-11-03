@@ -20,7 +20,7 @@ final class Version20251006124430 extends AbstractMigration
     public function up(Schema $schema): void
     {
         // this up() migration is auto-generated, please modify it to your needs
-        $this->addSql('ALTER TABLE classes CHANGE status status VARCHAR(255) NOT NULL');
+        $this->addSql('ALTER TABLE classrooms CHANGE status status VARCHAR(255) NOT NULL');
         $this->addSql('ALTER TABLE grade CHANGE component component VARCHAR(32) NOT NULL');
     }
 
@@ -28,6 +28,6 @@ final class Version20251006124430 extends AbstractMigration
     {
         // this down() migration is auto-generated, please modify it to your needs
         $this->addSql('ALTER TABLE grade CHANGE component component VARCHAR(100) NOT NULL');
-        $this->addSql('ALTER TABLE classes CHANGE status status VARCHAR(255) DEFAULT \'ACTIVE\' NOT NULL');
+        $this->addSql('ALTER TABLE classrooms CHANGE status status VARCHAR(255) DEFAULT \'ACTIVE\' NOT NULL');
     }
 }

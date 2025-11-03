@@ -19,15 +19,15 @@ final class Version20251008120000 extends AbstractMigration
         $platform = $this->connection->getDatabasePlatform()->getName();
 
         if ($platform === 'mysql') {
-            $this->addSql("UPDATE classes SET status = 'ACTIVE' WHERE status IS NULL OR status = ''");
-            $this->addSql("ALTER TABLE classes MODIFY status VARCHAR(255) NOT NULL DEFAULT 'ACTIVE'");
+            $this->addSql("UPDATE classrooms SET status = 'ACTIVE' WHERE status IS NULL OR status = ''");
+            $this->addSql("ALTER TABLE classrooms MODIFY status VARCHAR(255) NOT NULL DEFAULT 'ACTIVE'");
             return;
         }
 
         if ($platform === 'postgresql') {
-            $this->addSql("UPDATE classes SET status = 'ACTIVE' WHERE status IS NULL OR status = ''");
-            $this->addSql("ALTER TABLE classes ALTER COLUMN status SET DEFAULT 'ACTIVE'");
-            $this->addSql("ALTER TABLE classes ALTER COLUMN status SET NOT NULL");
+            $this->addSql("UPDATE classrooms SET status = 'ACTIVE' WHERE status IS NULL OR status = ''");
+            $this->addSql("ALTER TABLE classrooms ALTER COLUMN status SET DEFAULT 'ACTIVE'");
+            $this->addSql("ALTER TABLE classrooms ALTER COLUMN status SET NOT NULL");
             return;
         }
 
@@ -39,12 +39,12 @@ final class Version20251008120000 extends AbstractMigration
         $platform = $this->connection->getDatabasePlatform()->getName();
 
         if ($platform === 'mysql') {
-            $this->addSql("ALTER TABLE classes MODIFY status VARCHAR(255) NOT NULL");
+            $this->addSql("ALTER TABLE classrooms MODIFY status VARCHAR(255) NOT NULL");
             return;
         }
 
         if ($platform === 'postgresql') {
-            $this->addSql("ALTER TABLE classes ALTER COLUMN status DROP DEFAULT");
+            $this->addSql("ALTER TABLE classrooms ALTER COLUMN status DROP DEFAULT");
             return;
         }
 
