@@ -6,6 +6,10 @@ Thumbs.db
 .vscode/
 *.log
 
+/node_modules/
+/package-lock.json
+/package.json
+
 # ===================================
 # Symfony / PHP
 /vendor/
@@ -17,7 +21,7 @@ Thumbs.db
 /.env.prod
 .env.*.local
 /legacy/public/bundles/
-/node_modules/
+# /node_modules/
 /phpunit.result.cache
 **/jwt/*.pem
 
