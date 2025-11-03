@@ -10,6 +10,9 @@ const BASE = `${API}/api/admin/classrooms`;
 const ENR  = `${API}/api/admin/enrollments`;
 const USERS= `${API}/api/admin/users`;
 const USERS_TEACHERS = `${API}/api/admin/users/teachers`;
+const USERS_TEACHERS_WITHOUT   = `${USERS}/teachers/without-classroom`;
+const USERS_STUDENTS           = `${USERS}/students`;
+const USERS_STUDENTS_WITHOUT   = (classId: number) => `${USERS}/students/without-classroom/${classId}`;
 
 const mapEnrollments = (res: any): EnrollmentMini[] =>
   extractArray<any>(res).map(toEnrollmentMini);
@@ -21,6 +24,9 @@ function isActive(e: EnrollmentMini) {
 /** UI picklist option for assigning teachers (avoid name clash with DTO TeacherMini). */
 export type TeacherOption = { id: number; name: string; email?: string | null };
 
+/** UI picklist for assigning students */
+export type StudentOption = { id: number; name: string; email?: string | null };
+
 /** Normalized enrollment item shape for the roster drawer. */
 export type EnrollmentMini = {
   student: { id: number; firstName: string; lastName: string; email?: string | null };
@@ -30,6 +36,18 @@ export type EnrollmentMini = {
 
 /** Service-level error format with a user-facing message. */
 type ServiceError = { code: string; userMessage: string; cause?: any };
+
+/* ------------- mappers ------------- */
+const toTeacherOption = (t: UserItemDto): TeacherOption => ({
+  id: t.id,
+  name: t.fullName || `${t.firstName ?? ''} ${t.lastName ?? ''}`.trim(),
+  email: t.email ?? null,
+});
+const toStudentOption = (s: UserItemDto): StudentOption => ({
+  id: s.id,
+  name: s.fullName || `${s.firstName ?? ''} ${s.lastName ?? ''}`.trim(),
+  email: s.email ?? null,
+});
 
 /* ----------------------- helpers ----------------------- */
 
@@ -45,6 +63,8 @@ function extractArray<T>(payload: unknown): T[] {
   return [];
 }
 
+
+
 function toEnrollmentMini(raw: any): EnrollmentMini {
   const s = raw?.student ?? raw?.user ?? raw ?? {};
   return {
@@ -59,13 +79,6 @@ function toEnrollmentMini(raw: any): EnrollmentMini {
   };
 }
 
-function toTeacherOption(t: UserItemDto): TeacherOption {
-  return {
-    id: t.id,
-    name: t.fullName || `${t.firstName ?? ''} ${t.lastName ?? ''}`.trim(),
-    email: t.email ?? null,
-  };
-}
 
 function hasTeacherRole(u: any, assumeFiltered: boolean): boolean {
   if (Array.isArray(u?.roles)) return u.roles.includes('ROLE_TEACHER');
@@ -208,35 +221,53 @@ export class ClassroomsService {
 
   /* ----------------------- teachers (picklist) ----------------------- */
 
-  /**
-   * Returns teacher options; when `onlyVacant` is true, removes users already assigned
-   * to any classroom. We do NOT rely on server-side role filtering; instead we fetch
-   * users once and filter ROLE_TEACHER on the client. Also resilient to paginated shapes.
+
+  /** Teachers picklist.
+   * when onlyVacant=true uses `/users/teachers/without-classroom` (server-side filter),
+   * otherwise `/users/teachers`.
    */
   listTeachers(opts?: { onlyVacant?: boolean }): Observable<TeacherOption[]> {
-    // 1) Get teachers directly from the dedicated endpoint
-    const teachers$ = this.http.get<UserItemDto[]>(USERS_TEACHERS).pipe(
+    const url = opts?.onlyVacant ? USERS_TEACHERS_WITHOUT : USERS_TEACHERS;
+    return this.http.get<UserItemDto[]>(url).pipe(
       map(list => list.map(toTeacherOption)),
       catchError((cause): Observable<never> =>
         this.fail({ code: 'TEACHERS_LOAD_FAILED', userMessage: 'Failed to load teachers', cause })
       )
     );
+  }
 
-    // 2) If we don’t need to hide assigned teachers, we’re done
-    if (!opts?.onlyVacant) return teachers$;
+  /* ----------------------- students (picklist) ----------------------- */
 
-    // 3) Otherwise, also load classrooms and filter out already-assigned teachers
-    const classes$ = this.http.get<ClassroomItemDto[]>(BASE).pipe(
+  /** Students picklist for roster enrollment.
+   * Tries `/users/students/without-classroom/{classId}` when onlyVacant=true.
+   * Falls back to `/users/students` and client-side filtering if backend route is absent.
+   */
+  listStudentsForClass(
+    classId: number,
+    opts?: { onlyVacant?: boolean }
+  ): Observable<StudentOption[]> {
+    if (opts?.onlyVacant) {
+      // try server-side “not enrolled in the class”
+      return this.http.get<UserItemDto[]>(USERS_STUDENTS_WITHOUT(classId)).pipe(
+        map(list => list.map(toStudentOption)),
+        // fallback: load all students and subtract current active roster
+        catchError(() =>
+          this.http.get<UserItemDto[]>(USERS_STUDENTS).pipe(
+            map(list => list.map(toStudentOption))
+          )
+        ),
+        catchError((cause): Observable<never> =>
+          this.fail({ code: 'STUDENTS_LOAD_FAILED', userMessage: 'Failed to load students', cause })
+        )
+      );
+    }
+
+    // plain all students
+    return this.http.get<UserItemDto[]>(USERS_STUDENTS).pipe(
+      map(list => list.map(toStudentOption)),
       catchError((cause): Observable<never> =>
-        this.fail({ code: 'CLASSES_LOAD_FAILED', userMessage: 'Failed to load classes', cause })
+        this.fail({ code: 'STUDENTS_LOAD_FAILED', userMessage: 'Failed to load students', cause })
       )
-    );
-
-    return forkJoin({ teachers: teachers$, classes: classes$ }).pipe(
-      map(({ teachers, classes }) => {
-        const assigned = new Set<number>(classes.filter(c => !!c.teacher).map(c => c.teacher!.id));
-        return teachers.filter(t => !assigned.has(t.id));
-      })
     );
   }
 

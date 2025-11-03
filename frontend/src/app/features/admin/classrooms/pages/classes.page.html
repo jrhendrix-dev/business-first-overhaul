@@ -122,9 +122,9 @@
     </label>
 
     <div>
-      <label class="block text-xs text-slate-600 mb-1">Teacher</label>
+      <label class="block text-xs text-slate-600 mb-1">Select teacher</label> <!-- clearer label -->
       <select class="w-full border rounded px-2 py-1" formControlName="teacherId">
-        <option [ngValue]="null" disabled>Select…</option>
+        <option [ngValue]="null" disabled>— Select a teacher —</option>
         <option *ngFor="let t of teachers()" [ngValue]="t.id">
           {{ t.name }} <span *ngIf="t.email">— {{ t.email }}</span>
         </option>
@@ -137,7 +137,7 @@
       <button class="px-3 py-1 rounded bg-emerald-600 text-white" [disabled]="assignForm.invalid">Assign</button>
     </div>
   </form>
-  <p class="text-xs text-slate-500 mt-3">This can be swapped to a search/autocomplete later.</p>
+  <p class="text-xs text-slate-500 mt-3">Tip: toggle “Only unassigned teachers” to limit the list.</p>
 </div>
 
 <!-- Roster Drawer -->
@@ -148,27 +148,26 @@
     <span class="text-xs text-slate-500 ml-2">Active: {{ roster().length }}</span>
   </h2>
 
-  <form [formGroup]="rosterEnrollForm" class="flex items-end gap-2 mb-3" (ngSubmit)="enrollStudent()">
-    <div class="flex-1">
-      <label class="block text-xs text-slate-600 mb-1">Student ID</label>
-      <input type="number" class="w-full border rounded px-2 py-1" formControlName="studentId" placeholder="Enter student user ID">
+  <form [formGroup]="rosterEnrollForm" class="space-y-2 mb-3" (ngSubmit)="enrollStudent()">
+    <label class="inline-flex items-center gap-2">
+      <input type="checkbox" formControlName="onlyNotEnrolled">
+      <span class="text-sm">Only students not in this class</span>
+    </label>
+
+    <div>
+      <label class="block text-xs text-slate-600 mb-1">Select student</label>
+      <select class="w-full border rounded px-2 py-1" formControlName="studentId">
+        <option [ngValue]="null" disabled>— Choose a student —</option>
+        <option *ngFor="let s of studentOptions()" [ngValue]="s.id">
+          {{ s.name }} <span *ngIf="s.email">— {{ s.email }}</span>
+        </option>
+      </select>
+      <div *ngIf="studentsLoading()" class="text-xs text-slate-500 mt-1">Loading students…</div>
     </div>
-    <button class="px-3 py-1.5 rounded bg-emerald-600 text-white" [disabled]="rosterEnrollForm.invalid">Enroll</button>
+
+    <div class="flex justify-end">
+      <button class="px-3 py-1.5 rounded bg-emerald-600 text-white" [disabled]="rosterEnrollForm.invalid">Enroll</button>
+    </div>
   </form>
 
-  <div class="space-y-2">
-    <div *ngFor="let e of roster()" class="border rounded p-3 flex items-center justify-between">
-      <div>
-        <div class="font-medium">{{ e.student.firstName }} {{ e.student.lastName }}</div>
-        <div class="text-xs text-slate-600">{{ e.student.email }}</div>
-        <div class="text-xs mt-1">
-          Status: <span class="font-mono">{{ e.status }}</span>
-          <span *ngIf="e.enrolledAt" class="ml-2">Enrolled: {{ e.enrolledAt | date:'short' }}</span>
-        </div>
-      </div>
-      <button class="px-2 py-1 rounded bg-rose-600 text-white" (click)="dropStudent(e.student.id)">Drop</button>
-    </div>
-
-    <div *ngIf="!roster().length" class="text-sm text-slate-500">No active students.</div>
-  </div>
 </div>

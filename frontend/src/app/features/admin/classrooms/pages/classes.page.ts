@@ -8,6 +8,7 @@ import { ClassroomItemDto, ClassroomDetailDto } from '@/app/shared/models/classr
 import { ToastContainerComponent } from '@/app/core/ui/toast-container.component';
 import { ToastService } from '@/app/core/ui/toast.service';
 import type { TeacherOption, EnrollmentMini } from './classrooms.service';
+import type { StudentOption } from './classrooms.service';
 import { of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 
@@ -15,7 +16,7 @@ import { catchError } from 'rxjs/operators';
 
 @Component({
   standalone: true,
-  selector: 'app-admin-classes',
+  selector: 'app-admin-classrooms',
   imports: [CommonModule, ReactiveFormsModule, ToastContainerComponent],
   templateUrl: './classes.page.html',
 })
@@ -36,7 +37,7 @@ export class ClassesPage implements OnInit {
     onlyUnassigned: this.fb.control<boolean>(false),
   });
 
-  /** “filtered” guard (to show the “All classes” button) */
+  /** “filtered” guard (to show the “All classrooms” button) */
   teacherId: number | null = null;
   studentId: number | null = null;
   isFiltered = computed(() =>
@@ -52,22 +53,27 @@ export class ClassesPage implements OnInit {
     name: this.fb.control('', { validators: [Validators.required, Validators.minLength(2)] }),
   });
 
-  /** assign-teacher drawer */
+  // --- assign teacher drawer ---
   assignOpen   = signal(false);
   assignClassId: number | null = null;
   assignForm = this.fb.group({
     teacherId: this.fb.control<number | null>(null, { validators: [Validators.required] }),
-    onlyVacant: this.fb.control<boolean>(false),
+    onlyVacant: this.fb.control<boolean>(false), // uses server-side endpoint now
   });
   teachers = signal<TeacherOption[]>([]);
   teacherLoading = signal(false);
 
-  /** students / roster drawer */
+  // --- roster (students) drawer ---
   rosterOpen  = signal(false);
   rosterClass: ClassroomDetailDto | null = null;
   rosterEnrollForm = this.fb.group({
     studentId: this.fb.control<number | null>(null, { validators: [Validators.required] }),
+    onlyNotEnrolled: this.fb.control<boolean>(true),
   });
+  studentOptions = signal<StudentOption[]>([]);
+  studentsLoading = signal(false);
+
+
 
   ngOnInit(): void {
     // initial + refresh when the “Classes” nav is clicked again
@@ -90,6 +96,8 @@ export class ClassesPage implements OnInit {
 
     // react to the “only vacant” toggle inside assign drawer
     this.assignForm.controls.onlyVacant.valueChanges.subscribe(() => this.loadTeachers());
+
+    this.rosterEnrollForm.controls.onlyNotEnrolled.valueChanges.subscribe(() => this.loadStudentOptions());
   }
 
   /** list loader */
@@ -170,19 +178,23 @@ export class ClassesPage implements OnInit {
     this.assignClassId = c.id;
     this.assignForm.reset({
       teacherId: c.teacher ? c.teacher.id : null,
-      onlyVacant: false,
+      onlyVacant: true,
     });
     this.assignOpen.set(true);
     this.loadTeachers();
   }
 
+
+  // --- teachers ---
   private loadTeachers() {
     if (!this.assignOpen()) return;
     this.teacherLoading.set(true);
-    this.api.listTeachers({ onlyVacant: !!this.assignForm.value.onlyVacant }).subscribe({
-      next: list => { this.teachers.set(list); this.teacherLoading.set(false); },
-      error: () => { this.teacherLoading.set(false); this.toast.add('Failed to load teachers', 'error'); }
-    });
+    this.api
+      .listTeachers({ onlyVacant: !!this.assignForm.value.onlyVacant })
+      .subscribe({
+        next: list => { this.teachers.set(list); this.teacherLoading.set(false); },
+        error: () => { this.teacherLoading.set(false); this.toast.add('Failed to load teachers', 'error'); },
+      });
   }
 
   assign() {
@@ -222,39 +234,39 @@ export class ClassesPage implements OnInit {
 
   /** students / roster */
   openRoster(c: ClassroomItemDto) {
-    // optimistic open, clear previous data
     this.rosterOpen.set(true);
     this.rosterClass = null;
     this.roster.set([]);
+    this.studentOptions.set([]);
 
     forkJoin({
-      detail: this.api.getOne(c.id).pipe(
-        catchError((_err) => {
-          this.toast.add('Failed to load class detail', 'error');
-          return of(null as unknown as ClassroomDetailDto);
-        })
-      ),
-      active: this.api.listActiveEnrollments(c.id).pipe(
-        catchError((_err) => {
-          this.toast.add('Failed to load students', 'error');
-          return of([]);
-        })
-      ),
+      detail: this.api.getOne(c.id).pipe(catchError((_err) => { this.toast.add('Failed to load class detail', 'error'); return of(null as any); })),
+      active: this.api.listActiveEnrollments(c.id).pipe(catchError((_err) => { this.toast.add('Failed to load students', 'error'); return of([]); })),
     }).subscribe(({ detail, active }) => {
-      if (detail) this.rosterClass = detail;
+      if (detail) {
+        this.rosterClass = detail;
+        this.loadStudentOptions(); // <-- populate the dropdown once we know the class id
+      }
       this.roster.set(active);
     });
   }
+
   closeRoster(){ this.rosterOpen.set(false); }
 
   enrollStudent() {
     const classId = this.rosterClass?.id!;
     const sid = this.rosterEnrollForm.value.studentId!;
     this.api.enrollStudent(classId, sid).subscribe({
-      next: () => { this.toast.add('Student enrolled', 'success'); this.rosterEnrollForm.reset({ studentId: null }); this.reloadRoster(); },
+      next: () => {
+        this.toast.add('Student enrolled', 'success');
+        this.rosterEnrollForm.reset({ studentId: null, onlyNotEnrolled: this.rosterEnrollForm.value.onlyNotEnrolled ?? true });
+        this.reloadRoster();
+        this.loadStudentOptions(); // refresh picklist to remove just-enrolled student
+      },
       error: () => this.toast.add('Enroll failed', 'error'),
     });
   }
+
   dropStudent(studentId: number) {
     const classId = this.rosterClass?.id!;
     this.api.dropStudent(classId, studentId).subscribe({
@@ -271,4 +283,18 @@ export class ClassesPage implements OnInit {
       next: ({ detail, active }) => { this.rosterClass = detail; this.roster.set(active); },
     });
   }
+
+  private loadStudentOptions() {
+    if (!this.rosterOpen() || !this.rosterClass) return;
+    this.studentsLoading.set(true);
+    this.api
+      .listStudentsForClass(this.rosterClass.id, { onlyVacant: !!this.rosterEnrollForm.value.onlyNotEnrolled })
+      .subscribe({
+        next: list => { this.studentOptions.set(list); this.studentsLoading.set(false); },
+        error: () => { this.studentsLoading.set(false); this.toast.add('Failed to load students list', 'error'); },
+      });
+  }
+
+
+
 }
