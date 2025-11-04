@@ -7,12 +7,10 @@ import { ToastService } from '@app/core/ui/toast/toast.service';
 import { UsersService, UsersQuery } from './users.service';
 import { UserItemDto } from '@/app/shared/models/user/user-read.dto';
 import { RouterLink } from '@angular/router';
-
-
-// new drawers
 import { DrawerCreateUserComponent } from './components/drawer-create-user.component';
 import { DrawerEditUserComponent } from './components/drawer-edit-user.component';
 import {AdminHeaderComponent} from '@app/core/ui/admin-header.component';
+import { ClassListCellComponent } from './components/class-list-cell.component';
 
 @Component({
   standalone: true,
@@ -24,6 +22,7 @@ import {AdminHeaderComponent} from '@app/core/ui/admin-header.component';
     RouterLink,
     DrawerCreateUserComponent,
     AdminHeaderComponent,
+    ClassListCellComponent,
     DrawerEditUserComponent
   ],
   templateUrl: './users.page.html',
@@ -54,7 +53,11 @@ export class UsersPage implements OnInit {
   viewItems = computed(() => {
     const q    = (this.filters.controls.q.value || '').toLowerCase().trim();
     const role = this.filters.controls.role.value || '';
-    let data   = [...this.items()];
+    const page = this.page();
+    const size = this.size();
+
+    let data = [...this.items()];
+
     if (q) {
       data = data.filter(u =>
         (u.userName || '').toLowerCase().includes(q) ||
@@ -64,8 +67,13 @@ export class UsersPage implements OnInit {
         (u.fullName || '').toLowerCase().includes(q)
       );
     }
+
     if (role) data = data.filter(u => u.role === role);
-    return data;
+
+    // ✅ Apply pagination
+    const start = (page - 1) * size;
+    const end   = start + size;
+    return data.slice(start, end);
   });
   filteredTotal = computed(() => this.viewItems().length);
 

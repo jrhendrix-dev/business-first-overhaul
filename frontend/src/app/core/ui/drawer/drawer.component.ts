@@ -1,29 +1,58 @@
 // src/app/core/ui/drawer/drawer.component.ts
 import {
   Component, Input, Output, EventEmitter,
-  ChangeDetectionStrategy, ElementRef, AfterViewInit, ViewChild, OnChanges, SimpleChanges
+  ChangeDetectionStrategy, ElementRef, AfterViewInit, ViewChild, OnChanges, SimpleChanges,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { CdkTrapFocus } from '@angular/cdk/a11y';
+import {
+  trigger, transition, style, animate, state,
+} from '@angular/animations';
 
 let nextId = 0;
 
 @Component({
   standalone: true,
   selector: 'bf-drawer',
-  imports: [CommonModule,  CdkTrapFocus],
+  imports: [CommonModule, CdkTrapFocus],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  animations: [
+    // Backdrop fade
+    trigger('backdrop', [
+      state('void', style({ opacity: 0 })),
+      state('*', style({ opacity: 0.3 })),
+      transition('void => *', animate('150ms ease-out')),
+      transition('* => void', animate('150ms ease-in')),
+    ]),
+
+    // Panel slides from the right
+    trigger('panel', [
+      transition(':enter', [
+        style({ transform: 'translateX(100%)' }),
+        animate('250ms cubic-bezier(0.2, 0, 0, 1)', style({ transform: 'translateX(0%)' })),
+      ]),
+      transition(':leave', [
+        animate('220ms cubic-bezier(0.4, 0, 1, 1)', style({ transform: 'translateX(100%)' })),
+      ]),
+    ]),
+  ],
   template: `
+    <!-- Backdrop -->
     <div *ngIf="open"
-         class="fixed inset-0 bg-black/30 z-[9000]"
+         @backdrop
+         class="fixed inset-0 bg-black z-[9000]"
+         [style.opacity]="0.3"
          [style.top]="styleTop"
          [style.height]="styleHeight"
-         (click)="close.emit()"></div>
+         (click)="close.emit()">
+    </div>
 
+    <!-- Sliding panel -->
     <div *ngIf="open"
+         @panel
          #panel
          class="fixed right-0 w-[28rem] bg-white shadow-2xl z-[9001]
-                overflow-y-auto border-l border-slate-200 transition-transform duration-300 ease-in-out"
+                overflow-y-auto border-l border-slate-200 will-change-transform"
          [style.top]="styleTop"
          [style.height]="styleHeight"
          [ngClass]="panelClass"
@@ -68,9 +97,11 @@ export class DrawerComponent implements AfterViewInit, OnChanges {
   }
 
   ngAfterViewInit() { this.focusHeading(); }
+
   ngOnChanges(ch: SimpleChanges) {
     if (ch['open']?.currentValue) queueMicrotask(() => this.focusHeading());
   }
+
   private focusHeading() {
     const el = this.panelRef?.nativeElement?.querySelector<HTMLElement>('h2[id]');
     el?.focus?.();

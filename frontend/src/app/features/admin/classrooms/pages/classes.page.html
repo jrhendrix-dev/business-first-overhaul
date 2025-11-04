@@ -1,92 +1,89 @@
 <app-toast-container />
+<app-admin-header title="Classes"></app-admin-header>
 
-<!-- Header / Filters -->
-<app-admin-header title="Classes">
-</app-admin-header>
-<div class="flex items-end gap-3 mb-5 mt-4">
-  <div>
-    <label class="block text-xs text-slate-600">Search by name</label>
-    <input class="border rounded px-2 py-1 w-64" [formControl]="filters.controls.q" placeholder="e.g. B1, Classroom 2">
+<div class="h-full flex flex-col min-h-0">
+  <!-- Filters -->
+  <div class="flex items-end gap-3 mb-5 mt-4 shrink-0">
+    <div>
+      <label class="block text-xs text-slate-600">Search by name</label>
+      <input class="border rounded px-2 py-1 w-64"
+             [formControl]="filters.controls.q"
+             placeholder="e.g. B1, Classroom 2">
+    </div>
+
+    <label class="inline-flex items-center gap-2">
+      <input type="checkbox" [formControl]="filters.controls.onlyUnassigned">
+      <span class="text-sm">Only unassigned</span>
+    </label>
+
+    <div class="ml-auto flex gap-2">
+      <button *ngIf="isFiltered()" class="btn btn-outline" (click)="resetToAll()">All classes</button>
+      <button class="btn btn-success" (click)="openCreate()">+ New class</button>
+    </div>
   </div>
 
-  <label class="inline-flex items-center gap-2">
-    <input type="checkbox" [formControl]="filters.controls.onlyUnassigned">
-    <span class="text-sm">Only unassigned</span>
-  </label>
-
-  <div class="ml-auto flex gap-2">
-    <button *ngIf="isFiltered()" class="btn btn-outline" (click)="resetToAll()">All classes</button>
-    <button class="btn btn-success" (click)="openCreate()">+ New class</button>
+  <!-- Scrollable table -->
+  <div class="min-h-0 grow border rounded overflow-auto">
+    <table class="min-w-full text-sm">
+      <thead class="bg-slate-50 border-b sticky top-0 z-10">
+      <tr>
+        <th class="text-left px-3 py-2 w-16">ID</th>
+        <th class="text-left px-3 py-2">Name</th>
+        <th class="text-left px-3 py-2 w-48">Teacher</th>
+        <th class="text-left px-3 py-2 w-28">Status</th>
+        <th class="text-left px-3 py-2 w-[22rem]">Actions</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr *ngFor="let c of items()" class="border-b hover:bg-slate-50">
+        <td class="px-3 py-2">{{ c.id }}</td>
+        <td class="px-3 py-2">{{ c.name }}</td>
+        <td class="px-3 py-2">
+          <span *ngIf="c.teacher; else noTeacher">{{ c.teacher.name }}</span>
+          <ng-template #noTeacher><em>Unassigned</em></ng-template>
+        </td>
+        <td class="px-3 py-2">
+            <span class="inline-flex items-center gap-1">
+              <span class="h-2.5 w-2.5 rounded-full"
+                    [class.bg-emerald-500]="!isDropped(c)"
+                    [class.bg-slate-400]="isDropped(c)"></span>
+              {{ c.status }}
+            </span>
+        </td>
+        <td class="px-3 py-2">
+          <div class="flex items-center gap-2 min-h-[2.25rem]">
+            <button class="btn btn-primary btn-sm" (click)="openRoster(c)">Students</button>
+            <button class="btn btn-outline btn-sm" (click)="openRename(c)">Rename</button>
+            <button class="btn btn-outline btn-sm"
+                    [disabled]="!canAssign(c)"
+                    title="{{ canAssign(c) ? '' : 'Reactivate the class to assign a teacher' }}"
+                    (click)="openAssign(c)">
+              {{ c.teacher ? 'Change teacher' : 'Assign teacher' }}
+            </button>
+            <button class="btn btn-outline-muted btn-sm"
+                    [class.invisible]="!c.teacher"
+                    [disabled]="!c.teacher"
+                    (click)="c.teacher && unassign(c)">
+              Unassign
+            </button>
+            <button class="btn btn-success btn-sm"
+                    *ngIf="isDropped(c)"
+                    (click)="reactivate(c)">
+              Reactivate
+            </button>
+            <button class="btn btn-danger btn-sm" (click)="remove(c)">Delete</button>
+          </div>
+        </td>
+      </tr>
+      <tr *ngIf="!items().length && !loading()">
+        <td [attr.colspan]="5" class="px-3 py-6 text-center text-slate-500">No results</td>
+      </tr>
+      </tbody>
+    </table>
   </div>
 </div>
 
-<!-- Grid -->
-<div class="border rounded overflow-hidden">
-  <table class="min-w-full text-sm">
-    <thead class="bg-slate-50 border-b">
-    <tr>
-      <th class="text-left px-3 py-2 w-16">ID</th>
-      <th class="text-left px-3 py-2">Name</th>
-      <th class="text-left px-3 py-2 w-48">Teacher</th>
-      <th class="text-left px-3 py-2 w-28">Status</th>
-      <th class="text-left px-3 py-2 w-[22rem]">Actions</th>
-    </tr>
-    </thead>
-    <tbody>
-    <tr *ngFor="let c of items()" class="border-b hover:bg-slate-50">
-      <td class="px-3 py-2">{{ c.id }}</td>
-      <td class="px-3 py-2">{{ c.name }}</td>
-      <td class="px-3 py-2">
-        <span *ngIf="c.teacher; else noTeacher">{{ c.teacher.name }}</span>
-        <ng-template #noTeacher><em>Unassigned</em></ng-template>
-      </td>
-      <td class="px-3 py-2">
-        <span class="inline-flex items-center gap-1">
-          <span class="h-2.5 w-2.5 rounded-full" [class.bg-emerald-500]="!isDropped(c)" [class.bg-slate-400]="isDropped(c)"></span>
-          {{ c.status }}
-        </span>
-      </td>
-      <td class="px-3 py-2">
-        <div class="flex items-center gap-2 min-h-[2.25rem]">
-          <button class="btn btn-primary btn-sm" (click)="openRoster(c)">Students</button>
-
-          <button class="btn btn-outline btn-sm" (click)="openRename(c)">Rename</button>
-
-          <button class="btn btn-outline btn-sm"
-                  [disabled]="!canAssign(c)"
-                  title="{{ canAssign(c) ? '' : 'Reactivate the class to assign a teacher' }}"
-                  (click)="openAssign(c)">
-            {{ c.teacher ? 'Change teacher' : 'Assign teacher' }}
-          </button>
-
-          <button class="btn btn-outline-muted btn-sm"
-                  [class.invisible]="!c.teacher"
-                  [disabled]="!c.teacher"
-                  (click)="c.teacher && unassign(c)">
-            Unassign
-          </button>
-
-          <button class="btn btn-success btn-sm"
-                  *ngIf="isDropped(c)"
-                  (click)="reactivate(c)">
-            Reactivate
-          </button>
-
-          <button class="btn btn-danger btn-sm" (click)="remove(c)">
-            Delete
-          </button>
-        </div>
-      </td>
-    </tr>
-
-    <tr *ngIf="!items().length && !loading()">
-      <td [attr.colspan]="5" class="px-3 py-6 text-center text-slate-500">No results</td>
-    </tr>
-    </tbody>
-  </table>
-</div>
-
-<!-- Drawers (unchanged) -->
+<!-- Drawers -->
 <bf-drawer-create-class
   [open]="drawerOpen()"
   [editMode]="editMode()"
@@ -108,6 +105,7 @@
   [open]="rosterOpen()"
   [className]="rosterClass?.name || ''"
   [classStatus]="rosterClass?.status || 'ACTIVE'"
+  [classId]="rosterClass?.id || null"
   [form]="rosterEnrollForm"
   [roster]="roster()"
   [studentOptions]="studentOptions()"
@@ -119,5 +117,14 @@
   (drop)="dropStudent($event)"
   (restore)="restoreRoster()"
   (dismiss)="dismissRestoreBanner()"
-  (discard)="discardDropped($event)">
+  (discard)="discardDropped($event)"
+  (viewGrades)="goToGrades($event)">
 </bf-drawer-roster>
+
+<bf-drawer-student-grades
+  [open]="gradesOpen()"
+  [enrollmentId]="selectedEnrollmentId!"
+  [studentLabel]="selectedStudentLabel"
+  [classroomLabel]="rosterClass?.name || ''"
+  (close)="gradesOpen.set(false)">
+</bf-drawer-student-grades>

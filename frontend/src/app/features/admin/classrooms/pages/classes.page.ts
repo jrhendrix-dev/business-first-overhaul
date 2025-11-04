@@ -2,20 +2,20 @@
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, NonNullableFormBuilder, Validators } from '@angular/forms';
-import { ActivatedRoute, Router, NavigationEnd} from '@angular/router';
-import { debounceTime, distinctUntilChanged, filter, forkJoin } from 'rxjs';
+import { ActivatedRoute, Router } from '@angular/router';
+import { debounceTime, distinctUntilChanged, forkJoin, map, tap } from 'rxjs';
 import { HttpErrorResponse } from '@angular/common/http';
 import { ClassroomsService } from '../services/classrooms.service';
 import { ClassroomItemDto, ClassroomDetailDto } from '@/app/shared/models/classrooms/classroom-read.dto';
 import { ToastContainerComponent } from '@app/core/ui/toast/toast-container.component';
 import { ToastService } from '@app/core/ui/toast/toast.service';
-
+import { DrawerStudentGradesComponent } from '../components/drawer-student-grades.component';
 import { DrawerAssignTeacherComponent } from '../components/drawer-assign-teacher.component';
 import { DrawerCreateClassComponent } from '../components/drawer-create-class.component';
 import { DrawerRosterComponent } from '../components/drawer-roster.component';
 
 import type { EnrollmentMini } from '../models/enrollment-mini.model';
-import {AdminHeaderComponent} from '@app/core/ui/admin-header.component';
+import { AdminHeaderComponent } from '@app/core/ui/admin-header.component';
 
 @Component({
   standalone: true,
@@ -28,6 +28,7 @@ import {AdminHeaderComponent} from '@app/core/ui/admin-header.component';
     DrawerAssignTeacherComponent,
     DrawerCreateClassComponent,
     DrawerRosterComponent,
+    DrawerStudentGradesComponent,
   ],
   templateUrl: './classes.page.html',
 })
@@ -47,7 +48,8 @@ export class ClassesPage implements OnInit {
 
   // list + filters
   items   = signal<ClassroomItemDto[]>([]);
-  loading = signal(false);
+  classes = signal<ClassroomItemDto[]>([]);
+  loading = signal<boolean>(false);
   filters = this.fb.group({
     q: this.fb.control<string>(''),
     onlyUnassigned: this.fb.control<boolean>(false),
@@ -62,6 +64,28 @@ export class ClassesPage implements OnInit {
     !!this.filters.controls.q.value ||
     this.filters.controls.onlyUnassigned.value
   );
+
+  // State for the grades drawer
+  gradesOpen = signal(false);
+  selectedEnrollmentId: number | null = null;
+  selectedStudentLabel = '';
+
+  // NEW handler wired from (viewGrades)
+  openGradesFromRoster(ev: { enrollmentId: number; studentLabel: string }) {
+    this.selectedEnrollmentId = ev.enrollmentId;
+    this.selectedStudentLabel = ev.studentLabel;
+    this.gradesOpen.set(true);
+  }
+
+  goToGrades(payload: { studentId: number; classId: number | null; studentLabel: string }) {
+    this.router.navigate(['/admin/grades'], {
+      queryParams: {
+        open: 'create',
+        studentId: payload.studentId,
+        classId: payload.classId ?? undefined,
+      }
+    });
+  }
 
   // create/rename
   drawerOpen = signal(false);
@@ -98,21 +122,24 @@ export class ClassesPage implements OnInit {
   studentsLoading  = signal(false);
 
   ngOnInit(): void {
-    const readQp = () => {
-      const qp = this.route.snapshot.queryParamMap;
-      this.teacherId = qp.get('teacherId') ? Number(qp.get('teacherId')) : null;
-      this.studentId = qp.get('studentId') ? Number(qp.get('studentId')) : null;
-    };
+    // Single source of truth: query params
+    this.route.queryParamMap
+      .pipe(
+        map(qp => ({
+          teacherId: qp.get('teacherId') ? Number(qp.get('teacherId')) : null,
+          studentId: qp.get('studentId') ? Number(qp.get('studentId')) : null,
+        })),
+        distinctUntilChanged(
+          (a, b) => a.teacherId === b.teacherId && a.studentId === b.studentId
+        ),
+        tap(({ teacherId, studentId }) => {
+          this.teacherId = teacherId;
+          this.studentId = studentId;
+        }),
+      )
+      .subscribe(() => this.load());
 
-    readQp();
-
-    this.router.events.pipe(filter(e => e instanceof NavigationEnd)).subscribe(() => {
-      readQp();
-      this.load();
-    });
-
-    this.load();
-
+    // Filters also trigger load
     this.filters.valueChanges
       .pipe(debounceTime(300), distinctUntilChanged())
       .subscribe(() => this.load());
@@ -140,7 +167,14 @@ export class ClassesPage implements OnInit {
     if (this.teacherId != null) {
       this.api.list({ teacherId: this.teacherId }).subscribe({
         next: res => { this.items.set(res); this.loading.set(false); },
-        error: () => { this.items.set([]); this.loading.set(false); this.toast.add('Load failed', 'error'); },
+        error: (err) => {
+          if (this.isRoleFilterMismatch('teacher', err)) {
+            this.clearUserFilterAndFallback('teacher');
+          } else {
+            this.items.set([]); this.loading.set(false);
+            this.toast.add('Load failed', 'error');
+          }
+        },
       });
       return;
     }
@@ -148,7 +182,14 @@ export class ClassesPage implements OnInit {
     if (this.studentId != null) {
       this.api.list({ studentId: this.studentId }).subscribe({
         next: res => { this.items.set(res); this.loading.set(false); },
-        error: ()   => { this.items.set([]); this.loading.set(false); this.toast.add('Load failed', 'error'); },
+        error: (err) => {
+          if (this.isRoleFilterMismatch('student', err)) {
+            this.clearUserFilterAndFallback('student');
+          } else {
+            this.items.set([]); this.loading.set(false);
+            this.toast.add('Load failed', 'error');
+          }
+        },
       });
       return;
     }
@@ -171,7 +212,12 @@ export class ClassesPage implements OnInit {
     this.filters.reset({ q: '', onlyUnassigned: false }, { emitEvent: false });
     this.teacherId = null;
     this.studentId = null;
-    this.router.navigate([], { relativeTo: this.route, queryParams: {}, replaceUrl: true });
+    this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { teacherId: null, studentId: null },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    });
     this.load();
   }
 
@@ -231,8 +277,6 @@ export class ClassesPage implements OnInit {
     }
   }
 
-
-
   /** Map server errors to human messages for create/rename */
   private humanizeSaveError(err: unknown, attemptedName: string): string | null {
     const http = err as HttpErrorResponse;
@@ -242,70 +286,51 @@ export class ClassesPage implements OnInit {
     const code    = envelope?.code;
     const details = envelope?.details ?? {};
 
-    // 1) Most explicit: API signals duplicate or 409
     if (http?.status === 409 || code === 'DUPLICATE_CLASSROOM_NAME') {
       return `The name "${attemptedName}" is already in use. Please choose another.`;
     }
 
-    // 2) Validation envelope with a name field error
     const nameDetail = details?.name ?? details?.Name ?? details?.classroomName;
     if (nameDetail) {
-      // allow array or string
       const msg = Array.isArray(nameDetail) ? nameDetail.join(', ') : String(nameDetail);
       return msg || `Invalid classroom name.`;
     }
 
-    // 3) Raw message hints (e.g., SQL unique/duplicate)
     const rawMsg = envelope?.message ?? payload?.message ?? http?.message ?? '';
     if (typeof rawMsg === 'string' && /unique|duplicate|already exists/i.test(rawMsg)) {
       return `The name "${attemptedName}" is already in use.`;
     }
 
-    return null; // let caller fall back
+    return null;
   }
 
-  /** Quick local check to give instant feedback if the name is already on the list */
   private nameAlreadyUsed(name: string): boolean {
     const want = (name ?? '').trim().toLowerCase();
     return this.items().some(c => (c.name ?? '').trim().toLowerCase() === want);
   }
 
-  /** Show a friendly error message for create/rename name issues (and other errors) */
   private showFriendlyNameError(err: any, intent: 'create' | 'rename', name: string): void {
     const generic = intent === 'create' ? 'Could not create classroom' : 'Could not rename classroom';
 
-    // 0) Client-side instant duplicate check
     if (this.nameAlreadyUsed(name)) {
       this.toast.add(`“${name}” is already used by another classroom. Choose a different name.`, 'error');
       return;
     }
 
-    // 1) Try to understand the server error
     const status = err?.status;
     const body   = err?.error ?? err;
-
-    // Common fields some backends use
     const bodyMsg =
       (typeof body === 'string' ? body : null) ??
-      body?.message ??
-      body?.detail ??
-      body?.error ??
-      null;
-
-    // Symfony-style validation errors
+      body?.message ?? body?.detail ?? body?.error ?? null;
     const violations = Array.isArray(body?.violations) ? body.violations : null;
-
-    // Custom codes you might emit server-side
     const code = body?.code;
 
     let msg: string | null = null;
 
-    // 409 Conflict or explicit duplicate codes/messages
     if (status === 409 || code === 'DUPLICATE_CLASS_NAME' || /already\s*exist/i.test(bodyMsg ?? '')) {
       msg = `A classroom named “${name}” already exists. Try a different name.`;
     }
 
-    // 400/422 with validation details
     if (!msg && (status === 400 || status === 422)) {
       if (violations) {
         const v = violations.find((x: any) =>
@@ -322,17 +347,11 @@ export class ClassesPage implements OnInit {
     this.toast.add(msg ?? generic, 'error');
   }
 
-
   private showSaveError(err: unknown, action: 'create' | 'rename', attemptedName: string): void {
     const specific = this.humanizeSaveError(err, attemptedName);
     const fallback = action === 'create' ? 'Create failed' : 'Rename failed';
-
     this.toast.add(specific ?? fallback, 'error');
-
-    // decorate the field so template can render an inline hint if desired
-    if (specific) {
-      this.form.controls.name.setErrors({ server: specific });
-    }
+    if (specific) this.form.controls.name.setErrors({ server: specific });
   }
 
   closeDrawer(): void { this.drawerOpen.set(false); }
@@ -576,6 +595,49 @@ export class ClassesPage implements OnInit {
       });
   }
 
+  private getEnvelope(err: unknown): { code?: string; details?: any } {
+    const http = err as any;
+    const raw  = http?.error ?? http ?? {};
+    const env  = raw?.error ?? raw; // supports {error:{...}} or flat
+    return { code: env?.code, details: env?.details ?? {} };
+  }
+
+  private isRoleFilterMismatch(kind: 'teacher'|'student', err: unknown): boolean {
+    const http = err as any;
+    const { code, details } = this.getEnvelope(err);
+
+    const badCodes = new Set([
+      'NOT_A_TEACHER', 'NOT_A_STUDENT',
+      'USER_NOT_IN_ROLE', 'INVALID_ROLE', 'RESOURCE_NOT_FOUND',
+      'VALIDATION_FAILED'
+    ]);
+
+    if (typeof code === 'string' && badCodes.has(code)) return true;
+
+    const fieldKey = kind === 'teacher' ? 'teacherId' : 'studentId';
+    if (details && (details[fieldKey] || details.role || details.user)) return true;
+
+    if (http?.status === 404) return true;
+    return http?.status === 400;
+  }
+
+  private clearUserFilterAndFallback(kind: 'teacher'|'student'): void {
+    const msg = kind === 'teacher'
+      ? 'Selected user isn’t a teacher. Showing all classes.'
+      : 'Selected user isn’t a student. Showing all classes.';
+    this.toast.add(msg, 'info');
+
+    if (kind === 'teacher') this.teacherId = null;
+    if (kind === 'student') this.studentId = null;
+
+    this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { teacherId: null, studentId: null },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    });
+  }
+
   /** Reactivate a dropped classroom. */
   reactivate(c: ClassroomItemDto): void {
     if (!c?.id) return;
@@ -591,17 +653,14 @@ export class ClassesPage implements OnInit {
 
     this.api.delete(c.id).subscribe({
       next: () => {
-        // Optimistically mark as DROPPED so UI updates instantly
         this.items.set(
           this.items().map(x =>
             x.id === c.id ? { ...x, status: 'DROPPED', teacher: null } : x
           )
         );
 
-        // Verify with server: if 404 → hard-deleted, remove from list; otherwise sync the row.
         this.api.getOne(c.id).subscribe({
           next: detail => {
-            // Exists (likely soft-deleted) → sync status/teacher from backend
             this.items.set(
               this.items().map(x =>
                 x.id === detail.id ? { ...x, status: detail.status, teacher: detail.teacher ?? null } : x
@@ -613,7 +672,6 @@ export class ClassesPage implements OnInit {
             );
           },
           error: () => {
-            // Not found → it was hard-deleted; remove from the list
             this.items.set(this.items().filter(x => x.id !== c.id));
             this.toast.add('Classroom deleted', 'info');
           },

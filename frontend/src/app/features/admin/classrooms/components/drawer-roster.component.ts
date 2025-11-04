@@ -62,7 +62,7 @@ type ClassStatus = 'ACTIVE' | 'DROPPED';
           <select class="w-full border rounded px-2 py-1" formControlName="studentId">
             <option [ngValue]="null" disabled>Choose a student</option>
             <option *ngFor="let s of studentOptions" [ngValue]="s.id">
-              {{ s.name }} <span *ngIf="s.email"></span>
+              {{ s.name }}
             </option>
           </select>
           <div *ngIf="studentsLoading" class="text-xs text-slate-500 mt-1">Loading students…</div>
@@ -90,12 +90,18 @@ type ClassStatus = 'ACTIVE' | 'DROPPED';
             </div>
           </div>
 
-          <button *ngIf="!isDropped && e.status==='ACTIVE'"
-                  type="button"
-                  class="btn btn-danger"
-                  (click)="drop.emit(e.student.id)">
-            Drop
-          </button>
+          <div class="flex gap-2">
+            <button type="button" class="btn btn-primary" (click)="openGradesFor(e)">
+              Grades
+            </button>
+
+            <button *ngIf="!isDropped && e.status==='ACTIVE'"
+                    type="button"
+                    class="btn btn-danger"
+                    (click)="drop.emit(e.student.id)">
+              Drop
+            </button>
+          </div>
         </div>
 
         <div *ngIf="(roster?.length || 0) === 0" class="text-sm text-slate-500">No students.</div>
@@ -107,8 +113,9 @@ export class DrawerRosterComponent {
   @Input() open = false;
   @Input() className = '';
   @Input() classStatus: ClassStatus = 'ACTIVE';
+  @Input() classId: number | null = null;
 
-  @Input() form!: FormGroup;
+  @Input() form!: FormGroup; // must contain: { onlyFree: boolean; studentId: number|null }
   @Input() roster: EnrollmentMini[] = [];
   @Input() studentOptions: { id: number; name: string; email?: string | null }[] = [];
   @Input() studentsLoading = false;
@@ -123,11 +130,25 @@ export class DrawerRosterComponent {
   @Output() dismiss = new EventEmitter<void>();
   @Output() discard = new EventEmitter<number>();
 
+  @Output() viewGrades = new EventEmitter<{
+    studentId: number;
+    classId: number | null;
+    studentLabel: string;
+  }>();
+
   showDroppedList = false;
   get isDropped(): boolean { return this.classStatus === 'DROPPED'; }
 
   onSubmit(evt: Event): void {
     if (this.form?.invalid) { evt.preventDefault(); return; }
     this.enroll.emit();
+  }
+
+  openGradesFor(e: EnrollmentMini): void {
+    this.viewGrades.emit({
+      studentId: e.student.id,
+      classId: this.classId ?? null,
+      studentLabel: `${e.student.firstName} ${e.student.lastName}`,
+    });
   }
 }

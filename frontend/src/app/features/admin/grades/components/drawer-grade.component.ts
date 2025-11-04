@@ -24,19 +24,29 @@ const DEFAULT_COMPONENT_OPTIONS: ReadonlyArray<ComponentOption> = [
   template: `
     <bf-drawer
       [open]="open"
-      [heading]="editMode ? 'Edit grade' : 'Add grade'"
+      [heading]="editMode ? 'Edit grade' : (fixedEnrollmentId ? 'Add grade — this class' : 'Add grade')"
       [offsetVar]="'--admin-navbar-h'"
       (close)="cancel.emit()">
 
       <form [formGroup]="form" class="space-y-4" (ngSubmit)="save.emit()">
-        <!-- Student & Enrollment (create only) -->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-3" *ngIf="!editMode">
+
+        <!-- Summary strip when creating for a fixed enrollment -->
+        <div *ngIf="!editMode && fixedEnrollmentId" class="rounded bg-slate-50 border px-3 py-2 text-sm">
+          <div class="font-medium text-slate-800">
+            {{ fixedStudentLabel || 'Student' }}
+          </div>
+          <div class="text-slate-600">
+            Classroom: {{ fixedClassroomLabel || 'This class' }} • Enrollment #{{ fixedEnrollmentId }}
+          </div>
+        </div>
+
+        <!-- Student / Enrollment only when creating and NOT fixed -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3" *ngIf="!editMode && !fixedEnrollmentId">
           <div>
             <label class="block text-xs text-slate-600 mb-1">Student</label>
-            <select
-              class="w-full border rounded px-2 py-1"
-              formControlName="studentId"
-              (change)="onStudentChange($any($event.target).value)">
+            <select class="w-full border rounded px-2 py-1"
+                    formControlName="studentId"
+                    (change)="onStudentChange($any($event.target).value)">
               <option [ngValue]="null">Select a student…</option>
               <option *ngFor="let s of students; trackBy: trackById" [ngValue]="s.id">{{ s.label }}</option>
             </select>
@@ -45,17 +55,14 @@ const DEFAULT_COMPONENT_OPTIONS: ReadonlyArray<ComponentOption> = [
 
           <div>
             <label class="block text-xs text-slate-600 mb-1">Enrollment (classroom)</label>
-            <select
-              class="w-full border rounded px-2 py-1"
-              formControlName="enrollmentId"
-              [disabled]="!form.value.studentId || loadingEnrollments">
+            <select class="w-full border rounded px-2 py-1"
+                    formControlName="enrollmentId"
+                    [disabled]="!form.value.studentId || loadingEnrollments">
               <option [ngValue]="null" *ngIf="!form.value.studentId">Select a student first…</option>
               <ng-container *ngIf="form.value.studentId">
                 <option [ngValue]="null" *ngIf="loadingEnrollments">Loading…</option>
                 <option *ngFor="let e of enrollments; trackBy: trackById" [ngValue]="e.id">{{ e.label }}</option>
-                <option [ngValue]="null" *ngIf="!loadingEnrollments && enrollments?.length === 0">
-                  No active enrollments
-                </option>
+                <option [ngValue]="null" *ngIf="!loadingEnrollments && enrollments?.length === 0">No active enrollments</option>
               </ng-container>
             </select>
           </div>
@@ -82,7 +89,7 @@ const DEFAULT_COMPONENT_OPTIONS: ReadonlyArray<ComponentOption> = [
         <div class="pt-2 flex justify-end gap-2">
           <button type="button" class="btn btn-outline" (click)="cancel.emit()">Cancel</button>
           <button type="submit" class="btn btn-success"
-                  [disabled]="form.invalid || (!editMode && (!form.value.studentId || !form.value.enrollmentId))">
+                  [disabled]="form.invalid || (!editMode && !fixedEnrollmentId && (!form.value.studentId || !form.value.enrollmentId))">
             {{ editMode ? 'Save' : 'Create' }}
           </button>
         </div>
@@ -94,6 +101,9 @@ export class DrawerGradeComponent {
   @Input() open = false;
   @Input() editMode = false;
   @Input({ required: true }) form!: FormGroup;
+  @Input() fixedEnrollmentId: number | null = null;
+  @Input() fixedStudentLabel: string | null = null;
+  @Input() fixedClassroomLabel: string | null = null;
 
   @Input() students: ReadonlyArray<{ id: number; label: string }> = [];
   @Input() enrollments: ReadonlyArray<{ id: number; label: string }> = [];
@@ -117,6 +127,12 @@ export class DrawerGradeComponent {
       this.form.patchValue({ enrollmentId: null }, { emitEvent: false });
     }
     if (!Number.isNaN(id)) this.studentChange.emit(id);
+  }
+
+  ngOnChanges() {
+    if (!this.editMode && this.fixedEnrollmentId && this.form?.get('enrollmentId')) {
+      this.form.patchValue({ enrollmentId: this.fixedEnrollmentId }, { emitEvent: false });
+    }
   }
 
   trackById = (_: number, item: { id: number }) => item.id;

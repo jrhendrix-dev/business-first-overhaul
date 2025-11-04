@@ -1,5 +1,4 @@
-// src/app/features/admin/grades/grades.page.ts
-import { Component, OnInit, inject, computed, signal } from '@angular/core';
+import { Component, OnInit, OnDestroy, inject, computed, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, NonNullableFormBuilder, Validators } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -11,6 +10,9 @@ import { ToastContainerComponent } from '@/app/core/ui/toast/toast-container.com
 import { ToastService } from '@/app/core/ui/toast/toast.service';
 import { AdminHeaderComponent } from '@app/core/ui/admin-header.component';
 import { environment } from '@/environments/environment';
+import { ActivatedRoute } from '@angular/router';
+
+type ClassroomOption = { id: number; name: string };
 
 @Component({
   standalone: true,
@@ -18,39 +20,40 @@ import { environment } from '@/environments/environment';
   imports: [CommonModule, ReactiveFormsModule, AdminHeaderComponent, DrawerGradeComponent, ToastContainerComponent],
   templateUrl: './grades.page.html',
 })
-export class GradesPage implements OnInit {
+export class GradesPage implements OnInit, OnDestroy {
   private api   = inject(GradesService);
   private http  = inject(HttpClient);
   private fb    = inject(NonNullableFormBuilder);
   private toast = inject(ToastService);
   private studentIdSub?: Subscription;
+  private route = inject(ActivatedRoute);
 
   private API = environment.apiBase;
 
-  // ✅ Use these endpoints (from your Postman screenshots)
   private USERS_STUDENTS = `${this.API}/api/admin/users/students`;
   private STUDENT_CLASSROOMS = (studentId: number) =>
     `${this.API}/api/admin/students/${studentId}/classrooms`;
 
-  // UI state
   loading = signal(false);
   items   = signal<GradeItemDto[]>([]);
 
-  // Filters
   q = signal<string>('');
   enrollmentFilter = signal<number | null>(null);
 
-  // Drawer state
+  // ====== Drawer state ======
   drawerOpen = signal(false);
   editMode   = signal(false);
   editingId: number | null = null;
 
-  // Options for drawer
   studentOptions = signal<StudentOption[]>([]);
   enrollmentOptions = signal<EnrollmentOption[]>([]);
   loadingEnrollments = signal(false);
 
-  // Form (create/edit)
+  // ====== Paging ======
+  page = signal(1);
+  size = signal(10);
+  total = computed(() => this.items().length);
+
   form = this.fb.group({
     studentId:    this.fb.control<number | null>(null),
     enrollmentId: this.fb.control<number | null>(null),
@@ -59,8 +62,9 @@ export class GradesPage implements OnInit {
     maxScore:     this.fb.control<number>(10, { validators: [Validators.required, Validators.min(1)] }),
   });
 
-  // Derived list with filters applied
-  filtered = computed(() => {
+  // ====== Filtering + Slicing ======
+  /** Full filtered list (no slicing) */
+  private filteredAll = computed(() => {
     const term = this.q().trim().toLowerCase();
     const byEnroll = this.enrollmentFilter();
 
@@ -77,45 +81,92 @@ export class GradesPage implements OnInit {
     });
   });
 
-  // --- Lifecycle ---
+  /** Count after filters */
+  filteredTotal = computed(() => this.filteredAll().length);
+
+  /** Page-sliced view */
+  viewItems = computed(() => {
+    const p = this.page();
+    const s = this.size();
+    const start = (p - 1) * s;
+    const end   = start + s;
+    return this.filteredAll().slice(start, end);
+  });
+
+  /** Visible range helpers */
+  visibleStart = computed(() =>
+    this.filteredTotal() === 0 ? 0 : (this.page() - 1) * this.size() + 1
+  );
+  visibleEnd = computed(() =>
+    Math.min(this.page() * this.size(), this.filteredTotal())
+  );
+
   ngOnInit() {
     this.refresh();
-    this.loadStudentOptions(); // ✅ only students, and labels cleaned
-    // react to student changes via reactive forms too (belt & suspenders)
+    this.loadStudentOptions();
+
     this.studentIdSub = this.form.get('studentId')!.valueChanges
-      .pipe(
-        distinctUntilChanged(),
-        filter(() => !this.editMode()) // only when creating
-      )
-      .subscribe(val => {
-        const id = Number(val);
-        if (!Number.isNaN(id) && id > 0) {
-          this.onStudentChange(id); // will call /api/admin/enrollments?studentId=&status=ACTIVE
-        } else {
-          this.enrollmentOptions.set([]);
-        }
+      .pipe(distinctUntilChanged(), filter(() => !this.editMode()))
+      .subscribe(id => {
+        const v = Number(id);
+        if (v > 0) this.onStudentChange(v); else this.enrollmentOptions.set([]);
       });
+
+    // Prefill from roster → grades
+    const qp = this.route.snapshot.queryParamMap;
+    const open = qp.get('open');
+    const studentId = Number(qp.get('studentId'));
+    const enrollmentId = Number(qp.get('enrollmentId'));
+    const classId = Number(qp.get('classId'));
+
+    if (open === 'create' && studentId > 0) {
+      if (!Number.isNaN(enrollmentId) && enrollmentId > 0) {
+        this.prefillCreateDrawer(studentId, enrollmentId);
+      } else if (!Number.isNaN(classId) && classId > 0) {
+        // Resolve classId -> enrollmentId
+        this.resolveClassAndPrefill(studentId, classId);
+      } else {
+        this.openCreate(); // fallback
+        this.form.patchValue({ studentId });
+      }
+    }
   }
 
-  // --- Template handlers ---
+  ngOnDestroy(): void {
+    this.studentIdSub?.unsubscribe(); // avoids accidental double subscriptions -> duplicate PATCH/toasts
+  }
+
+  // ====== Filters (reset page on change) ======
   onSearchInput(evt: Event) {
     const v = (evt.target as HTMLInputElement)?.value ?? '';
     this.q.set(v);
+    this.page.set(1); // reset page on filter
   }
 
   onEnrollmentFilterInput(evt: Event) {
     const raw = (evt.target as HTMLInputElement)?.value ?? '';
     const v = raw.toString().trim();
     this.enrollmentFilter.set(v === '' ? null : Number(v));
+    this.page.set(1); // reset page on filter
   }
+
+  // ====== Pager actions ======
+  next(){ this.page.update(p => p + 1); }
+  prev(){ this.page.update(p => Math.max(1, p - 1)); }
 
   track = (_: number, g: { id: number }) => g.id;
 
-  // --- Data ---
   refresh() {
     this.loading.set(true);
     this.api.listAll().subscribe({
-      next: list => { this.items.set(list); this.loading.set(false); },
+      next: list => {
+        this.items.set(list);
+        this.loading.set(false);
+
+        // Clamp current page if dataset shrank
+        const maxPage = Math.max(1, Math.ceil(this.filteredTotal() / this.size()));
+        if (this.page() > maxPage) this.page.set(maxPage);
+      },
       error: err => {
         console.error(err);
         this.toast.add('Failed to load grades', 'error');
@@ -124,11 +175,9 @@ export class GradesPage implements OnInit {
     });
   }
 
-  /** ✅ Load ONLY students; label = fullName (no emails) */
   private loadStudentOptions() {
     this.http.get<any[]>(this.USERS_STUDENTS).subscribe({
       next: users => {
-        // Backend already returns only students
         const opts: StudentOption[] = users.map(u => ({
           id: u.id,
           label: u.fullName ?? `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim(),
@@ -142,7 +191,44 @@ export class GradesPage implements OnInit {
     });
   }
 
-  /** Load ACTIVE enrollments for the selected student (returns enrollmentId!) */
+  private resolveClassAndPrefill(studentId: number, classId: number) {
+    this.editMode.set(false);
+    this.editingId = null;
+    this.form.reset({ studentId, enrollmentId: null, component: 'QUIZ', score: 0, maxScore: 10 });
+    this.enrollmentOptions.set([]);
+    this.drawerOpen.set(true);
+
+    this.loadingEnrollments.set(true);
+    this.http.get<any[]>(this.STUDENT_CLASSROOMS(studentId)).subscribe({
+      next: list => {
+        const opts = list
+          .filter(e => (e.status ?? 'ACTIVE') === 'ACTIVE')
+          .map(e => ({
+            id: (e.enrollmentId ?? e.id) as number,
+            classId: e.classId,
+            label: `${e.className}`,
+          }));
+        this.enrollmentOptions.set(opts);
+        this.loadingEnrollments.set(false);
+
+        const match = opts.find(o => o.classId === classId);
+        if (match) {
+          this.form.patchValue({ enrollmentId: match.id });
+          // Also filter the table to that enrollment
+          this.enrollmentFilter.set(match.id);
+          this.page.set(1);
+        } else {
+          this.toast.add('The selected class has no active enrollment for this student', 'error');
+        }
+      },
+      error: () => {
+        this.toast.add('Could not load active enrollments for this student', 'error');
+        this.enrollmentOptions.set([]);
+        this.loadingEnrollments.set(false);
+      },
+    });
+  }
+
   onStudentChange(studentId: number) {
     if (!studentId) {
       this.enrollmentOptions.set([]);
@@ -155,8 +241,8 @@ export class GradesPage implements OnInit {
         const opts = list
           .filter(e => (e.status ?? 'ACTIVE') === 'ACTIVE')
           .map(e => ({
-            id: e.enrollmentId as number,                    // <-- enrollmentId from backend
-            label: `${e.className}` // nice readable label
+            id: (e.enrollmentId ?? e.id) as number,  // tolerate either shape
+            label: `${e.className}`,
           }));
         this.enrollmentOptions.set(opts);
         this.loadingEnrollments.set(false);
@@ -169,8 +255,48 @@ export class GradesPage implements OnInit {
     });
   }
 
+  private prefillCreateDrawer(studentId: number, enrollmentId: number) {
+    this.editMode.set(false);
+    this.editingId = null;
+    this.form.reset({
+      studentId,
+      enrollmentId: null, // set after options arrive
+      component: 'QUIZ',
+      score: 0,
+      maxScore: 10,
+    });
+    this.enrollmentOptions.set([]);
+    this.drawerOpen.set(true);
 
-  // --- Drawer actions ---
+    // Load enrollments and select the one we were given
+    this.loadingEnrollments.set(true);
+    this.http.get<any[]>(this.STUDENT_CLASSROOMS(studentId)).subscribe({
+      next: list => {
+        const opts = list
+          .filter(e => (e.status ?? 'ACTIVE') === 'ACTIVE')
+          .map(e => ({
+            id: (e.enrollmentId ?? e.id) as number,
+            label: `${e.className}`,
+          }));
+        this.enrollmentOptions.set(opts);
+        this.loadingEnrollments.set(false);
+
+        if (opts.some(o => o.id === enrollmentId)) {
+          this.form.patchValue({ enrollmentId });
+          this.enrollmentFilter.set(enrollmentId);
+          this.page.set(1);
+        } else {
+          this.toast.add('The selected enrollment is not active for this student', 'error');
+        }
+      },
+      error: () => {
+        this.toast.add('Could not load active enrollments for this student', 'error');
+        this.enrollmentOptions.set([]);
+        this.loadingEnrollments.set(false);
+      },
+    });
+  }
+
   openCreate() {
     this.editMode.set(false);
     this.editingId = null;
@@ -235,6 +361,8 @@ export class GradesPage implements OnInit {
       this.api.create(enrollId, dto).subscribe({
         next: g => {
           this.items.set([g, ...this.items()]);
+          // Optionally keep on page 1 so the new item is visible
+          this.page.set(1);
           this.toast.add('Grade created', 'success');
           this.drawerOpen.set(false);
         },
@@ -250,7 +378,15 @@ export class GradesPage implements OnInit {
     if (!confirm('Delete this grade?')) return;
     this.api.delete(row.id).subscribe({
       next: () => {
-        this.items.set(this.items().filter(x => x.id !== row.id));
+        const next = this.items().filter(x => x.id !== row.id);
+        this.items.set(next);
+
+        // If we just emptied the current page, go back one
+        const nowVisible = this.viewItems().length;
+        if (nowVisible === 0 && this.page() > 1) {
+          this.page.update(p => p - 1);
+        }
+
         this.toast.add('Grade deleted', 'success');
       },
       error: err => {

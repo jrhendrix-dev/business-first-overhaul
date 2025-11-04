@@ -4,6 +4,7 @@ import { NavbarComponent } from './layout/navbar.component';
 import { FooterComponent } from './layout/footer.component';
 import { DemoNoticeComponent } from './layout/demo-notice.component';
 
+
 @Component({
   selector: 'app-root',
   standalone: true,

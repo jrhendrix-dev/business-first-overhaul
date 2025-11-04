@@ -1,5 +1,6 @@
-import { Routes } from '@angular/router';
+import { RouterModule, Routes, ExtraOptions  } from '@angular/router';
 import {AuthGuard} from '@app/core/auth/auth.guard';
+import { NgModule } from '@angular/core';
 
 export const routes: Routes = [
   { path: '', pathMatch: 'full', loadComponent: () => import('./features/home/home.page').then(m => m.HomePage) },
@@ -58,3 +59,14 @@ export const routes: Routes = [
   },
 ];
 
+const routerOptions: ExtraOptions = {
+  scrollPositionRestoration: 'top', // ✅ scrolls to top automatically
+  anchorScrolling: 'enabled',
+  scrollOffset: [0, 0],
+};
+
+@NgModule({
+  imports: [RouterModule.forRoot(routes, routerOptions)],
+  exports: [RouterModule],
+})
+export class AppRoutingModule {}
