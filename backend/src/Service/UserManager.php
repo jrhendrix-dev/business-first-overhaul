@@ -80,29 +80,26 @@ class UserManager
     }
 
     /**
-     * Handle all side-effects of moving between roles.
+     * Apply role transition invariants. Idempotent by design.
      *
-     * Rules:
-     *  - FROM STUDENT → anything: drop all active enrollments, detach classrooms seat.
-     *  - TO   STUDENT ← from TEACHER/ADMIN: unassign as teacher from all classrooms.
-     *  - NO-OP if roles are the same.
-     *
-     * @param User          $user
-     * @param UserRoleEnum  $from
-     * @param UserRoleEnum  $to
+     * A user who is not STUDENT must have no active enrollments and must not be attached
+     * as student to any classroom. A user who is not TEACHER must not be assigned as a
+     * classroom teacher.
      */
     private function applyRoleTransition(User $user, UserRoleEnum $from, UserRoleEnum $to): void
     {
-        // Moving away from STUDENT
-        if ($from === UserRoleEnum::STUDENT && $to !== UserRoleEnum::STUDENT) {
-            // Domain invariants: a non-student must not keep student enrollments.
+        if ($from === $to) {
+            return; // no-op
+        }
+
+        // If final role is NOT student → purge student side.
+        if ($to !== UserRoleEnum::STUDENT) {
             $this->enrollments->dropAllActiveForStudent($user);
             $this->classrooms->detachStudentFromAnyClassroom($user);
         }
 
-        // Moving into STUDENT
-        if ($to === UserRoleEnum::STUDENT && $from !== UserRoleEnum::STUDENT) {
-            // A student must not be a teacher anywhere.
+        // If final role is NOT teacher → purge teacher side.
+        if ($to !== UserRoleEnum::TEACHER) {
             $this->classrooms->unassignTeacherFromAll($user);
         }
     }
