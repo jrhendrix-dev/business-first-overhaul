@@ -1,60 +1,30 @@
-import { Component, EventEmitter, Input, OnInit, Output, inject, signal } from '@angular/core';
+// src/app/features/me/me.page.ts
+import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { animate, state, style, transition, trigger } from '@angular/animations';
+
 import { MeService, MeResponse } from './me.service';
 import { matchFields } from '@app/shared/validators/match-fields.validator';
-import { animate, state, style, transition, trigger } from '@angular/animations';
 
 import { ToastService } from '@app/core/ui/toast/toast.service';
 import { ToastContainerComponent } from '@app/core/ui/toast/toast-container.component';
 
-/** Reusable card used by all profile sections (title + subtitle + action button + body slot). */
-@Component({
-  selector: 'me-section-card',
-  standalone: true,
-  imports: [CommonModule],
-  template: `
-  <article class="rounded-2xl border border-black/5 bg-white shadow-[0_10px_30px_-15px_rgba(0,0,0,0.25)]">
-    <header class="flex items-center justify-between px-6 py-4 border-b border-black/5">
-      <div>
-        <h2 class="text-xl font-semibold">{{ title }}</h2>
-        <p class="text-sm text-black/60" *ngIf="subtitle">{{ subtitle }}</p>
-      </div>
-
-      <button *ngIf="actionLabel"
-              type="button"
-              class="rounded-xl px-3 py-2 text-sm bg-[color:var(--brand)]/10 hover:bg-[color:var(--brand)]/15"
-              (click)="action.emit()">
-        {{ actionLabel }}
-      </button>
-    </header>
-
-    <ng-content></ng-content>
-  </article>
-  `,
-})
-export class MeSectionCard {
-  @Input() title = '';
-  @Input() subtitle = '';
-  @Input() actionLabel = '';
-  @Output() action = new EventEmitter<void>();
-}
-
-/** Soft separator between sections. */
-@Component({
-  selector: 'me-section-sep',
-  standalone: true,
-  template: `
-    <div aria-hidden="true"
-         class="-mt-4 h-6 w-full rounded-b-2xl bg-gradient-to-b from-black/5 to-transparent"></div>
-  `,
-})
-export class MeSectionSeparator {}
+import { TwoFactorSettingsComponent } from '@app/features/me/components/two-factor-settings.component';
+import { SectionCardComponent } from '@shared/ui/section-card.component';
+import { SectionSeparatorComponent } from '@shared/ui/section-separator.component';
 
 @Component({
   selector: 'app-me-page',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, MeSectionCard, MeSectionSeparator, ToastContainerComponent],
+  imports: [
+    CommonModule,
+    ReactiveFormsModule,
+    ToastContainerComponent,
+    SectionCardComponent,
+    SectionSeparatorComponent,
+    TwoFactorSettingsComponent,
+  ],
   animations: [
     trigger('accordion', [
       state('closed', style({ opacity: 0, height: '0px', overflow: 'hidden', paddingTop: 0, paddingBottom: 0 })),
@@ -65,12 +35,10 @@ export class MeSectionSeparator {}
   template: `
     <section class="mx-auto w-full max-w-4xl px-4 py-8">
       <h1 class="text-4xl font-extrabold tracking-tight mb-8">Mi perfil</h1>
-
-      <!-- ✅ Global toast container (shared style/behavior) -->
       <app-toast-container></app-toast-container>
 
       <!-- ======================= DATOS BÁSICOS ======================= -->
-      <me-section-card
+      <app-section-card
         [title]="'Datos básicos'"
         [subtitle]="'Información visible de tu perfil'"
         [actionLabel]="editProfile() ? 'Cancelar' : 'Editar'"
@@ -110,15 +78,17 @@ export class MeSectionSeparator {}
                 <div>
                   <label for="firstName" class="block text-sm text-black/70 mb-1">Nombre</label>
                   <input id="firstName" formControlName="firstName"
-                         class="w-full rounded-2xl bg-white text-[color:var(--brand)] placeholder-slate-400
-                                ring-1 ring-[color:var(--brand)]/25 focus:outline-none focus:ring-2 focus:ring-[color:var(--brand)] p-2.5"/>
+                         class="w-full rounded-2xl bg-white text-[color:var(--brand)]
+                                placeholder-slate-400 ring-1 ring-[color:var(--brand)]/25
+                                focus:outline-none focus:ring-2 focus:ring-[color:var(--brand)] p-2.5"/>
                 </div>
 
                 <div>
                   <label for="lastName" class="block text-sm text-black/70 mb-1">Apellidos</label>
                   <input id="lastName" formControlName="lastName"
-                         class="w-full rounded-2xl bg-white text-[color:var(--brand)] placeholder-slate-400
-                                ring-1 ring-[color:var(--brand)]/25 focus:outline-none focus:ring-2 focus:ring-[color:var(--brand)] p-2.5"/>
+                         class="w-full rounded-2xl bg-white text-[color:var(--brand)]
+                                placeholder-slate-400 ring-1 ring-[color:var(--brand)]/25
+                                focus:outline-none focus:ring-2 focus:ring-[color:var(--brand)] p-2.5"/>
                 </div>
               </div>
 
@@ -128,7 +98,8 @@ export class MeSectionSeparator {}
               </div>
 
               <div class="flex items-center gap-3 pt-2">
-                <button class="px-4 py-2 rounded-xl bg-[color:var(--brand)] text-white hover:bg-[color:var(--brand-strong)]
+                <button class="px-4 py-2 rounded-xl bg-[color:var(--brand)] text-white
+                               hover:bg-[color:var(--brand-strong)]
                                disabled:opacity-50 disabled:cursor-not-allowed"
                         [disabled]="profileForm.invalid || saving()">
                   Guardar cambios
@@ -138,12 +109,12 @@ export class MeSectionSeparator {}
             </form>
           </div>
         </ng-template>
-      </me-section-card>
+      </app-section-card>
 
-      <me-section-sep></me-section-sep>
+      <app-section-separator></app-section-separator>
 
       <!-- ======================= CONTRASEÑA ======================= -->
-      <me-section-card
+      <app-section-card
         class="mt-8"
         [title]="'Contraseña'"
         [subtitle]="'Mantén tu cuenta segura'"
@@ -202,12 +173,12 @@ export class MeSectionSeparator {}
             </div>
           </form>
         </div>
-      </me-section-card>
+      </app-section-card>
 
-      <me-section-sep></me-section-sep>
+      <app-section-separator></app-section-separator>
 
       <!-- ======================= CORREO ELECTRÓNICO ======================= -->
-      <me-section-card
+      <app-section-card
         class="mt-8"
         [title]="'Correo electrónico'"
         [subtitle]="'El cambio requiere confirmación'"
@@ -247,7 +218,15 @@ export class MeSectionSeparator {}
             </div>
           </form>
         </div>
-      </me-section-card>
+      </app-section-card>
+
+      <!-- spacer between Email and 2FA -->
+      <app-section-separator></app-section-separator>
+
+      <!-- ======================= 2FA ======================= -->
+      <app-two-factor-settings-card
+        [initialEnabled]="me()?.twoFactorEnabled">
+      </app-two-factor-settings-card>
     </section>
   `,
 })
@@ -258,18 +237,16 @@ export class MePage implements OnInit {
 
   me = signal<MeResponse | null>(null);
 
-  // section toggles
+  // toggles
   editProfile = signal(false);
   changePwOpen = signal(false);
   changeEmailOpen = signal(false);
 
-  // UI flags
+  // flags
   saving = signal(false);
   saved = signal(false);
   pwLoading = signal(false);
   emailLoading = signal(false);
-
-  //  Removed local toast signal and inline template
 
   profileForm = this.fb.group({
     userName: this.fb.control<string | null>(null),
@@ -316,18 +293,13 @@ export class MePage implements OnInit {
   toggleChangePassword() { this.changePwOpen.update(v => !v); }
   toggleChangeEmail()    { this.changeEmailOpen.update(v => !v); }
 
-  /** Map backend validation/domain errors into form controls and return a friendly summary. */
   private handleApiValidationError(e: unknown): string {
     const err: any = e as any;
 
-    // common shapes we’ve seen:
-    // { error: { code, message, details } }
-    // { error: { details: { message: 'bad_credentials', fieldA: '...' } } }
     const topCode    = err?.error?.error?.code    ?? err?.error?.code    ?? '';
     const topMessage = err?.error?.error?.message ?? err?.error?.message ?? '';
     const details    = err?.error?.error?.details ?? err?.error?.details ?? {};
 
-    // domain token → friendly text + optional control to mark
     const domainToField: Record<string, { control?: string; msg: string }> = {
       bad_credentials:        { control: 'currentPassword', msg: 'Contraseña actual incorrecta.' },
       same_password:          { control: 'newPassword',     msg: 'La nueva contraseña no puede ser igual a la actual.' },
@@ -337,22 +309,18 @@ export class MePage implements OnInit {
       email_taken_or_invalid: { control: 'newEmail',        msg: 'Email inválido o ya está en uso.' },
     };
 
-    let friendlyFromToken = ''; // prefer returning this if we detect a known token
+    let friendlyFromToken = '';
     const addServerErr = (controlName: string, msg: string) => {
-      const ctrl =
-        this.passwordForm.get(controlName) ??
-        this.emailForm.get(controlName);
+      const ctrl = this.passwordForm.get(controlName) ?? this.emailForm.get(controlName);
       ctrl?.setErrors({ ...(ctrl.errors ?? {}), server: msg });
     };
 
-    // 1) Apply per-field errors from details (skip raw 'message' in summary)
     const summaryPairs: string[] = [];
     if (details && typeof details === 'object') {
       for (const [field, raw] of Object.entries(details as Record<string, string | string[]>)) {
         const msgs = Array.isArray(raw) ? raw : [raw];
 
         if (field === 'message') {
-          // details.message token → friendly mapping (don’t add to summary)
           const token = String(msgs[0] ?? '').toLowerCase();
           const map = domainToField[token];
           if (map?.control) addServerErr(map.control, map.msg);
@@ -360,22 +328,13 @@ export class MePage implements OnInit {
           continue;
         }
 
-        // normal field errors
         const text = msgs.filter(Boolean).join(', ');
-        const ctrl =
-          this.passwordForm.get(field) ??
-          this.emailForm.get(field);
-        if (ctrl && text) {
-          addServerErr(field, text);
-        }
-        if (text) {
-          // Only include real fields in the summary (not the token)
-          summaryPairs.push(`${field}: ${text}`);
-        }
+        const ctrl = this.passwordForm.get(field) ?? this.emailForm.get(field);
+        if (ctrl && text) addServerErr(field, text);
+        if (text) summaryPairs.push(`${field}: ${text}`);
       }
     }
 
-    // 2) If we got a known top-level token/code, prefer that message
     const token = String((topMessage || topCode) ?? '').toLowerCase();
     if (!friendlyFromToken && token && domainToField[token]) {
       const map = domainToField[token];
@@ -383,13 +342,11 @@ export class MePage implements OnInit {
       friendlyFromToken = map.msg;
     }
 
-    // 3) Choose best summary for the toast
     if (friendlyFromToken) return friendlyFromToken;
     if (summaryPairs.length > 0) return summaryPairs.join(' · ');
-    if (token) return token; // last resort (unlikely now)
-    return 'Error';          // generic fallback
+    if (token) return token;
+    return 'Error';
   }
-
 
   saveProfile() {
     if (this.profileForm.invalid) return;
@@ -410,7 +367,10 @@ export class MePage implements OnInit {
         this.editProfile.set(false);
         this.toast.add('Cambios guardados', 'success');
       },
-      error: () => { this.saving.set(false); this.toast.add('No se pudieron guardar los cambios', 'error'); },
+      error: () => {
+        this.saving.set(false);
+        this.toast.add('No se pudieron guardar los cambios', 'error');
+      },
     });
   }
 
@@ -441,7 +401,6 @@ export class MePage implements OnInit {
     if (this.emailForm.invalid) return;
 
     ['newEmail','password'].forEach(k => this.emailForm.get(k)?.setErrors(null));
-
     this.emailLoading.set(true);
 
     this.meSvc.startChangeEmail(this.emailForm.getRawValue()).subscribe({

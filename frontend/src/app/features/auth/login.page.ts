@@ -1,64 +1,77 @@
-import { Component, inject } from '@angular/core';
+import { Component, ChangeDetectionStrategy, inject, signal } from '@angular/core';
+import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, NonNullableFormBuilder, Validators } from '@angular/forms';
-import { Router, RouterLink, ActivatedRoute } from '@angular/router';
-import { NgIf } from '@angular/common';
-import { AuthApiService } from './auth-api.service';
-import { AuthStateService } from '@app/core/auth/auth.service';
+import { Router, RouterLink } from '@angular/router';
+import { AuthStateService, LoginResponse, TwoFactorChallenge } from '@/app/core/auth/auth.service';
 import { ToastService } from '@/app/core/ui/toast/toast.service';
+import { TotpVerifyDialogComponent } from '@/app/core/auth/ui/totp-verify-dialog.component';
 
 @Component({
   standalone: true,
-  selector: 'app-login-page',
-  imports: [ReactiveFormsModule, NgIf, RouterLink],
-  templateUrl: './login.page.html'
+  selector: 'app-login',
+  imports: [CommonModule, ReactiveFormsModule, RouterLink, TotpVerifyDialogComponent],
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  templateUrl: './login.page.html',
 })
 export class LoginPage {
   private fb = inject(NonNullableFormBuilder);
   private router = inject(Router);
-  private route = inject(ActivatedRoute);
-  private toast = inject(ToastService);
-  private api = inject(AuthApiService);
   private auth = inject(AuthStateService);
+  private toast = inject(ToastService);
 
-  error = '';
-  submitted = false;
+  loading = signal(false);
+  submitted = signal(false);
+  error = signal<string | null>(null);
+
+  show2fa = signal(false);
+  preToken = signal<string>('');
 
   form = this.fb.group({
-    email: ['', [Validators.required, Validators.email]],
-    password: ['', [Validators.required]],
+    email: this.fb.control('', [Validators.required, Validators.email]),
+    password: this.fb.control('', [Validators.required]),
   });
 
-  ngOnInit() {
-    const reason = this.route.snapshot.queryParamMap.get('reason');
-    if (reason === 'timeout') {
-      this.toast.info('Session timed out. Please log in again.');
-    } else if (reason === 'expired') {
-      this.toast.info('Session expired. Please log in again.');
-    } else if (reason === 'unauthenticated') {
-      this.toast.error('You must log in to access that section.');
-    } else if (reason === 'forbidden') {
-      this.toast.error('Access denied.');
+  submit(): void {
+    this.submitted.set(true);
+    this.error.set(null);
+
+    if (this.form.invalid) {
+      this.toast.error('Introduce email y contraseña');
+      return;
     }
-  }
 
-  onSubmit() {
-    this.submitted = true;
-    if (this.form.invalid) return;
-
+    this.loading.set(true);
     const { email, password } = this.form.getRawValue();
 
-    this.api.login(email, password).subscribe({
+    this.auth.login(email!, password!).subscribe({
       next: (res) => {
-        this.auth.persist(res);        // <- crucial: stores accessToken/refresh/expiresAt
-        this.toast.success('Bienvenido de nuevo!');
-        void this.router.navigateByUrl('/');
+        this.loading.set(false);
+
+        if (this.auth.isTwoFactor(res)) {
+          this.preToken.set(res.preToken);
+          this.show2fa.set(true);
+          return;
+        }
+
+        // res has { token } or { accessToken }
+        this.auth.persist(res);
+        this.router.navigateByUrl('/post-login');
       },
-      error: (e) => {
-        const code = e?.error?.error?.code;
-        const msg = code === 'INVALID_CREDENTIALS' ? 'Credenciales inválidas' : 'No se pudo iniciar sesión';
-        this.error = msg;
-        this.toast.error(msg);
-      }
+      error: (err) => {
+        this.loading.set(false);
+        const e = err?.error?.error;
+        if (e?.code === 'VALIDATION_FAILED') {
+          this.error.set(Object.values(e.details).join(', '));
+        } else {
+          this.error.set('Login incorrecto');
+        }
+      },
     });
+  }
+
+  on2faSuccess(finalJwt: string): void {
+    this.auth.persistFinalToken(finalJwt);
+    this.show2fa.set(false);
+    this.router.navigateByUrl('/post-login');
   }
 }

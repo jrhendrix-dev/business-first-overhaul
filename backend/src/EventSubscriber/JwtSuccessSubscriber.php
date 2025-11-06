@@ -29,15 +29,25 @@ final class JwtSuccessSubscriber implements EventSubscriberInterface
      */
     public function onAuthSuccess(AuthenticationSuccessEvent $event): void
     {
-        $data = $event->getData(); // e.g. ['token' => '...', 'exp' => 1730000000]
+        $data = $event->getData();
+
+        // If our custom handler already shaped a special response, don't touch it.
+        if (isset($data['requires2fa']) || isset($data['preToken'])) {
+            return;
+        }
+
+        // If there's no token at all, also don't reshape (defensive).
+        if (!isset($data['token'])) {
+            return;
+        }
+
         $expiresAt = isset($data['exp'])
             ? (new DateTimeImmutable())->setTimestamp((int)$data['exp'])->format(DateTimeInterface::ATOM)
             : null;
 
         $payload = [
-            'accessToken' => $data['token'] ?? null,
+            'accessToken' => $data['token'],
             'expiresAt'   => $expiresAt,
-            // If you use a refresh-token solution, add it here:
             // 'refreshToken' => $data['refresh_token'] ?? null,
         ];
 

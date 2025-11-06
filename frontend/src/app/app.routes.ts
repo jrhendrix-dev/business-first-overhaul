@@ -1,6 +1,9 @@
 import { RouterModule, Routes, ExtraOptions  } from '@angular/router';
 import {AuthGuard} from '@app/core/auth/auth.guard';
 import { NgModule } from '@angular/core';
+import { PostLoginComponent } from '@/app/features/auth/post-login.component';
+import { TeacherShellComponent } from '@/app/features/teacher/teacher-shell.component';
+import { StudentShellComponent } from '@/app/features/student/student-shell.component';
 
 export const routes: Routes = [
   { path: '', pathMatch: 'full', loadComponent: () => import('./features/home/home.page').then(m => m.HomePage) },
@@ -8,6 +11,9 @@ export const routes: Routes = [
   { path: 'examenes', loadComponent: () => import('./features/placeholder/placeholder.page').then(m => m.PlaceholderPage), data: { title: 'Exámenes oficiales' } },
   { path: 'clases-espanol', loadComponent: () => import('./features/placeholder/placeholder.page').then(m => m.PlaceholderPage), data: { title: 'Español para extranjeros' } },
   { path: 'login', loadComponent: () => import('./features/auth/login.page').then(m => m.LoginPage) },
+  {
+    path: '2fa', loadComponent: () => import('./features/auth/2fa/two-factor.page').then(m => m.TwoFactorPage)
+  },
   { path: 'me', loadComponent: () => import('./features/me/me.page').then(m => m.MePage) },
   { path: 'email/confirm', loadComponent: () => import('./features/me/email-confirm.page').then(m => m.EmailConfirmPage) },
   { path: 'password/forgot', loadComponent: ()  => import('./features/auth/forgot-password.page').then(m => m.ForgotPasswordPage) },
@@ -50,6 +56,9 @@ export const routes: Routes = [
       },
     ],
   },
+  { path: 'post-login', component: PostLoginComponent },
+  { path: 'teacher', component: TeacherShellComponent },  // protect later with a role guard if you want
+  { path: 'student', component: StudentShellComponent },
 
   // --- 404 ---
   {

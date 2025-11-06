@@ -14,6 +14,7 @@ export type MeResponse = {
   lastName: string | null;
   fullName: string;
   role: string | null;
+  twoFactorEnabled: boolean;
 };
 
 export type UpdateMeDto = {

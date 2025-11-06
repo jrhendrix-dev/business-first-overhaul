@@ -29,7 +29,7 @@ export type TeacherOption = { id: number; name: string; email?: string | null };
           <select class="w-full border rounded px-2 py-1" formControlName="teacherId">
             <option [ngValue]="null" disabled>— Select a teacher —</option>
             <option *ngFor="let t of teachers" [ngValue]="t.id">
-              {{ t.name }} <span *ngIf="t.email">— {{ t.email }}</span>
+              {{ t.name }} 
             </option>
           </select>
           <div *ngIf="loading" class="text-xs text-slate-500 mt-1">Loading teachers…</div>

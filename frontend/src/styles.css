@@ -40,6 +40,10 @@
     text-blue-700 underline underline-offset-2
     hover:no-underline focus-visible:ring-blue-600;
   }
+
+  .btn-raise {
+    @apply transition-transform duration-150 hover:-translate-y-0.5 active:translate-y-0 hover:shadow-md;
+  }
 }
 
 /* keep utilities after components */
