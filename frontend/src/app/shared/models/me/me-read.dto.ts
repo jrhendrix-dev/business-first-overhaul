@@ -1,16 +1,18 @@
-export interface MeResponseDto {
+export interface MeResponse {
   id: number;
   email: string;
-
-  // New model you’re already using in the template
   roles: string[];
   firstName: string | null;
   lastName: string | null;
   fullName: string;
 
-  /** Primary role kept for backward compatibility with older UI bits */
+  /** Backward-compat single role */
   role: string | null;
 
-  /** <-- Needed for the 2FA card */
+  /** Needed by 2FA card */
   twoFactorEnabled: boolean;
+
+  /** NEW: safe flags for Google link state */
+  hasGoogleLink: boolean;
+  googleLinkedAt: string | null; // ISO 8601 or null
 }

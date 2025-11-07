@@ -51,3 +51,8 @@ services:
             $debug: '%kernel.debug%'
         tags: ['kernel.event_subscriber']
 
+    Google\Client: ~
+    App\Service\Auth\GoogleIdTokenVerifier:
+        arguments:
+            $expectedClientId: '%env(string:GOOGLE_CLIENT_ID)%'
+

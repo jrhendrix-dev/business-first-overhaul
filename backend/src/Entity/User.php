@@ -85,6 +85,20 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(type: 'datetime', nullable: true)]
     private ?\DateTimeInterface $last2FAVerifiedAt = null;
 
+    // Google Auth
+    /**
+     * Google subject (the stable Google user id 'sub'). Null if not linked.
+     */
+    #[ORM\Column(type: 'string', length: 64, nullable: true)]
+    private ?string $googleSub = null;
+
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $googleLinkedAt = null;
+
+    /** Optional provider marker if you like */
+    #[ORM\Column(type: 'string', length: 32, nullable: true)]
+    private ?string $oauthProvider = null;
+
     public function __construct()
     {
         $this->createdAt   = new \DateTimeImmutable();
@@ -329,5 +343,17 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         $this->last2faVerifiedAt = $at;
     }
 
+    // Google Auth
+    public function getGoogleSub(): ?string { return $this->googleSub; }
+    public function setGoogleSub(?string $sub): self { $this->googleSub = $sub; return $this; }
+
+    /** @return ?\DateTimeImmutable */
+    public function getGoogleLinkedAt(): ?\DateTimeImmutable { return $this->googleLinkedAt; }
+
+    /** @return $this */
+    public function setGoogleLinkedAt(?\DateTimeImmutable $at): self { $this->googleLinkedAt = $at; return $this; }
+
+    public function getOauthProvider(): ?string { return $this->oauthProvider; }
+    public function setOauthProvider(?string $p): self { $this->oauthProvider = $p; return $this; }
 
 }

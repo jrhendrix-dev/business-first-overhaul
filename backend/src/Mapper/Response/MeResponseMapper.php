@@ -19,7 +19,9 @@ final class MeResponseMapper
             firstName: $u->getFirstName(),
             lastName: $u->getLastName(),
             primaryRole: $this->primaryRole($u),
-            twoFactorEnabled: $u->isTwoFactorEnabled(),   // <-- NEW
+            twoFactorEnabled: $u->isTwoFactorEnabled(),
+            hasGoogleLink: $u->getGoogleSub() !== null,
+            googleLinkedAt: $u->getGoogleLinkedAt(),
         );
     }
 
@@ -27,9 +29,7 @@ final class MeResponseMapper
     {
         $have = $u->getRoles();
         foreach (self::ROLE_PRIORITY as $r) {
-            if (\in_array($r, $have, true)) {
-                return $r;
-            }
+            if (\in_array($r, $have, true)) return $r;
         }
         return null;
     }

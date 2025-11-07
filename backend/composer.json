@@ -16,6 +16,7 @@
         "doctrine/doctrine-migrations-bundle": "^3.4",
         "doctrine/orm": "^3.5",
         "endroid/qr-code": "^5",
+        "google/apiclient": "^2.0",
         "lexik/jwt-authentication-bundle": "*",
         "nelmio/cors-bundle": "*",
         "phpdocumentor/reflection-docblock": "^5.6",

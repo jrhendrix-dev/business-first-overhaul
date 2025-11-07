@@ -1,5 +1,7 @@
-import { Component, ChangeDetectionStrategy, inject, signal } from '@angular/core';
+import { Component, ChangeDetectionStrategy, inject, signal, ViewChild, ElementRef, AfterViewInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { GoogleAuthService } from '@/app/core/auth/google-auth.service';
+import { environment } from '@/environments/environment';
 import { ReactiveFormsModule, NonNullableFormBuilder, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { AuthStateService, LoginResponse, TwoFactorChallenge } from '@/app/core/auth/auth.service';
@@ -13,11 +15,42 @@ import { TotpVerifyDialogComponent } from '@/app/core/auth/ui/totp-verify-dialog
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './login.page.html',
 })
-export class LoginPage {
+export class LoginPage implements AfterViewInit  {
+  @ViewChild('googleBtn', { static: true }) googleBtn!: ElementRef<HTMLDivElement>;
+
+  ngAfterViewInit(): void {
+    if (!environment.googleClientId) {
+      this.toast.error('Missing Google Client ID');
+      return;
+    }
+
+    this.google.init(environment.googleClientId, (idToken) => {
+      console.debug('GIS idToken received'); // should print when you pick an account
+      this.loading.set(true);
+      this.google.exchange(idToken).subscribe({
+        next: ({ token }) => {
+          this.loading.set(false);
+          this.auth.persist({ token });
+          this.router.navigateByUrl('/post-login');
+        },
+        error: (err) => {
+          this.loading.set(false);
+          console.error('Google exchange failed', err);
+          this.toast.error('GOOGLE_LOGIN_FAILED');
+        }
+      });
+    }).then(() => {
+      this.google.renderButton(this.googleBtn.nativeElement);
+    }).catch(() => {
+      this.toast.error('Google script failed to load');
+    });
+  }
+
   private fb = inject(NonNullableFormBuilder);
   private router = inject(Router);
   private auth = inject(AuthStateService);
   private toast = inject(ToastService);
+  private google = inject(GoogleAuthService);
 
   loading = signal(false);
   submitted = signal(false);
@@ -25,6 +58,8 @@ export class LoginPage {
 
   show2fa = signal(false);
   preToken = signal<string>('');
+
+
 
   form = this.fb.group({
     email: this.fb.control('', [Validators.required, Validators.email]),

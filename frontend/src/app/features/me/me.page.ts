@@ -1,10 +1,13 @@
 // src/app/features/me/me.page.ts
-import { Component, OnInit, inject, signal } from '@angular/core';
+import {
+  Component, OnInit, AfterViewInit, OnDestroy,
+  ViewChild, ElementRef, inject, signal
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { animate, state, style, transition, trigger } from '@angular/animations';
 
-import { MeService, MeResponse } from './me.service';
+import type { MeResponse } from '@/app/shared/models/me/me-read.dto';
 import { matchFields } from '@app/shared/validators/match-fields.validator';
 
 import { ToastService } from '@app/core/ui/toast/toast.service';
@@ -13,6 +16,10 @@ import { ToastContainerComponent } from '@app/core/ui/toast/toast-container.comp
 import { TwoFactorSettingsComponent } from '@app/features/me/components/two-factor-settings.component';
 import { SectionCardComponent } from '@shared/ui/section-card.component';
 import { SectionSeparatorComponent } from '@shared/ui/section-separator.component';
+
+import { GoogleAuthService } from '@/app/core/auth/google-auth.service';
+import { environment } from '@/environments/environment';
+import { MeService } from '@app/features/me/me.service';
 
 @Component({
   selector: 'app-me-page',
@@ -220,7 +227,45 @@ import { SectionSeparatorComponent } from '@shared/ui/section-separator.componen
         </div>
       </app-section-card>
 
-      <!-- spacer between Email and 2FA -->
+      <app-section-separator></app-section-separator>
+
+      <!-- ======================= ACCESO CON GOOGLE (LINK/UNLINK) ======================= -->
+      <app-section-card
+        class="mt-8"
+        [title]="'Acceso con Google'"
+        [subtitle]="me()?.hasGoogleLink ? 'Tu cuenta está vinculada a Google' : 'Vincula tu cuenta para iniciar sesión con Google'">
+
+        <div header-right class="flex items-center gap-2">
+          <button *ngIf="me()?.hasGoogleLink"
+                  type="button"
+                  class="rounded-xl px-3 py-2 text-sm border border-rose-300 text-rose-700 hover:bg-rose-50 disabled:opacity-50"
+                  [disabled]="linkLoading()"
+                  (click)="onUnlinkGoogle()">
+            Desvincular
+          </button>
+
+          <!-- GIS button renders here when NOT linked -->
+          <div *ngIf="!me()?.hasGoogleLink"
+               #googleBtnContainer
+               class="min-w-[240px] h-[40px] flex items-center justify-end"></div>
+        </div>
+
+        <div class="px-6 py-5">
+          <div class="flex items-center justify-between">
+            <div>
+              <div class="text-sm text-black/60">Estado</div>
+              <div class="mt-0.5 font-medium">
+                {{ me()?.hasGoogleLink ? 'Vinculada ✅' : 'No vinculada' }}
+              </div>
+            </div>
+            <div *ngIf="linkLoading()" class="text-sm text-black/60">Procesando…</div>
+          </div>
+          <p class="mt-3 text-sm text-black/60">
+            Puedes vincular tu cuenta para iniciar sesión con Google. Si la desvinculas, seguirás pudiendo entrar con tu contraseña.
+          </p>
+        </div>
+      </app-section-card>
+
       <app-section-separator></app-section-separator>
 
       <!-- ======================= 2FA ======================= -->
@@ -230,11 +275,15 @@ import { SectionSeparatorComponent } from '@shared/ui/section-separator.componen
     </section>
   `,
 })
-export class MePage implements OnInit {
+export class MePage implements OnInit, AfterViewInit, OnDestroy {
   private meSvc = inject(MeService);
   private fb = inject(NonNullableFormBuilder);
   private toast = inject(ToastService);
+  private google = inject(GoogleAuthService);
 
+  @ViewChild('googleBtnContainer', { static: false }) googleBtnContainer?: ElementRef<HTMLDivElement>;
+
+  linkLoading = signal(false);
   me = signal<MeResponse | null>(null);
 
   // toggles
@@ -247,6 +296,8 @@ export class MePage implements OnInit {
   saved = signal(false);
   pwLoading = signal(false);
   emailLoading = signal(false);
+
+  private destroyed = false;
 
   profileForm = this.fb.group({
     userName: this.fb.control<string | null>(null),
@@ -277,6 +328,8 @@ export class MePage implements OnInit {
     password: this.fb.control<string>('', { validators: [Validators.required] }),
   });
 
+  // ---------------- lifecycle ----------------
+
   ngOnInit(): void {
     this.meSvc.getMe().subscribe({
       next: (m) => {
@@ -285,14 +338,100 @@ export class MePage implements OnInit {
           firstName: m.firstName ?? '',
           lastName:  m.lastName ?? '',
         });
+        // If GIS is already mounted, ensure the button reflects current link state
+        queueMicrotask(() => this.renderGoogleButtonIfNeeded());
       },
     });
   }
 
+  ngAfterViewInit(): void {
+    if (!environment.googleClientId) {
+      this.toast.add('Falta GOOGLE_CLIENT_ID', 'error');
+      return;
+    }
+
+    // Mirror login flow: init → then renderButton
+    this.google
+      .init(environment.googleClientId, (idToken?: string) => {
+        if (!idToken) {
+          this.toast.add('No se recibió el token de Google', 'error');
+          return;
+        }
+        this.linkLoading.set(true);
+        this.meSvc.linkGoogle(idToken).subscribe({
+          next: () => {
+            this.linkLoading.set(false);
+            this.me.update(m => (m ? ({ ...m, hasGoogleLink: true, googleLinkedAt: new Date().toISOString() }) : m));
+            this.toast.add('Cuenta vinculada con Google', 'success');
+            this.clearGoogleButton();
+          },
+          error: (e) => {
+            this.linkLoading.set(false);
+            const msg = this.handleApiValidationError(e) || 'No se pudo vincular';
+            this.toast.add(msg, 'error');
+          },
+        });
+      })
+      .then(() => this.renderGoogleButtonIfNeeded())
+      .catch(() => this.toast.add('Google script failed to load', 'error'));
+  }
+
+  ngOnDestroy(): void {
+    this.destroyed = true;
+  }
+
+  // ---------------- Google button helpers ----------------
+
+  private renderGoogleButtonIfNeeded(): void {
+    if (this.destroyed) return;
+    if (this.me()?.hasGoogleLink) { this.clearGoogleButton(); return; }
+    const container = this.googleBtnContainer?.nativeElement;
+    if (!container) return;
+
+    try {
+      container.replaceChildren();
+      (window as any)?.google?.accounts?.id?.renderButton?.(container, {
+        theme: 'filled',
+        size: 'large',
+        type: 'standard',
+        shape: 'pill',
+        text: 'continue_with',
+        logo_alignment: 'left',
+      });
+      // Keep One Tap policy centralized in GoogleAuthService; no prompt() here
+    } catch {
+      this.toast.add('No se pudo mostrar el botón de Google', 'error');
+    }
+  }
+
+  private clearGoogleButton(): void {
+    const container = this.googleBtnContainer?.nativeElement;
+    if (container) container.replaceChildren();
+  }
+
+  onUnlinkGoogle(): void {
+    this.linkLoading.set(true);
+    this.meSvc.unlinkGoogle().subscribe({
+      next: () => {
+        this.linkLoading.set(false);
+        this.me.update(m => (m ? ({ ...m, hasGoogleLink: false, googleLinkedAt: null }) : m));
+        this.toast.add('Cuenta desvinculada de Google', 'success');
+        this.renderGoogleButtonIfNeeded();
+      },
+      error: (e) => {
+        this.linkLoading.set(false);
+        const msg = this.handleApiValidationError(e) || 'No se pudo desvincular';
+        this.toast.add(msg, 'error');
+      },
+    });
+  }
+
+  // ---------------- toggles ----------------
   toggleEditProfile()    { this.editProfile.update(v => !v); }
   toggleChangePassword() { this.changePwOpen.update(v => !v); }
   toggleChangeEmail()    { this.changeEmailOpen.update(v => !v); }
 
+  // ---------------- API helpers ----------------
   private handleApiValidationError(e: unknown): string {
     const err: any = e as any;
 
@@ -307,13 +446,13 @@ export class MePage implements OnInit {
       email_taken:            { control: 'newEmail',        msg: 'Este email ya está en uso.' },
       same_email:             { control: 'newEmail',        msg: 'Introduce un email distinto al actual.' },
       email_taken_or_invalid: { control: 'newEmail',        msg: 'Email inválido o ya está en uso.' },
+      google_already_linked:  { msg: 'Esta cuenta de Google ya está vinculada a otro usuario.' },
+      must_set_password_before_unlink: { msg: 'Configura una contraseña antes de desvincular Google.' },
+      validation_failed:      { msg: 'Error' },
+      missing_sub:            { msg: 'Token de Google inválido: falta “sub”. Prueba de nuevo o revisa el Client ID.' },
     };
 
     let friendlyFromToken = '';
-    const addServerErr = (controlName: string, msg: string) => {
-      const ctrl = this.passwordForm.get(controlName) ?? this.emailForm.get(controlName);
-      ctrl?.setErrors({ ...(ctrl.errors ?? {}), server: msg });
-    };
 
     const summaryPairs: string[] = [];
     if (details && typeof details === 'object') {
@@ -321,25 +460,20 @@ export class MePage implements OnInit {
         const msgs = Array.isArray(raw) ? raw : [raw];
 
         if (field === 'message') {
-          const token = String(msgs[0] ?? '').toLowerCase();
+          const token = String(msgs[0] ?? '').toLowerCase().replace(/\s+/g, '_');
           const map = domainToField[token];
-          if (map?.control) addServerErr(map.control, map.msg);
           if (map?.msg) friendlyFromToken ||= map.msg;
           continue;
         }
-
         const text = msgs.filter(Boolean).join(', ');
-        const ctrl = this.passwordForm.get(field) ?? this.emailForm.get(field);
-        if (ctrl && text) addServerErr(field, text);
         if (text) summaryPairs.push(`${field}: ${text}`);
       }
     }
 
-    const token = String((topMessage || topCode) ?? '').toLowerCase();
+    const token = String((topMessage || topCode) ?? '').toLowerCase().replace(/\s+/g, '_');
     if (!friendlyFromToken && token && domainToField[token]) {
       const map = domainToField[token];
-      if (map?.control) addServerErr(map.control, map.msg);
-      friendlyFromToken = map.msg;
+      if (map?.msg) friendlyFromToken = map.msg;
     }
 
     if (friendlyFromToken) return friendlyFromToken;

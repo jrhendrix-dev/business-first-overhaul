@@ -37,52 +37,38 @@ security:
             stateless: true
             jwt: ~
 
-#        # (Optional) everything else (/, assets, SPA shell) — no auth
-#        main:
-#            pattern: ^/
-#            lazy: true
-#            security: false
-
     access_control:
+        # Docs & public assets
         - { path: ^/api/docs(?:$|/), roles: PUBLIC_ACCESS }
         - { path: ^/api/docs\.(?:json|jsonld|yaml|yamlopenapi|jsonopenapi)$, roles: PUBLIC_ACCESS }
         - { path: ^/assets/,  roles: PUBLIC_ACCESS }
         - { path: ^/bundles/, roles: PUBLIC_ACCESS }
         - { path: ^/api/contexts/, roles: PUBLIC_ACCESS }
 
-        # Auth endpoints
-        - { path: ^/api/login$, roles: PUBLIC_ACCESS, methods: [POST] }
-        - { path: ^/api, roles: PUBLIC_ACCESS, methods: [OPTIONS] }
+        # ---- AUTH ENDPOINTS (public) ----
+        - { path: ^/api/auth/google$, roles: PUBLIC_ACCESS, methods: [POST] }
+        - { path: ^/api/auth/google/link$,   roles: IS_AUTHENTICATED_FULLY, methods: [ POST ] }
+        - { path: ^/api/auth/google/unlink$, roles: IS_AUTHENTICATED_FULLY, methods: [ POST ] }
+        - { path: ^/api/login$,         roles: PUBLIC_ACCESS, methods: [POST] }
         - { path: ^/api/auth/2fa/verify$, roles: PUBLIC_ACCESS, methods: [POST] }
 
-        # Public endpoints you listed
-        - { path: ^/api/auth/register$, roles: PUBLIC_ACCESS }
-        - { path: ^/api/password/forgot$, roles: PUBLIC_ACCESS }
-        - { path: ^/api/password/reset$, roles: PUBLIC_ACCESS }
-        - { path: ^/api/contact$, roles: PUBLIC_ACCESS }
-        - { path: ^/api/dev/test-mail$, roles: PUBLIC_ACCESS }
+        # Registration / password / contact (public POSTs)
+        - { path: ^/api/auth/register$,    roles: PUBLIC_ACCESS, methods: [POST] }
+        - { path: ^/api/password/(forgot|reset)$, roles: PUBLIC_ACCESS, methods: [POST] }
+        - { path: ^/api/contact$,          roles: PUBLIC_ACCESS, methods: [POST] }
+        - { path: ^/api/dev/test-mail$,    roles: PUBLIC_ACCESS, methods: [POST] }
 
-        # Role-gated
-        - { path: ^/api/admin, roles: ROLE_ADMIN }
-        - { path: ^/api/classrooms/\d+/students, roles: ROLE_TEACHER }
-        - { path: ^/api/teacher, roles: ROLE_TEACHER }
-        - { path: ^/api/enrollments, roles: ROLE_USER }
-
-        - { path: ^/$, roles: PUBLIC_ACCESS, methods: [GET] }
-        - { path: ^/api, roles: IS_AUTHENTICATED_FULLY }
-
-
-        # CORS preflight for any /api route (avoid spurious 401s on OPTIONS)
+        # CORS preflight for any /api route
         - { path: ^/api, roles: PUBLIC_ACCESS, methods: [OPTIONS] }
 
-        # Role-based exceptions
-        - { path: ^/api/admin, roles: ROLE_ADMIN }
+        # ---- ROLE-GATED ----
+        - { path: ^/api/admin,                 roles: ROLE_ADMIN }
         - { path: ^/api/classrooms/\d+/students, roles: ROLE_TEACHER }
-        - { path: ^/api/teacher, roles: ROLE_TEACHER }
-        - { path: ^/api/enrollments,          roles: ROLE_USER }
+        - { path: ^/api/teacher,               roles: ROLE_TEACHER }
+        - { path: ^/api/enrollments,           roles: ROLE_USER }
 
-        # Optionally keep "/" public if you add a redirect/home later
+        # SPA root (optional public GET)
         - { path: ^/$, roles: PUBLIC_ACCESS, methods: [GET] }
 
-        # Catch-all: everything else under /api requires a valid JWT
+        # ---- CATCH-ALL ----
         - { path: ^/api, roles: IS_AUTHENTICATED_FULLY }
