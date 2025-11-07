@@ -51,6 +51,20 @@ final class EnrollmentRepository extends ServiceEntityRepository
             ->getQuery()->getOneOrNullResult();
     }
 
+    /** throws RuntimeException if not found */
+    public function getByIdsOrFail(int $studentId, int $classId): Enrollment
+    {
+        $e = $this->createQueryBuilder('e')
+            ->leftJoin('e.student', 's')->addSelect('s')
+            ->leftJoin('e.classroom', 'c')->addSelect('c')
+            ->andWhere('s.id = :sid')->setParameter('sid', $studentId)
+            ->andWhere('c.id = :cid')->setParameter('cid', $classId)
+            ->getQuery()->getOneOrNullResult();
+
+        if (!$e) throw new \RuntimeException('Enrollment not found');
+        return $e;
+    }
+
     /**
      * Get all ACTIVE enrollments for a classroom (ordered oldest first).
      *

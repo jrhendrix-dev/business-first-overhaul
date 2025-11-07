@@ -33,14 +33,12 @@ final class ClassroomTeacherController extends AbstractController
     {
         /** @var User $teacher */
         $teacher = $this->security->getUser();
-        $items   = $this->classes->findBy(['teacher' => $teacher], ['name' => 'ASC']);
 
-        $out = array_map(
-            fn(Classroom $c) => ['id' => (int)$c->getId(), 'name' => (string)$c->getName()],
-            $items
-        );
+        // Use repo helper to ensure ACTIVE only and ordering
+        $rows = $this->classes->findActiveByTeacher($teacher);
 
-        return $this->json($out, Response::HTTP_OK);
+        // findActiveByTeacher already returns scalar array (id, name)
+        return $this->json($rows, Response::HTTP_OK);
     }
 
     // GET /api/teacher/classrooms/{classId}/students?status=active|all
@@ -51,7 +49,7 @@ final class ClassroomTeacherController extends AbstractController
 
         $status = strtolower((string)$request->query->get('status', 'active'));
         if ($status === 'all') {
-            $rows = $this->enrollments->findBy(['classrooms' => $class], ['enrolledAt' => 'ASC']);
+            $rows = $this->enrollments->findBy(['classroom' => $class], ['enrolledAt' => 'ASC']);
         } else {
             // assumes you have a helper like findActiveByClassroom(Classroom $c)
             $rows = $this->enrollments->findActiveByClassroom($class);

@@ -2,8 +2,8 @@ import { RouterModule, Routes, ExtraOptions  } from '@angular/router';
 import {AuthGuard} from '@app/core/auth/auth.guard';
 import { NgModule } from '@angular/core';
 import { PostLoginComponent } from '@/app/features/auth/post-login.component';
-import { TeacherShellComponent } from '@/app/features/teacher/teacher-shell.component';
-import { StudentShellComponent } from '@/app/features/student/student-shell.component';
+import { TeacherShellComponent } from '@app/features/teacher/ui/teacher-shell.component';
+import { StudentShellComponent } from '@app/features/student/ui/student-shell.component';
 
 export const routes: Routes = [
   { path: '', pathMatch: 'full', loadComponent: () => import('./features/home/home.page').then(m => m.HomePage) },
@@ -20,6 +20,11 @@ export const routes: Routes = [
   { path: 'password/reset',  loadComponent: () => import('./features/auth/reset-password.page').then(m => m.ResetPasswordPage) },
   { path: 'register', loadComponent: () => import('./features/auth/register.page').then(m => m.RegisterPage) },
   { path: '', redirectTo: 'me', pathMatch: 'full' },
+
+  // --- Student area ---
+  { path: 'student', loadChildren: () => import('./features/student/student.routes').then(m => m.STUDENT_ROUTES) },
+  // --- Teacher area ---
+  { path: 'teacher', loadChildren: () => import('./features/teacher/teacher.routes').then(m => m.TEACHER_ROUTES) },
 
   // --- Admin area (NEW): shell + children ---
   {

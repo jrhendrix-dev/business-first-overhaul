@@ -60,6 +60,11 @@
   /* Admin navbar height */
   --admin-navbar-h: 7.5rem; /* adjust if needed (4rem / 4.5rem / 76px, etc.) */
 
+  /* Hide number spinners so heights match across browsers */
+  .no-spin::-webkit-outer-spin-button,
+  .no-spin::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  .no-spin { -moz-appearance: textfield; }
+
 
 }
 

@@ -173,11 +173,11 @@ final class EnrollmentManager implements EnrollmentPort
     {
         $enrollment = $this->enrollments->findOneBy([
             'student'   => $studentId,
-            'classrooms' => $classId,
+            'classroom' => $classId,   // <- singular
         ]);
 
         if (!$enrollment) {
-            throw new RuntimeException(sprintf(
+            throw new \RuntimeException(sprintf(
                 'Enrollment not found for studentId=%d and classId=%d',
                 $studentId,
                 $classId
