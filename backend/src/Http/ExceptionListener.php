@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http;
 
-use App\Domain\Classroom\Exception\ClassroomInactiveException;
+use App\Entity\Exception\ClassroomInactiveException;
 use App\Http\Exception\ValidationException;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;

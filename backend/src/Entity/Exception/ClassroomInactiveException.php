@@ -2,7 +2,7 @@
 // src/Domain/Classroom/Exception/ClassroomInactiveException.php
 declare(strict_types=1);
 
-namespace App\Domain\Classroom\Exception;
+namespace App\Entity\Exception;
 
 use RuntimeException;
 

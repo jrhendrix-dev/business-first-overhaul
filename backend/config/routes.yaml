@@ -32,4 +32,8 @@ home_redirect:
     controller: Symfony\Bundle\FrameworkBundle\Controller\RedirectController::urlRedirectAction
     defaults: { path: /api/docs, permanent: false }
 
-
+# Stripe redirect
+payment_verify:
+    path: /api/payment/verify
+    controller: App\Controller\PaymentRedirectController::verify
+    methods: [GET]

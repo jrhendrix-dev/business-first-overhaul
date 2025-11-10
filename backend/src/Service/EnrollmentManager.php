@@ -2,12 +2,12 @@
 
 namespace App\Service;
 
-use App\Domain\Classroom\Exception\ClassroomInactiveException;
 use App\Entity\Classroom;
 use App\Entity\Enrollment;
+use App\Entity\Exception\ClassroomInactiveException;
 use App\Entity\User;
-use App\Enum\EnrollmentStatusEnum;
 use App\Enum\ClassroomStatusEnum;
+use App\Enum\EnrollmentStatusEnum;
 use App\Repository\EnrollmentRepository;
 use App\Service\Contracts\EnrollmentPort;
 use Doctrine\ORM\EntityManagerInterface;

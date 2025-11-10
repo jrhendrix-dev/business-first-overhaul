@@ -1,3 +1,4 @@
+<!-- src/app/features/admin/classrooms/pages/classes.page.html -->
 <app-toast-container />
 <app-admin-header title="Classes"></app-admin-header>
 
@@ -29,34 +30,55 @@
     <div class="overflow-auto">
       <table class="min-w-full text-sm">
         <thead class="bg-slate-50 border-b sticky top-0 z-10">
-        <tr>
-          <th class="text-left px-3 py-2 w-16">ID</th>
-          <th class="text-left px-3 py-2">Name</th>
-          <th class="text-left px-3 py-2 w-48">Teacher</th>
-          <th class="text-left px-3 py-2 w-28">Status</th>
-          <th class="text-left px-3 py-2 w-[22rem]">Actions</th>
+        <tr class="text-sm">
+          <th class="text-left px-4 py-3 w-16">ID</th>
+          <th class="text-left px-4 py-3">Name</th>
+          <th class="text-left px-4 py-3 w-36">Price</th>
+          <th class="text-left px-4 py-3 w-56">Teacher</th>
+          <th class="text-left px-4 py-3 w-32">Status</th>
+          <th class="text-left px-4 py-3 w-[26rem]">Actions</th>
         </tr>
         </thead>
-        <tbody>
+
+        <tbody class="text-[15px]">
         <tr *ngFor="let c of items()" class="border-b hover:bg-slate-50">
-          <td class="px-3 py-2">{{ c.id }}</td>
-          <td class="px-3 py-2">{{ c.name }}</td>
-          <td class="px-3 py-2">
-            <span *ngIf="c.teacher; else noTeacher">{{ c.teacher.name }}</span>
+          <td class="px-4 py-3">{{ c.id }}</td>
+          <td class="px-4 py-3">{{ c.name }}</td>
+
+          <!-- PRICE -->
+          <td class="px-4 py-3">
+            <ng-container *ngIf="c.price != null; else centsOrDash">
+              {{ c.price | currency:(c.currency || 'EUR'):'symbol':'1.2-2' }}
+            </ng-container>
+            <ng-template #centsOrDash>
+              <ng-container *ngIf="c.priceCents != null; else noPrice">
+                {{ (c.priceCents / 100) | currency:(c.currency || 'EUR'):'symbol':'1.2-2' }}
+              </ng-container>
+            </ng-template>
+            <ng-template #noPrice><span class="text-slate-500">—</span></ng-template>
+          </td>
+
+          <!-- Teacher -->
+          <td class="px-4 py-3">
+            <span *ngIf="c.teacher; else noTeacher">{{ c.teacher?.name }}</span>
             <ng-template #noTeacher><em>Unassigned</em></ng-template>
           </td>
-          <td class="px-3 py-2">
-            <span class="inline-flex items-center gap-1">
-              <span class="h-2.5 w-2.5 rounded-full"
-                    [class.bg-emerald-500]="!isDropped(c)"
-                    [class.bg-slate-400]="isDropped(c)"></span>
-              {{ c.status }}
-            </span>
+
+          <!-- Status -->
+          <td class="px-4 py-3">
+      <span class="inline-flex items-center gap-2">
+        <span class="h-2.5 w-2.5 rounded-full"
+              [class.bg-emerald-500]="!isDropped(c)"
+              [class.bg-slate-400]="isDropped(c)"></span>
+        {{ c.status }}
+      </span>
           </td>
-          <td class="px-3 py-2">
-            <div class="flex items-center gap-2 min-h-[2.25rem]">
+
+          <!-- Actions -->
+          <td class="px-4 py-3">
+            <div class="flex items-center gap-3 min-h-[2.5rem]">
               <button class="btn btn-primary btn-sm" (click)="openRoster(c)">Students</button>
-              <button class="btn btn-outline btn-sm" (click)="openRename(c)">Rename</button>
+              <button class="btn btn-outline btn-sm" (click)="openRename(c)">Edit</button>
               <button class="btn btn-outline btn-sm"
                       [disabled]="!canAssign(c)"
                       title="{{ canAssign(c) ? '' : 'Reactivate the class to assign a teacher' }}"
@@ -73,8 +95,9 @@
             </div>
           </td>
         </tr>
+
         <tr *ngIf="!items().length && !loading()">
-          <td [attr.colspan]="5" class="px-3 py-6 text-center text-slate-500">No results</td>
+          <td [attr.colspan]="6" class="px-4 py-8 text-center text-slate-500">No results</td>
         </tr>
         </tbody>
       </table>

@@ -108,16 +108,23 @@ export class ClassroomsService {
     );
   }
 
-  create(name: string): Observable<ClassroomDetailDto> {
-    return this.http.post<ClassroomDetailDto>(BASE, { name }).pipe(
+  /** Create classroom (optionally with price) */
+  create(name: string, price?: number | null): Observable<ClassroomDetailDto> {
+    const body: any = { name };
+    if (price != null) body.price = price;
+    return this.http.post<ClassroomDetailDto>(BASE, body).pipe(
       catchError((cause): Observable<never> =>
         this.fail({ code: 'CLASS_CREATE_FAILED', userMessage: 'Create failed', cause })
       )
     );
   }
 
-  rename(id: number, name: string): Observable<ClassroomDetailDto> {
-    return this.http.put<ClassroomDetailDto>(`${BASE}/${id}`, { name }).pipe(
+
+  /** Update classroom name and/or price */
+  rename(id: number, name: string, price?: number | null): Observable<ClassroomDetailDto> {
+    const body: any = { name };
+    if (price != null) body.price = price;
+    return this.http.put<ClassroomDetailDto>(`${BASE}/${id}`, body).pipe(
       catchError((cause): Observable<never> =>
         this.fail({ code: 'CLASS_RENAME_FAILED', userMessage: 'Rename failed', cause })
       )

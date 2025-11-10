@@ -128,7 +128,13 @@
 
       <div class="text-sm text-black/60">
         ¿Ya tienes cuenta?
-        <a routerLink="/login" class="text-[color:var(--brand)] underline">Inicia sesión</a>
+        <a
+          [routerLink]="['/login']"
+          [queryParams]="forwardBuyParams()"
+          class="text-[color:var(--brand)] underline"
+        >
+          Inicia sesión
+        </a>
       </div>
     </form>
   </article>

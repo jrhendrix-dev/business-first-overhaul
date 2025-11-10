@@ -1,3 +1,4 @@
+// src/app/shared/models/classrooms/classroom-read.dto.ts
 export interface TeacherMini {
   id: number;
   name: string;
@@ -10,6 +11,11 @@ export interface ClassroomItemDto {
   name: string;
   status: ClassroomStatus;
   teacher: TeacherMini | null;
+
+  /** pricing (backend may send either) */
+  price?: number | null;        // decimal (e.g. 15.0)
+  priceCents?: number | null;   // minor units (e.g. 1500)
+  currency?: string | null;     // e.g. 'EUR'
 }
 
 export interface ClassroomDetailDto extends ClassroomItemDto {
@@ -22,6 +28,7 @@ export interface EnrollmentStudentMini {
   lastName: string;
   email: string;
 }
+
 export interface EnrollmentItemDto {
   id: number;
   classId: number;

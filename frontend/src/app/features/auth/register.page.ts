@@ -2,14 +2,14 @@
 import { Component, HostListener, PLATFORM_ID, inject, signal } from '@angular/core';
 import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import { Router, RouterLink, ActivatedRoute } from '@angular/router';
 import { HttpErrorResponse } from '@angular/common/http';
 import { AuthApiService, RegisterDto } from './auth-api.service';
 import { FormErrorMapper } from '@app/core/errors/form-error.mapper';
 import { ToastService } from '@app/core/ui/toast/toast.service';
 import { ToastContainerComponent } from '@app/core/ui/toast/toast-container.component';
 
-type FormKey = 'firstName' | 'lastName' | 'userName' | 'email' | 'password' | 'hp'; // + hp
+type FormKey = 'firstName' | 'lastName' | 'userName' | 'email' | 'password' | 'hp';
 
 @Component({
   standalone: true,
@@ -24,9 +24,9 @@ export class RegisterPage {
   private toast      = inject(ToastService);
   private platformId = inject(PLATFORM_ID);
   private isBrowser  = isPlatformBrowser(this.platformId);
-  private errmap = inject(FormErrorMapper);
+  private errmap     = inject(FormErrorMapper);
+  private route      = inject(ActivatedRoute);
 
-  /** ====== UI base ====== */
   private readonly baseInput =
     'w-full rounded-2xl bg-white text-[color:var(--brand)] p-2.5 ring-1 focus:outline-none focus:ring-2 scroll-mt-32';
 
@@ -35,24 +35,19 @@ export class RegisterPage {
   error     = signal<string | null>(null);
   success   = signal(false);
 
-  /** which fields have the thick “pulse” ring; stays until that field is edited */
   private pulse = signal<Set<FormKey>>(new Set());
-
-  /** track when the form became usable (timing trap) */
   private formStartAt = this.isBrowser ? performance.now() : 0;
 
-  /** ====== Form ====== */
   form = this.fb.group({
     firstName: ['', [Validators.maxLength(255)]],
     lastName:  ['', [Validators.maxLength(255)]],
     userName:  ['', [Validators.maxLength(255)]],
     email:     ['', [Validators.required, Validators.email]],
     password:  ['', [Validators.required, Validators.minLength(12)]],
-    hp:        [''], // honeypot: must remain empty
+    hp:        [''],
   });
 
   constructor() {
-    // When a field changes, clear ONLY its server error + stop its highlight (except hp)
     (['firstName','lastName','userName','email','password','hp'] as const).forEach(k => {
       const c = this.form.get(k)!;
       c.valueChanges.subscribe(() => {
@@ -66,8 +61,7 @@ export class RegisterPage {
     });
   }
 
-  /* ===================== Helpers ===================== */
-
+  /* ---------------------- UI helpers ---------------------- */
   private pulseOn(ctrl: Exclude<FormKey,'hp'>) {
     const s = new Set(this.pulse()); s.add(ctrl); this.pulse.set(s);
   }
@@ -136,8 +130,7 @@ export class RegisterPage {
     }
   }
 
-  /* ===================== Error normalization & mapping ===================== */
-
+  /* ---------------- Error normalization & toasts ---------------- */
   private normalizeError(raw: unknown): any {
     let e: any = (raw as any)?.error ?? raw;
     if (typeof e === 'string') { try { e = JSON.parse(e); } catch { e = { message: e }; } }
@@ -227,6 +220,11 @@ export class RegisterPage {
     return applied;
   }
 
+  public forwardBuyParams() {
+    // reuse your helper; make it public or call it here
+    return this.buyParams(); // returns { returnUrl?, action?, classroomId? }
+  }
+
   private toastFromDetails(norm: any) {
     const d = norm.details;
     let emitted = false;
@@ -249,8 +247,20 @@ export class RegisterPage {
     }
   }
 
-  /* ===================== Submit ===================== */
+  /* ---------------- Buy params (kept inside class) ---------------- */
+  private buyParams(): Record<string, any> {
+    const q = this.route.snapshot.queryParamMap;
+    const action      = q.get('action');
+    const classroomId = q.get('classroomId');
+    const returnUrl   = q.get('returnUrl');
+    const out: Record<string, any> = {};
+    if (returnUrl)   out['returnUrl']   = returnUrl;
+    if (action)      out['action']      = action;
+    if (classroomId) out['classroomId'] = classroomId;
+    return out;
+  }
 
+  /* ---------------- Submit ---------------- */
   submit() {
     if (this.loading()) return;
 
@@ -258,8 +268,6 @@ export class RegisterPage {
     if (this.form.invalid) return;
 
     const elapsedMs = this.isBrowser ? Math.round(performance.now() - this.formStartAt) : 0;
-
-    // ultra-fast submit → likely bot; fail closed (client side)
     if (elapsedMs > 0 && elapsedMs < 1200) {
       this.toast.add('No se pudo crear la cuenta.', 'error');
       return;
@@ -271,12 +279,13 @@ export class RegisterPage {
 
     const v = this.form.value;
 
-    // honeypot triggered: respond like success (don’t train bots)
+    // Honeypot: pretend success and forward params to login
     if ((v.hp ?? '').trim() !== '') {
       this.loading.set(false);
       this.success.set(true);
       this.toast.add('Cuenta creada correctamente. Redirigiendo…', 'success', 1500);
-      setTimeout(() => this.router.navigateByUrl('/login'), 1500);
+      const queryParams = this.buyParams();
+      setTimeout(() => this.router.navigate(['/login'], { queryParams }), 1500);
       return;
     }
 
@@ -292,16 +301,25 @@ export class RegisterPage {
       role:      'ROLE_STUDENT',
     };
 
-    // extend payload with elapsedMs so backend traps can use it
     const payload = { ...dto, elapsedMs };
 
     this.auth.registerUser(payload as any).subscribe({
       next: () => {
         this.loading.set(false);
         this.success.set(true);
-        this.toast.add('Cuenta creada correctamente. Redirigiendo…', 'success', 1500);
+
+        const cameFromBuy = !!this.route.snapshot.queryParamMap.get('action');
+        this.toast.add(
+          cameFromBuy ? 'Cuenta creada. Inicia sesión para continuar la compra.'
+            : 'Cuenta creada correctamente. Redirigiendo…',
+          'success',
+          1500
+        );
+
         this.clearServerErrors();
-        setTimeout(() => this.router.navigateByUrl('/login'), 1500);
+
+        const queryParams = this.buyParams();
+        setTimeout(() => this.router.navigate(['/login'], { queryParams }), 1500);
       },
       error: (err: HttpErrorResponse) => {
         this.loading.set(false);
@@ -319,7 +337,7 @@ export class RegisterPage {
           this.form,
           fieldMap,
           err,
-          (ctrl) => this.pulseOn(ctrl)   // keep sticky red outline
+          (ctrl) => this.pulseOn(ctrl)
         );
 
         this.errmap.toastFromDetails(norm, this.toast);
@@ -332,7 +350,6 @@ export class RegisterPage {
     });
   }
 
-  /** kept for parity (global toast container handles layout) */
   @HostListener('window:resize')
   @HostListener('window:scroll')
   @HostListener('window:orientationchange')

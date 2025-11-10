@@ -1,6 +1,7 @@
 // src/app/features/student/pages/student-classes.page.ts
 import { Component, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { ActivatedRoute, Router } from '@angular/router';
 import { ToastContainerComponent } from '@/app/core/ui/toast/toast-container.component';
 import { ToastService } from '@/app/core/ui/toast/toast.service';
 import { StudentService, StudentClassroomMini, StudentGradeItem } from '../data/student.service';
@@ -39,6 +40,8 @@ import { StudentDrawerGradesComponent } from '../components/student-drawer-grade
 export class StudentClassesPage {
   private api = inject(StudentService);
   private toast = inject(ToastService);
+  private route = inject(ActivatedRoute);
+  private router = inject(Router);
 
   classes = signal<StudentClassroomMini[]>([]);
   grades  = signal<StudentGradeItem[]>([]);
@@ -46,6 +49,19 @@ export class StudentClassesPage {
   drawerOpen = signal(false);
 
   constructor() {
+    // initial load
+    this.loadClasses();
+
+    // if we come from /payment/success?…&refresh=1, reload once after a tick
+    const refresh = this.route.snapshot.queryParamMap.get('refresh') === '1';
+    if (refresh) {
+      setTimeout(() => this.loadClasses(), 800);
+      // clean the URL (remove refresh=1) without reloading the page
+      this.router.navigate([], { relativeTo: this.route, queryParams: { refresh: null }, queryParamsHandling: 'merge' });
+    }
+  }
+
+  private loadClasses() {
     this.api.myClasses().subscribe({
       next: rows => this.classes.set(rows),
       error: () => this.toast.error('No se pudieron cargar tus clases'),

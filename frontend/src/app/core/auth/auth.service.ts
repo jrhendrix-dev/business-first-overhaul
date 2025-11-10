@@ -1,4 +1,3 @@
-// src/app/core/auth/auth.service.ts
 import { Injectable, signal } from '@angular/core';
 import { HttpClient, HttpRequest } from '@angular/common/http';
 import { environment } from '@/environments/environment';
@@ -6,20 +5,26 @@ import { Observable, tap } from 'rxjs';
 
 /** Accept both shapes coming from backend(s) */
 export type LoginResponse = {
-  token?: string;          // <-- new (backend current)
-  accessToken?: string;    // <-- keep BC just in case
+  token?: string;          // current backend
+  accessToken?: string;    // BC
   refreshToken?: string;
   expiresAt?: string | null;
 };
 
 /** 2FA challenge branch */
 export type TwoFactorChallenge = {
-  preToken: string;        // <-- presence of preToken == needs 2FA
+  preToken: string;        // presence of preToken => needs 2FA
+};
+
+type JwtPayload = {
+  exp?: number;
+  roles?: string[];
+  // add other claims if you need them later (sub, email, etc.)
 };
 
 @Injectable({ providedIn: 'root' })
 export class AuthStateService {
-  private readonly ACCESS = 'auth.access';
+  private readonly ACCESS  = 'auth.access';
   private readonly REFRESH = 'auth.refresh';
   private readonly EXPIRES = 'auth.expires';
 
@@ -45,7 +50,7 @@ export class AuthStateService {
   /** Persist final JWT (handles token or accessToken) */
   persist(res: LoginResponse): void {
     const token = (res.token ?? res.accessToken) || '';
-    if (!token) return; // nothing to do; caller should have handled preToken
+    if (!token) return; // caller should have handled preToken
 
     localStorage.setItem(this.ACCESS, token);
     if (res.refreshToken) localStorage.setItem(this.REFRESH, res.refreshToken);
@@ -93,6 +98,37 @@ export class AuthStateService {
   getAccessToken(): string | null { return localStorage.getItem(this.ACCESS); }
   getExpiresAt(): string | null { return localStorage.getItem(this.EXPIRES); }
 
+  // ------------------------ Role helpers used for correct redirection ------------------------
+
+  /** Decode payload of a JWT (no validation; client-side convenience only). */
+  private decodeJwt<T = JwtPayload>(jwt?: string | null): T | null {
+    try {
+      const token = jwt ?? this.getAccessToken();
+      if (!token) return null;
+      const payloadB64 = token.split('.')[1];
+      if (!payloadB64) return null;
+      const json = this.base64UrlDecode(payloadB64);
+      return JSON.parse(json) as T;
+    } catch {
+      return null;
+    }
+  }
+
+  /** Roles from the JWT (e.g., ["ROLE_ADMIN","ROLE_USER"]). */
+  roles(): string[] {
+    const payload = this.decodeJwt<JwtPayload>();
+    return Array.isArray(payload?.roles) ? payload!.roles! : [];
+  }
+
+  /** Default landing route based on the user's roles. */
+  roleHome(roles = this.roles()): string {
+    if (roles.includes('ROLE_ADMIN'))   return '/admin/users';
+    if (roles.includes('ROLE_TEACHER')) return '/teacher/classes';
+    return '/student/classes';
+  }
+
+  // ------------------------ internals ------------------------
+
   private base64UrlDecode(b64url: string): string {
     const pad = '==='.slice((b64url.length + 3) % 4);
     const b64 = (b64url + pad).replace(/-/g, '+').replace(/_/g, '/');
@@ -108,7 +144,7 @@ export class AuthStateService {
     const payloadB64 = token.slice(firstDot + 1, secondDot);
     try {
       const json = this.base64UrlDecode(payloadB64);
-      const payload: any = JSON.parse(json);
+      const payload: JwtPayload = JSON.parse(json);
       const expSec = Number(payload?.exp);
       if (!Number.isFinite(expSec)) return null;
       return new Date(expSec * 1000).toISOString();

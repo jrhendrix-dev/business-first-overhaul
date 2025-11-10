@@ -3,16 +3,14 @@
 namespace App\Service;
 
 use App\Entity\Classroom;
+use App\Entity\Exception\ClassroomInactiveException;
 use App\Entity\User;
 use App\Enum\ClassroomStatusEnum;
+use App\Repository\ClassroomRepository;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
-use App\Repository\ClassroomRepository;
 use LogicException;
-use App\Service\Contracts\EnrollmentPort;
-use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
-use App\Domain\Classroom\Exception\ClassroomInactiveException;
 
 /**
  * Service responsible for managing business logic related to Classroom entities.
@@ -191,6 +189,20 @@ class ClassroomManager
         return $this->classroomRepository->countByTeacher($id);
     }
 
+    private function applyPrice(?float $price, ?string $currency, Classroom $c): void
+    {
+        if ($price !== null) {
+            $cents = (int) \round($price * 100);
+            if ($cents < 0) {
+                throw new \DomainException('price must be >= 0');
+            }
+            $c->setPriceCents($cents);
+        }
+        if ($currency !== null && \method_exists($c, 'setCurrency')) {
+            $c->setCurrency($currency);
+        }
+    }
+
     /**
      * Retrieves all classrooms without an assigned teacher.
      *
@@ -203,19 +215,17 @@ class ClassroomManager
 
 
     /**
-     * Create a new classroom with the given name.
-     *
      * @param string $rawName
+     * @param float|null $price
+     * @param string|null $currency
      * @return Classroom
      */
-    public function createClassroom(string $rawName): Classroom
+    public function createClassroom(string $rawName, ?float $price = null, ?string $currency = 'EUR'): Classroom
     {
         $name = $this->normalizeName($rawName);
         if ($name === '') {
             throw new \DomainException('Field "name" is required.');
         }
-
-        // app-level duplicate guard
         if ($this->classroomRepository->findOneBy(['name' => $name])) {
             throw new \DomainException('A classrooms with that name already exists.');
         }
@@ -224,15 +234,58 @@ class ClassroomManager
         $c->setName($name);
         $c->setStatus(ClassroomStatusEnum::ACTIVE);
 
+        if ($price !== null) {
+            $c->setPriceCents((int)\round($price * 100));
+            $c->setCurrency($currency ?? 'EUR');
+        } else {
+            $c->setPriceCents(0);      // treat null as free, consistent with FE "—" when 0?
+            $c->setCurrency('EUR');
+        }
+
         try {
             $this->em->persist($c);
             $this->em->flush();
         } catch (UniqueConstraintViolationException) {
-            // race-condition fallback -> surface as a friendly duplicate
             throw new \DomainException('A classrooms with that name already exists.');
         }
 
         return $c;
+    }
+
+    /**
+     * Update name and/or pricing in one place.
+     * - $newName: if not null, rename (duplicate-checked by controller).
+     * - $priceProvided=true & $newPrice===null → set free (0 cents).
+     * - $currencyProvided=false → keep current currency.
+     */
+    public function updateClassroom(
+        Classroom $classroom,
+        ?string $newName,
+        ?float $newPrice,
+        ?string $newCurrency,
+        bool $nameProvided = true,
+        bool $priceProvided = true,
+        bool $currencyProvided = false
+    ): Classroom {
+        if ($nameProvided && $newName !== null) {
+            $classroom->setName($newName);
+        }
+
+        if ($priceProvided) {
+            if ($newPrice === null) {
+                $classroom->setPriceCents(0); // free
+            } else {
+                $classroom->setPriceCents((int)\round($newPrice * 100));
+            }
+            if ($currencyProvided && $newCurrency !== null) {
+                $classroom->setCurrency($newCurrency);
+            }
+        } elseif ($currencyProvided && $newCurrency !== null) {
+            $classroom->setCurrency($newCurrency);
+        }
+
+        $this->em->flush();
+        return $classroom;
     }
 
     /**

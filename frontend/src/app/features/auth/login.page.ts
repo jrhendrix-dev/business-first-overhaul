@@ -1,37 +1,67 @@
 import { Component, ChangeDetectionStrategy, inject, signal, ViewChild, ElementRef, AfterViewInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { GoogleAuthService } from '@/app/core/auth/google-auth.service';
-import { environment } from '@/environments/environment';
 import { ReactiveFormsModule, NonNullableFormBuilder, Validators } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
-import { AuthStateService, LoginResponse, TwoFactorChallenge } from '@/app/core/auth/auth.service';
-import { ToastService } from '@/app/core/ui/toast/toast.service';
+import { Router, RouterLink, ActivatedRoute } from '@angular/router';
+
+import { GoogleAuthService } from '@/app/core/auth/google-auth.service';
+import { AuthStateService } from '@/app/core/auth/auth.service';
 import { TotpVerifyDialogComponent } from '@/app/core/auth/ui/totp-verify-dialog.component';
+import { ToastService } from '@/app/core/ui/toast/toast.service';
+import { environment } from '@/environments/environment';
+import {ToastContainerComponent} from '@app/core/ui/toast/toast-container.component';
 
 @Component({
   standalone: true,
   selector: 'app-login',
-  imports: [CommonModule, ReactiveFormsModule, RouterLink, TotpVerifyDialogComponent],
+  imports: [CommonModule, ReactiveFormsModule, RouterLink, TotpVerifyDialogComponent, ToastContainerComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './login.page.html',
 })
 export class LoginPage implements AfterViewInit  {
   @ViewChild('googleBtn', { static: true }) googleBtn!: ElementRef<HTMLDivElement>;
 
+  private fb     = inject(NonNullableFormBuilder);
+  private router = inject(Router);
+  private route  = inject(ActivatedRoute);
+  private auth   = inject(AuthStateService);
+  private toast  = inject(ToastService);
+  private google = inject(GoogleAuthService);
+
+  loading  = signal(false);
+  submitted = signal(false);
+  error     = signal<string | null>(null);
+
+  show2fa  = signal(false);
+  preToken = signal<string>('');
+
+  // ---- helpers -------------------------------------------------------------
+
+  /** Where to send the user after a successful login (supports ?returnUrl=) */
+  private nextUrlAfterLogin(): string {
+    const q = this.route.snapshot.queryParamMap;
+    return q.get('returnUrl') || this.auth.roleHome();
+  }
+
+  // ---- lifecycle -----------------------------------------------------------
+
   ngAfterViewInit(): void {
+    // Optional UX: if redirected due to guard
+    if (this.route.snapshot.queryParamMap.get('reason') === 'forbidden') {
+      this.toast.info('Please log in to continue.');
+    }
+
     if (!environment.googleClientId) {
       this.toast.error('Missing Google Client ID');
       return;
     }
 
     this.google.init(environment.googleClientId, (idToken) => {
-      console.debug('GIS idToken received'); // should print when you pick an account
       this.loading.set(true);
       this.google.exchange(idToken).subscribe({
         next: ({ token }) => {
           this.loading.set(false);
           this.auth.persist({ token });
-          this.router.navigateByUrl('/post-login');
+          this.router.navigateByUrl(this.nextUrlAfterLogin());
         },
         error: (err) => {
           this.loading.set(false);
@@ -46,20 +76,7 @@ export class LoginPage implements AfterViewInit  {
     });
   }
 
-  private fb = inject(NonNullableFormBuilder);
-  private router = inject(Router);
-  private auth = inject(AuthStateService);
-  private toast = inject(ToastService);
-  private google = inject(GoogleAuthService);
-
-  loading = signal(false);
-  submitted = signal(false);
-  error = signal<string | null>(null);
-
-  show2fa = signal(false);
-  preToken = signal<string>('');
-
-
+  // ---- form ---------------------------------------------------------------
 
   form = this.fb.group({
     email: this.fb.control('', [Validators.required, Validators.email]),
@@ -88,9 +105,8 @@ export class LoginPage implements AfterViewInit  {
           return;
         }
 
-        // res has { token } or { accessToken }
-        this.auth.persist(res);
-        this.router.navigateByUrl('/post-login');
+        this.auth.persist(res); // { token } or { accessToken }
+        this.router.navigateByUrl(this.nextUrlAfterLogin());
       },
       error: (err) => {
         this.loading.set(false);
@@ -107,6 +123,6 @@ export class LoginPage implements AfterViewInit  {
   on2faSuccess(finalJwt: string): void {
     this.auth.persistFinalToken(finalJwt);
     this.show2fa.set(false);
-    this.router.navigateByUrl('/post-login');
+    this.router.navigateByUrl(this.nextUrlAfterLogin());
   }
 }

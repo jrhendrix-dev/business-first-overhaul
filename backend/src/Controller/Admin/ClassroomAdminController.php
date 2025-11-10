@@ -6,7 +6,7 @@ namespace App\Controller\Admin;
 
 use App\Dto\Classroom\AssignTeacherDto;
 use App\Dto\Classroom\CreateClassroomDto;
-use App\Dto\Classroom\RenameClassroomDto;
+use App\Dto\Classroom\UpdateClassroomDto;
 use App\Mapper\Response\Contracts\ClassroomResponsePort;
 use App\Repository\ClassroomRepository;
 use App\Service\ClassroomManager;
@@ -47,7 +47,6 @@ final class ClassroomAdminController extends AbstractController
         if (!$class) {
             return $this->json(['error' => ['code' => 'NOT_FOUND', 'details' => ['resource' => 'Classroom']]], 404);
         }
-
         $activeCount = $this->enrollments->countActiveByClassroom($class);
         return $this->json($this->mapper->toDetail($class, $activeCount));
     }
@@ -69,15 +68,7 @@ final class ClassroomAdminController extends AbstractController
 
     /**
      * Returns the ACTIVE classrooms where the given student is enrolled.
-     *
-     * Response (200):
-     *   Array<ClassroomItemDto>
-     *
-     * Error (404):
-     *   { "error": { "code": "NOT_FOUND", "details": { "resource": "User" } } }
-     *
-     * Error (422):
-     *   { "error": { "code": "VALIDATION_FAILED", "details": { "id": "User is not a student" } } }
+     * 200: Array<ClassroomItemDto>
      */
     #[Route('/enrolled-in/{id}', name: 'admin_classrooms_enrolled_in', requirements: ['id' => '\d+'], methods: ['GET'])]
     public function enrolledIn(int $id): JsonResponse
@@ -86,13 +77,11 @@ final class ClassroomAdminController extends AbstractController
         if (!$user) {
             return $this->json(['error' => ['code' => 'NOT_FOUND', 'details' => ['resource' => 'User']]], 404);
         }
-
         if (!$user->isStudent()) {
             return $this->json(['error' => ['code' => 'VALIDATION_FAILED', 'details' => ['id' => 'User is not a student']]], 422);
         }
 
         $items = $this->classrooms->getFindByStudent($id) ?? [];
-
         return $this->json($this->mapper->toCollection($items));
     }
 
@@ -121,7 +110,7 @@ final class ClassroomAdminController extends AbstractController
     #[Route('/search', name: 'admin_classroom_search_by_name', methods: ['GET'])]
     public function searchByName(Request $request): JsonResponse
     {
-        $name = trim((string) $request->query->get('name', ''));
+        $name = \trim((string) $request->query->get('name', ''));
         if ($name === '') {
             return $this->json(['error' => ['code' => 'VALIDATION_FAILED', 'details' => ['name' => 'Required']]], 400);
         }
@@ -129,7 +118,7 @@ final class ClassroomAdminController extends AbstractController
         return $this->json($this->mapper->toCollection($items));
     }
 
-    #[Route('/{id}/teacher', name: 'admin_classroom_assign_teacher', requirements: ['id' => '\\d+'], methods: ['PUT'])]
+    #[Route('/{id}/teacher', name: 'admin_classroom_assign_teacher', requirements: ['id' => '\d+'], methods: ['PUT'])]
     public function assignTeacher(int $id, Request $request): JsonResponse
     {
         $class = $this->classrooms->getClassById($id);
@@ -137,7 +126,7 @@ final class ClassroomAdminController extends AbstractController
             return $this->json(['error' => ['code' => 'NOT_FOUND', 'details' => ['resource' => 'Classroom']]], 404);
         }
 
-        $dto = AssignTeacherDto::fromArray(json_decode($request->getContent() ?: '{}', true, 512, \JSON_THROW_ON_ERROR));
+        $dto = AssignTeacherDto::fromArray(\json_decode($request->getContent() ?: '{}', true, 512, \JSON_THROW_ON_ERROR));
         $violations = $this->validator->validate($dto);
         if (\count($violations) > 0) {
             $details = [];
@@ -153,15 +142,14 @@ final class ClassroomAdminController extends AbstractController
             return $this->json(['error' => ['code' => 'VALIDATION_FAILED', 'details' => ['teacherId' => 'User is not a teacher']]], 422);
         }
 
-        // Let the service throw ClassroomInactiveException (mapped to 409 by ExceptionListener)
         $this->classrooms->assignTeacher($class, $teacher);
 
         $activeCount = $this->enrollments->countActiveByClassroom($class);
         return $this->json($this->mapper->toDetail($class, $activeCount));
     }
 
-    // Accept PATCH (your Angular uses PATCH) and POST (backward compatibility).
-    #[Route('/{id}/reactivate', name: 'admin_classroom_reactivate', requirements: ['id' => '\\d+'], methods: ['PATCH','POST'])]
+    // Accept PATCH (Angular uses PATCH) and POST (backward compatibility).
+    #[Route('/{id}/reactivate', name: 'admin_classroom_reactivate', requirements: ['id' => '\d+'], methods: ['PATCH','POST'])]
     public function reactivate(int $id): JsonResponse
     {
         $class = $this->classrooms->getClassById($id);
@@ -178,7 +166,7 @@ final class ClassroomAdminController extends AbstractController
     #[Route('', name: 'admin_classroom_create', methods: ['POST'])]
     public function create(Request $request): JsonResponse
     {
-        $dto = CreateClassroomDto::fromArray(json_decode($request->getContent() ?: '{}', true, 512, \JSON_THROW_ON_ERROR));
+        $dto = CreateClassroomDto::fromArray(\json_decode($request->getContent() ?: '{}', true, 512, \JSON_THROW_ON_ERROR));
         $violations = $this->validator->validate($dto);
         if (\count($violations) > 0) {
             $details = [];
@@ -191,22 +179,26 @@ final class ClassroomAdminController extends AbstractController
             if ($name === '' || $this->classroomRepo->findOneBy(['name' => $name])) {
                 return $this->json(['error' => ['code' => 'CONFLICT', 'details' => ['name' => 'Classroom exists']]], 409);
             }
-            $class = $this->classrooms->createClassroom($name);
+
+            $class = $this->classrooms->createClassroom($name, $dto->price, $dto->currency ?? 'EUR');
             return $this->json($this->mapper->toDetail($class), 201);
         } catch (UniqueConstraintViolationException) {
             return $this->json(['error' => ['code' => 'CONFLICT', 'details' => ['name' => 'Classroom exists']]], 409);
         }
     }
 
+    // Route name kept for BC with FE; now performs a full update (name and/or price).
     #[Route('/{id}', name: 'admin_classroom_rename', requirements: ['id' => '\d+'], methods: ['PUT'])]
-    public function rename(int $id, Request $request): JsonResponse
+    public function update(int $id, Request $request): JsonResponse
     {
         $class = $this->classroomRepo->find($id);
         if (!$class) {
             return $this->json(['error' => ['code' => 'NOT_FOUND', 'details' => ['resource' => 'Classroom']]], 404);
         }
 
-        $dto = RenameClassroomDto::fromArray(json_decode($request->getContent() ?: '{}', true, 512, \JSON_THROW_ON_ERROR));
+        $raw = \json_decode($request->getContent() ?: '{}', true, 512, \JSON_THROW_ON_ERROR);
+        $dto = UpdateClassroomDto::fromArray($raw);
+
         $violations = $this->validator->validate($dto);
         if (\count($violations) > 0) {
             $details = [];
@@ -214,13 +206,29 @@ final class ClassroomAdminController extends AbstractController
             return $this->json(['error' => ['code' => 'VALIDATION_FAILED', 'details' => $details]], 422);
         }
 
-        $name = $this->classrooms->normalizeName($dto->name);
-        $existing = $this->classroomRepo->findOneBy(['name' => $name]);
-        if ($existing && $existing->getId() !== $class->getId()) {
-            return $this->json(['error' => ['code' => 'CONFLICT', 'details' => ['name' => 'Classroom exists']]], 409);
+        $newName = null; $nameProvided = $dto->setName;
+        if ($dto->setName) {
+            $newName = $dto->name !== null ? $this->classrooms->normalizeName($dto->name) : null;
+            if ($newName === null) {
+                // explicit null means “do not change name” → flip the flag off
+                $nameProvided = false;
+            } elseif ($newName === '') {
+                return $this->json(['error' => ['code' => 'VALIDATION_FAILED', 'details' => ['name' => 'Required']]], 400);
+            } elseif (($existing = $this->classroomRepo->findOneBy(['name' => $newName])) && $existing->getId() !== $class->getId()) {
+                return $this->json(['error' => ['code' => 'CONFLICT', 'details' => ['name' => 'Classroom exists']]], 409);
+            }
         }
 
-        $this->classrooms->rename($class, $name);
+        $this->classrooms->updateClassroom(
+            $class,
+            $newName,
+            $dto->price,
+            $dto->currency,
+            $nameProvided,
+            $dto->setPrice,
+            $dto->setCurrency
+        );
+
         return $this->json($this->mapper->toDetail($class));
     }
 
@@ -243,6 +251,7 @@ final class ClassroomAdminController extends AbstractController
             return $this->json(['error' => ['code' => 'NOT_FOUND', 'details' => ['resource' => 'Classroom']]], 404);
         }
         $deleted = $this->classrooms->removeClassroom($class);
+
         if ($deleted) {
             return $this->json(['deleted' => true], 200);
         }
@@ -254,8 +263,6 @@ final class ClassroomAdminController extends AbstractController
         ], 200);
     }
 
-
-    // POST /api/admin/classrooms/{id}/restore-roster
     #[Route('/{id}/restore-roster', name: 'admin_classroom_restore_roster', requirements: ['id' => '\d+'], methods: ['POST'])]
     public function restoreRoster(int $id): JsonResponse
     {
@@ -264,47 +271,13 @@ final class ClassroomAdminController extends AbstractController
             return $this->json(['error' => ['code' => 'NOT_FOUND', 'details' => ['resource' => 'Classroom']]], 404);
         }
 
-        // Service throws ClassroomInactiveException → mapped to 409 by ExceptionListener
         $restored = $this->classrooms->restoreRoster($class);
-
         $activeCount = $this->enrollments->countActiveByClassroom($class);
 
-        // Keep response consistent: return the standard detail + a "restored" meta field.
-        $payload = [
+        return $this->json([
             'restored' => (int) $restored,
             'item'     => $this->mapper->toDetail($class, $activeCount),
-        ];
-
-        return $this->json($payload, 200);
-    }
-
-    #[Route('/{id}/dropped-enrollments', name: 'admin_classroom_dropped_enrollments', requirements: ['id' => '\d+'], methods: ['GET'])]
-    public function droppedEnrollments(int $id): JsonResponse
-    {
-        $class = $this->classrooms->getClassById($id);
-        if (!$class) {
-            return $this->json(['error' => ['code' => 'NOT_FOUND', 'details' => ['resource' => 'Classroom']]], 404);
-        }
-
-        // optional TTL (90 days). If you don’t want TTL here, pass null.
-        $since = (new \DateTimeImmutable())->sub(new \DateInterval('P90D'));
-        $list = $this->enrollments->listDroppedForClassroom($class, $since);
-
-        // minimal payload
-        $items = array_map(static function ($e) {
-            return [
-                'id'         => $e->getId(),
-                'student'    => [
-                    'id' => $e->getStudent()->getId(),
-                    'name' => $e->getStudent()->getFullName(),
-                    'email' => $e->getStudent()->getEmail(),
-                ],
-                'droppedAt'  => $e->getDroppedAt()?->format(DATE_ATOM),
-                'status'     => $e->getStatus()->value,
-            ];
-        }, $list);
-
-        return $this->json(['items' => $items]);
+        ]);
     }
 
     #[Route('/{id}/restore-banner/dismiss', name: 'admin_classroom_restore_banner_dismiss', requirements: ['id' => '\d+'], methods: ['POST'])]
@@ -317,6 +290,4 @@ final class ClassroomAdminController extends AbstractController
         $this->classrooms->dismissRestoreBanner($class);
         return $this->json(['ok' => true]);
     }
-
-
 }

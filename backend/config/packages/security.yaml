@@ -44,6 +44,12 @@ security:
         - { path: ^/assets/,  roles: PUBLIC_ACCESS }
         - { path: ^/bundles/, roles: PUBLIC_ACCESS }
         - { path: ^/api/contexts/, roles: PUBLIC_ACCESS }
+        # Public catalog — no token
+        - { path: ^/api/classrooms$, roles: PUBLIC_ACCESS }     # list
+        - { path: ^/api/classrooms/\d+$, roles: PUBLIC_ACCESS } # detail (if you expose one)
+
+        # Public Payment
+        - { path: ^/api/payment/verify$, roles: PUBLIC_ACCESS, methods: [ GET ] }
 
         # ---- AUTH ENDPOINTS (public) ----
         - { path: ^/api/auth/google$, roles: PUBLIC_ACCESS, methods: [POST] }

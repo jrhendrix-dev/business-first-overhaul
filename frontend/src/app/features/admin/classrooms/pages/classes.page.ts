@@ -94,6 +94,7 @@ export class ClassesPage implements OnInit {
 
   form = this.fb.group({
     name: this.fb.control('', { validators: [Validators.required, Validators.minLength(2)] }),
+    price: this.fb.control<number | null>(null, { validators: [Validators.min(0)] }), // <-- NEW
   });
 
   // assign teacher
@@ -229,7 +230,7 @@ export class ClassesPage implements OnInit {
     this.editMode.set(false);
     this.editingId = null;
     this.creating = false;
-    this.form.reset({ name: '' });
+    this.form.reset({ name: '', price: null });
     this.drawerOpen.set(true);
   }
 
@@ -237,19 +238,24 @@ export class ClassesPage implements OnInit {
     this.editMode.set(true);
     this.editingId = c.id;
     this.creating = false;
-    this.form.reset({ name: c.name });
+    this.form.reset({
+      name: c.name,
+      price: c.price ?? null,
+    });
     this.drawerOpen.set(true);
   }
 
   saveName(): void {
     if (this.creating) return;
-    const name = (this.form.value.name ?? '').trim();
+    const name  = (this.form.value.name ?? '').trim();
+    const price = this.form.value.price ?? null; // <-- NEW
     if (!name) { this.toast.add('Please enter a name', 'error'); return; }
+    if (price != null && Number(price) < 0) { this.toast.add('Price must be ≥ 0', 'error'); return; }
 
     this.creating = true;
 
     if (!this.editMode()) {
-      this.api.create(name).subscribe({
+      this.api.create(name, price).subscribe({
         next: () => {
           this.toast.add('Classroom created', 'success');
           this.drawerOpen.set(false);
@@ -262,9 +268,9 @@ export class ClassesPage implements OnInit {
         },
       });
     } else {
-      this.api.rename(this.editingId!, name).subscribe({
+      this.api.rename(this.editingId!, name, price).subscribe({
         next: () => {
-          this.toast.add('Classroom renamed', 'success');
+          this.toast.add('Changes saved', 'success');
           this.drawerOpen.set(false);
           this.creating = false;
           this.load();
@@ -310,7 +316,7 @@ export class ClassesPage implements OnInit {
   }
 
   private showFriendlyNameError(err: any, intent: 'create' | 'rename', name: string): void {
-    const generic = intent === 'create' ? 'Could not create classroom' : 'Could not rename classroom';
+    const generic = intent === 'create' ? 'Could not create classroom' : 'Could not save changes';
 
     if (this.nameAlreadyUsed(name)) {
       this.toast.add(`“${name}” is already used by another classroom. Choose a different name.`, 'error');
@@ -349,7 +355,7 @@ export class ClassesPage implements OnInit {
 
   private showSaveError(err: unknown, action: 'create' | 'rename', attemptedName: string): void {
     const specific = this.humanizeSaveError(err, attemptedName);
-    const fallback = action === 'create' ? 'Create failed' : 'Rename failed';
+    const fallback = action === 'create' ? 'Create failed' : 'Save failed';
     this.toast.add(specific ?? fallback, 'error');
     if (specific) this.form.controls.name.setErrors({ server: specific });
   }
