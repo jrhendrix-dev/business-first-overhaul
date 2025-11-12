@@ -6,26 +6,22 @@ namespace DoctrineMigrations;
 
 use Doctrine\DBAL\Schema\Schema;
 use Doctrine\DBAL\Schema\Column;
-use Doctrine\DBAL\Types\Types;
 use Doctrine\Migrations\AbstractMigration;
 
 /**
- * Adds price fields to classes; creates the table if it does not exist (CI-friendly).
- *
- * @phpstan-type ColumnMap array<string, Column>
+ * Ensure classes exists and has: price_cents (UINT), currency (CHAR(3)), and meta JSON.
  */
 final class Version20251108120731 extends AbstractMigration
 {
     public function getDescription(): string
     {
-        return 'Ensure classes table exists and has price_cents (UINT) and currency (CHAR(3)).';
+        return 'Ensure classes table exists with price fields and meta column.';
     }
 
     public function up(Schema $schema): void
     {
         $sm = $this->connection->createSchemaManager();
 
-        // 1) Create table if missing (so CI fresh DBs pass)
         if (!$sm->tablesExist(['classes'])) {
             $this->addSql(<<<'SQL'
 CREATE TABLE classes (
@@ -34,9 +30,9 @@ CREATE TABLE classes (
   description LONGTEXT DEFAULT NULL,
   schedule VARCHAR(255) DEFAULT NULL,
   capacity INT UNSIGNED DEFAULT NULL,
-  -- New pricing fields
   price_cents INT UNSIGNED NOT NULL,
   currency CHAR(3) NOT NULL,
+  meta JSON NOT NULL,
   created_at DATETIME NOT NULL,
   updated_at DATETIME DEFAULT NULL,
   PRIMARY KEY(id)
@@ -45,16 +41,18 @@ SQL);
             return;
         }
 
-        // 2) Table exists → add the missing columns only
-        /** @var Column[] $cols */
+        // Table exists → add missing columns only
+        /** @var array<string, Column> $cols */
         $cols = $sm->listTableColumns('classes');
 
         if (!isset($cols['price_cents'])) {
             $this->addSql('ALTER TABLE classes ADD price_cents INT UNSIGNED NOT NULL');
         }
         if (!isset($cols['currency'])) {
-            // use CHAR(3) to enforce ISO code length
             $this->addSql('ALTER TABLE classes ADD currency CHAR(3) NOT NULL');
+        }
+        if (!isset($cols['meta'])) {
+            $this->addSql('ALTER TABLE classes ADD meta JSON NOT NULL');
         }
     }
 
@@ -63,9 +61,11 @@ SQL);
         $sm = $this->connection->createSchemaManager();
 
         if ($sm->tablesExist(['classes'])) {
-            /** @var Column[] $cols */
             $cols = $sm->listTableColumns('classes');
 
+            if (isset($cols['meta'])) {
+                $this->addSql('ALTER TABLE classes DROP meta');
+            }
             if (isset($cols['currency'])) {
                 $this->addSql('ALTER TABLE classes DROP currency');
             }

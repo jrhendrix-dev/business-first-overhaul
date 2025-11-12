@@ -8,24 +8,37 @@ use Doctrine\DBAL\Schema\Schema;
 use Doctrine\Migrations\AbstractMigration;
 
 /**
- * Auto-generated Migration: Please modify to your needs!
+ * Safely adds `meta` to classes if the table already exists (CI-friendly).
  */
 final class Version20251029181519 extends AbstractMigration
 {
     public function getDescription(): string
     {
-        return '';
+        return 'Add meta JSON to classes if table exists (skip on fresh DBs).';
     }
 
     public function up(Schema $schema): void
     {
-        // this up() migration is auto-generated, please modify it to your needs
-        $this->addSql('ALTER TABLE classes ADD meta JSON NOT NULL');
+        $sm = $this->connection->createSchemaManager();
+
+        if ($sm->tablesExist(['classes'])) {
+            $cols = $sm->listTableColumns('classes');
+            if (!isset($cols['meta'])) {
+                $this->addSql('ALTER TABLE classes ADD meta JSON NOT NULL');
+            }
+        }
+        // If the table doesn’t exist, do nothing — a later migration will create it with `meta`.
     }
 
     public function down(Schema $schema): void
     {
-        // this down() migration is auto-generated, please modify it to your needs
-        $this->addSql('ALTER TABLE classes DROP meta');
+        $sm = $this->connection->createSchemaManager();
+
+        if ($sm->tablesExist(['classes'])) {
+            $cols = $sm->listTableColumns('classes');
+            if (isset($cols['meta'])) {
+                $this->addSql('ALTER TABLE classes DROP meta');
+            }
+        }
     }
 }
