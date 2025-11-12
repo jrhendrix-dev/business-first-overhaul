@@ -27,6 +27,7 @@ import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
           <a routerLink="/admin/users"   routerLinkActive="underline">Users</a>
           <a routerLink="/admin/classes" routerLinkActive="underline">Classes</a>
           <a routerLink="/admin/grades"  routerLinkActive="underline">Grades</a>
+          <a routerLink="/admin/orders"  routerLinkActive="underline">Billing</a>
         </nav>
       </header>
 
@@ -48,6 +49,8 @@ import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
                    class="block rounded px-2 py-1 hover:bg-slate-100">Classes</a></li>
             <li><a routerLink="/admin/grades"  routerLinkActive="bg-slate-200 font-semibold"
                    class="block rounded px-2 py-1 hover:bg-slate-100">Grades</a></li>
+            <li><a routerLink="/admin/orders"  routerLinkActive="bg-slate-200 font-semibold"
+                   class="block rounded px-2 py-1 hover:bg-slate-100">Billing</a></li>
           </ul>
         </aside>
 

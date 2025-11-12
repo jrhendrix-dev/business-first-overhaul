@@ -45,17 +45,16 @@ export class LoginPage implements AfterViewInit  {
   // ---- lifecycle -----------------------------------------------------------
 
   ngAfterViewInit(): void {
-    // Optional UX: if redirected due to guard
     if (this.route.snapshot.queryParamMap.get('reason') === 'forbidden') {
       this.toast.info('Please log in to continue.');
     }
-
-    if (!environment.googleClientId) {
+    const cid = environment.googleClientId;
+    if (!cid) {
       this.toast.error('Missing Google Client ID');
       return;
     }
 
-    this.google.init(environment.googleClientId, (idToken) => {
+    this.google.init(cid, (idToken) => {
       this.loading.set(true);
       this.google.exchange(idToken).subscribe({
         next: ({ token }) => {
@@ -65,15 +64,14 @@ export class LoginPage implements AfterViewInit  {
         },
         error: (err) => {
           this.loading.set(false);
+          // Helpful diagnostics during setup
           console.error('Google exchange failed', err);
+          const reason = err?.status === 401 ? 'Invalid Google token' : 'HTTP error';
           this.toast.error('GOOGLE_LOGIN_FAILED');
         }
       });
-    }).then(() => {
-      this.google.renderButton(this.googleBtn.nativeElement);
-    }).catch(() => {
-      this.toast.error('Google script failed to load');
-    });
+    }).then(() => this.google.renderButton(this.googleBtn.nativeElement))
+      .catch(() => this.toast.error('Google script failed to load'));
   }
 
   // ---- form ---------------------------------------------------------------

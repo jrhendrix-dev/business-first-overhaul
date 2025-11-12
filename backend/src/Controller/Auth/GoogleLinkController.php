@@ -72,9 +72,9 @@ final class GoogleLinkController extends AbstractController
 
     /**
      * Unlink Google from the current account.
-     * DELETE /api/auth/google/link
+     * DELETE /auth/google/link
      */
-    #[Route('/api/auth/google/link', name: 'api_auth_google_unlink', methods: ['DELETE'])]
+    #[Route('/auth/google/link', name: 'api_auth_google_unlink', methods: ['DELETE'])]
     #[IsGranted('IS_AUTHENTICATED_FULLY')]
     public function unlink(): JsonResponse
     {

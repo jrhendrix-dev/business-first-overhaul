@@ -2,9 +2,7 @@ import { RouterModule, Routes, ExtraOptions } from '@angular/router';
 import { NgModule } from '@angular/core';
 import { authGuard } from '@app/core/auth/auth.guard';
 import { PostLoginComponent } from '@app/features/auth/post-login.component';
-import { TeacherShellComponent } from '@app/features/teacher/ui/teacher-shell.component';
-import { StudentShellComponent } from '@app/features/student/ui/student-shell.component';
-import {guestOnlyGuard} from '@app/core/auth/guest-only.guard';
+import { guestOnlyGuard } from '@app/core/auth/guest-only.guard';
 
 export const routes: Routes = [
   { path: '', pathMatch: 'full', loadComponent: () => import('./features/home/home.page').then(m => m.HomePage) },
@@ -19,20 +17,21 @@ export const routes: Routes = [
   { path: 'password/forgot', loadComponent: () => import('./features/auth/forgot-password.page').then(m => m.ForgotPasswordPage) },
   { path: 'password/reset',  loadComponent: () => import('./features/auth/reset-password.page').then(m => m.ResetPasswordPage) },
 
-  { path: 'catalog',     loadComponent: () => import('./features/catalog/class-catalog.page') },
-  { path: 'catalog/:id', loadComponent: () => import('./features/catalog/class-details.page') },
+  // Catalog (default exports)
+  { path: 'catalog',     loadComponent: () => import('./features/catalog/class-catalog.page').then(m => m.default) },
+  { path: 'catalog/:id', loadComponent: () => import('./features/catalog/class-details.page').then(m => m.default) },
 
   { path: 'register', canActivate: [guestOnlyGuard], loadComponent: () => import('./features/auth/register.page').then(m => m.RegisterPage) },
   { path: 'auth',     loadComponent: () => import('./features/auth/auth-choice.page').then(m => m.AuthChoicePage) },
 
-  // ✅ single lazy group for payment pages (success / cancel / failed)
+  // Payments
   { path: 'payment', loadChildren: () => import('./features/payment/payment.routes').then(m => m.PAYMENT_ROUTES) },
 
-  // --- Student/Teacher areas ---
+  // Student/Teacher areas (lazy)
   { path: 'student', loadChildren: () => import('./features/student/student.routes').then(m => m.STUDENT_ROUTES) },
   { path: 'teacher', loadChildren: () => import('./features/teacher/teacher.routes').then(m => m.TEACHER_ROUTES) },
 
-  // --- Admin shell + children ---
+  // Admin
   {
     path: 'admin',
     canActivate: [authGuard],
@@ -42,12 +41,11 @@ export const routes: Routes = [
       { path: 'users',   title: 'Admin • Users',   loadComponent: () => import('./features/admin/users/users.page').then(m => m.UsersPage) },
       { path: 'classes', title: 'Admin • Classes', loadComponent: () => import('./features/admin/classrooms/pages/classes.page').then(m => m.ClassesPage) },
       { path: 'grades',  title: 'Admin • Grades',  loadComponent: () => import('./features/admin/grades/grades.page').then(m => m.GradesPage) },
+      { path: 'orders',  title: 'Admin • Billing', loadComponent: () => import('./features/admin/orders/orders.page').then(m => m.OrdersPage) },
     ],
   },
 
   { path: 'post-login', component: PostLoginComponent },
-  { path: 'teacher', component: TeacherShellComponent },
-  { path: 'student', component: StudentShellComponent },
 
   // 404
   { path: '**', loadComponent: () => import('./shared/pages/not-found.page').then(m => m.NotFoundPage) },

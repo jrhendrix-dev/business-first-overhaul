@@ -1,16 +1,18 @@
 # config/services.yaml
+
 parameters:
+    # ---- Stripe (secrets come from .env / .env.local) ----
     stripe.public_key: '%env(STRIPE_PUBLIC_KEY)%'
     stripe.secret_key: '%env(STRIPE_SECRET_KEY)%'
     stripe.webhook_secret: '%env(STRIPE_WEBHOOK_SECRET)%'
 
 services:
-    # --- Defaults
+    # ---- Defaults ----
     _defaults:
         autowire: true
         autoconfigure: true
 
-    # --- Autoregister everything except these (they are not services)
+    # ---- Autoregister everything except these (not services) ----
     App\:
         resource: '../src/'
         exclude:
@@ -20,7 +22,7 @@ services:
             - '../src/Kernel.php'
             - '../src/**/Tests/'
 
-    # --- Example: specific wiring already in your repo
+    # ---- Example: specific wiring already in your repo ----
     App\Controller\ContactController:
         arguments:
             $contactLimiter: '@limiter.contact_form'
@@ -30,55 +32,57 @@ services:
     forgot_ip.limiter: '@limiter.forgot_ip'
     forgot_email.limiter: '@limiter.forgot_email'
 
-    # Account mailer
+    # ---- Account mailer ----
     App\Service\AccountMailer:
         arguments:
             $fromAddress: '%env(MAILER_FROM)%'
             $mailtrapLimiter: '@limiter.mailtrap_per_second'
 
-    # API exception subscriber
+    # ---- API exception subscriber ----
     App\EventSubscriber\ApiExceptionSubscriber:
         arguments:
             $debug: '%kernel.debug%'
         tags: ['kernel.event_subscriber']
 
-    # Google
+    # ---- Google (multi-audience verifier) ----
     Google\Client: ~
     App\Service\Auth\GoogleIdTokenVerifier:
         arguments:
-            $expectedClientId: '%env(string:GOOGLE_CLIENT_ID)%'
+            $expectedClientIdsCsv: '%env(string:GOOGLE_CLIENT_IDS)%'
 
     # ----------------- STRIPE (Test Mode) -----------------
-    # Official Stripe client with secret from env
+    # Official Stripe client (constructor accepts secret string)
     Stripe\StripeClient:
+        class: Stripe\StripeClient
         arguments:
-            $config:
-                api_key: '%stripe.secret_key%'
+            - '%stripe.secret_key%'
 
-    # Provider (place file at src/Service/Payments/StripeCheckoutProvider.php)
+    # Provider (src/Service/Payments/StripeCheckoutProvider.php)
     App\Service\Payments\StripeCheckoutProvider:
         arguments:
             $stripe: '@Stripe\StripeClient'
 
-    # Webhook controller (place file at src/Controller/Api/StripeWebhookController.php)
+    # Webhook controller (src/Controller/Api/StripeWebhookController.php)
     App\Controller\Api\StripeWebhookController:
         arguments:
             $stripeWebhookSecret: '%stripe.webhook_secret%'
 
     # ----------------- PORT/ADAPTER ALIASES -----------------
-    # (Keep these only if these interfaces/implementations exist in your tree)
+    # Keep these only if the interfaces/implementations exist in your tree
     App\Service\Contracts\EnrollmentPort: '@App\Service\EnrollmentManager'
     App\Service\Contracts\GradePort: '@App\Service\GradeManager'
+
     App\Mapper\Response\Contracts\StudentClassroomResponsePort: '@App\Mapper\Response\StudentClassroomResponseMapper'
+
     App\Mapper\Response\ClassroomResponseMapper:
         public: true
         autowire: true
         autoconfigure: true
         tags: [ ]
+
     App\Mapper\Response\Contracts\ClassroomResponsePort: '@App\Mapper\Response\ClassroomResponseMapper'
 
     App\Service\Contracts\PasswordResetTokenPort:
         class: App\Service\Adapters\PasswordResetTokenDoctrinePort
         arguments:
             - '@App\Repository\PasswordResetTokenRepository'
-

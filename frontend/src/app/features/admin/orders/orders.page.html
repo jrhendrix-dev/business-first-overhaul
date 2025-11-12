@@ -1,0 +1,82 @@
+<app-toast-container />
+<app-admin-header title="Billing / Orders"></app-admin-header>
+
+<div class="h-full flex flex-col min-h-0">
+  <div class="min-h-0 grow border rounded overflow-hidden">
+    <!-- Filters -->
+    <div class="px-3 py-3 border-b flex items-end gap-3">
+      <div>
+        <label class="block text-xs text-slate-600">Search (student/email)</label>
+        <input class="border rounded px-2 py-1 w-64" [formControl]="filters.controls.q" placeholder="e.g. alice@example.com">
+      </div>
+
+      <div>
+        <label class="block text-xs text-slate-600">Status</label>
+        <select class="border rounded px-2 py-1 w-44" [formControl]="filters.controls.status">
+          <option value="">Any</option>
+          <option value="STATUS_PENDING">Pending</option>
+          <option value="STATUS_PAID">Paid</option>
+          <option value="STATUS_FAILED">Failed</option>
+        </select>
+      </div>
+
+      <div>
+        <label class="block text-xs text-slate-600">Provider</label>
+        <select class="border rounded px-2 py-1 w-44" [formControl]="filters.controls.provider">
+          <option value="">Any</option>
+          <option value="stripe">Stripe</option>
+        </select>
+      </div>
+
+      <div class="ml-auto">
+        <button *ngIf="isFiltered()" class="btn btn-outline" (click)="reset()">Clear</button>
+      </div>
+    </div>
+
+    <!-- Table -->
+    <div class="overflow-auto">
+      <table class="min-w-full text-sm">
+        <thead class="bg-slate-50 border-b sticky top-0 z-10">
+        <tr>
+          <th class="text-left px-3 py-2 w-16">ID</th>
+          <th class="text-left px-3 py-2 w-48">Created</th>
+          <th class="text-left px-3 py-2">Student</th>
+          <th class="text-left px-3 py-2">Class</th>
+          <th class="text-left px-3 py-2 w-32">Amount</th>
+          <th class="text-left px-3 py-2 w-24">Status</th>
+          <th class="text-left px-3 py-2 w-24">Provider</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr *ngFor="let o of items()" class="border-b hover:bg-slate-50">
+          <td class="px-3 py-2">{{ o.id }}</td>
+          <td class="px-3 py-2">{{ o.createdAt | date:'medium' }}</td>
+          <td class="px-3 py-2">
+            {{ o.student.firstName }} {{ o.student.lastName }}
+            <div class="text-xs text-slate-500">{{ o.student.email }}</div>
+          </td>
+          <td class="px-3 py-2">
+            <span *ngIf="o.classroomName; else cid"> {{ o.classroomName }} </span>
+            <ng-template #cid> #{{ o.classroomId }} </ng-template>
+          </td>
+          <td class="px-3 py-2">{{ asAmount(o.amountCents, o.currency) }}</td>
+          <td class="px-3 py-2">
+            <span class="inline-flex items-center gap-1">
+              <span class="h-2.5 w-2.5 rounded-full"
+                    [class.bg-emerald-500]="o.status==='STATUS_PAID'"
+                    [class.bg-amber-500]="o.status==='STATUS_PENDING'"
+                    [class.bg-rose-500]="o.status==='STATUS_FAILED'"></span>
+              {{ o.status.replace('STATUS_', '') }}
+            </span>
+          </td>
+          <td class="px-3 py-2">{{ o.provider }}</td>
+        </tr>
+
+        <tr *ngIf="!items().length">
+          <td [attr.colspan]="7" class="px-3 py-6 text-center text-slate-500">No orders found</td>
+        </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>

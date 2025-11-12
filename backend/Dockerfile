@@ -1,19 +1,34 @@
-# backend/Dockerfile
-FROM php:8.3-cli
+FROM php:8.3-fpm-alpine
 
-# System deps + MySQL client for health/wait checks
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    git unzip curl gnupg ca-certificates default-mysql-client \
- && rm -rf /var/lib/apt/lists/*
+RUN apk add --no-cache bash icu-dev libzip-dev oniguruma-dev git curl tzdata su-exec \
+ && docker-php-ext-install pdo pdo_mysql intl opcache
 
-# PHP extensions for MySQL
-RUN docker-php-ext-install pdo pdo_mysql
+WORKDIR /var/www/app
+
+# Opcache tuned for prod
+RUN { \
+      echo 'opcache.enable=1'; \
+      echo 'opcache.enable_cli=0'; \
+      echo 'opcache.validate_timestamps=0'; \
+      echo 'opcache.preload=/var/www/app/config/preload.php'; \
+      echo 'opcache.preload_user=www-data'; \
+    } > /usr/local/etc/php/conf.d/opcache.ini
 
 # Composer
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+ENV COMPOSER_ALLOW_SUPERUSER=1
 
-# (Optional) Symfony CLI
-RUN curl -sS https://get.symfony.com/cli/installer | bash \
- && mv /root/.symfony*/bin/symfony /usr/local/bin/symfony
+# Vendors first (no scripts)
+COPY composer.json composer.lock ./
+RUN composer install --no-dev --prefer-dist --no-interaction --no-progress --ansi --no-scripts
 
-WORKDIR /var/www/app
+# App code (owning only runtime dirs reduces chown cost)
+COPY . ./
+
+RUN composer dump-autoload -o --ansi \
+ && composer run-script post-install-cmd --no-interaction || true
+
+# Entrypoint handles perms, keys, cache, migrations, then php-fpm
+COPY docker/entrypoint.sh /usr/local/bin/entry.sh
+RUN chmod +x /usr/local/bin/entry.sh
+ENTRYPOINT ["/usr/local/bin/entry.sh"]

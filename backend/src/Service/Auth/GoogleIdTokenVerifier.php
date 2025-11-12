@@ -5,16 +5,19 @@ namespace App\Service\Auth;
 
 use Google\Client as GoogleClient;
 
-/**
- * Verifies Google ID tokens and returns basic profile data or null.
- */
 final class GoogleIdTokenVerifier
 {
+    /** @var string[] */
+    private array $expectedClientIds;
+
     public function __construct(
         private readonly GoogleClient $googleClient,
-        private readonly string $expectedClientId
+        string $expectedClientIdsCsv
     ) {
-        $this->googleClient->setClientId($expectedClientId);
+        $this->expectedClientIds = array_values(array_filter(array_map('trim', explode(',', $expectedClientIdsCsv))));
+        if (isset($this->expectedClientIds[0])) {
+            $this->googleClient->setClientId($this->expectedClientIds[0]);
+        }
     }
 
     /** @return array{id:string,email:string,name?:string,picture?:string}|null */
@@ -22,8 +25,17 @@ final class GoogleIdTokenVerifier
     {
         $p = $this->googleClient->verifyIdToken($idToken);
         if (!$p) return null;
-        if (($p['aud'] ?? null) !== $this->expectedClientId) return null;
-        if (!in_array($p['iss'] ?? '', ['https://accounts.google.com','accounts.google.com'], true)) return null;
+
+        $aud = (string)($p['aud'] ?? '');
+        $iss = (string)($p['iss'] ?? '');
+
+        if (!in_array($aud, $this->expectedClientIds, true)) {
+            if ($_ENV['APP_ENV'] !== 'prod') {
+                error_log('[GoogleIdTokenVerifier] audience mismatch aud=' . $aud);
+            }
+            return null;
+        }
+        if ($iss !== 'https://accounts.google.com' && $iss !== 'accounts.google.com') return null;
         if (($p['email_verified'] ?? false) !== true) return null;
 
         return [
