@@ -64,7 +64,7 @@ services:
       php:
         condition: service_healthy
     ports:
-      - "8080:80"
+      - "80:80"
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost/healthz"]
