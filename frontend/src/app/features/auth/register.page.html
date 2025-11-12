@@ -1,0 +1,141 @@
+<section class="mx-auto w-full max-w-5xl px-4 py-16">
+  <h1 class="text-5xl font-extrabold tracking-tight mb-10">Crear cuenta</h1>
+
+  <app-toast-container></app-toast-container>
+
+  <article class="relative mx-auto max-w-2xl rounded-2xl border border-black/5 bg-white shadow-[0_10px_30px_-15px_rgba(0,0,0,0.25)]">
+    <header class="px-6 pt-10 pb-5 border-b border-black/5">
+      <h2 class="text-2xl font-semibold">Regístrate</h2>
+      <p class="text-sm text-black/60">Completa tus datos para crear tu cuenta</p>
+    </header>
+
+    <form [formGroup]="form" (ngSubmit)="submit()" class="px-6 py-6 grid gap-4" novalidate>
+      <!-- ✅ Honeypot: visually hidden, bots will fill it -->
+      <div class="sr-only" aria-hidden="true">
+        <label for="hp">Leave this field empty</label>
+        <input id="hp" type="text" formControlName="hp" tabindex="-1" autocomplete="off" />
+      </div>
+
+      <!-- Nombre -->
+      <div>
+        <label class="block text-sm text-black/70 mb-1">
+          Nombre
+          <span *ngIf="hasServerError('firstName')" class="ml-2 rounded-full bg-rose-100 px-2 py-0.5 text-xs font-medium text-rose-700 align-middle">
+            Corrige este campo
+          </span>
+        </label>
+        <span *ngIf="hasServerError('firstName')" id="firstName-flag" class="sr-only">Este campo tiene un error</span>
+        <input type="text" formControlName="firstName"
+               [class]="inputClass('firstName')"
+               [attr.aria-invalid]="ariaInvalid('firstName')"
+               [attr.aria-describedby]="hasServerError('firstName') ? 'firstName-error firstName-flag' : null"/>
+        <p id="firstName-error"
+           class="mt-1 text-sm min-h-[1.25rem] text-rose-600 transition-opacity duration-150"
+           [class.opacity-0]="!msg('firstName')">
+          {{ msg('firstName') || ' ' }}
+        </p>
+      </div>
+
+      <!-- Apellidos -->
+      <div>
+        <label class="block text-sm text-black/70 mb-1">
+          Apellidos
+          <span *ngIf="hasServerError('lastName')" class="ml-2 rounded-full bg-rose-100 px-2 py-0.5 text-xs font-medium text-rose-700 align-middle">
+            Corrige este campo
+          </span>
+        </label>
+        <span *ngIf="hasServerError('lastName')" id="lastName-flag" class="sr-only">Este campo tiene un error</span>
+        <input type="text" formControlName="lastName"
+               [class]="inputClass('lastName')"
+               [attr.aria-invalid]="ariaInvalid('lastName')"
+               [attr.aria-describedby]="hasServerError('lastName') ? 'lastName-error lastName-flag' : null"/>
+        <p id="lastName-error"
+           class="mt-1 text-sm min-h-[1.25rem] text-rose-600 transition-opacity duration-150"
+           [class.opacity-0]="!msg('lastName')">
+          {{ msg('lastName') || ' ' }}
+        </p>
+      </div>
+
+      <!-- Usuario -->
+      <div>
+        <label class="block text-sm text-black/70 mb-1">
+          Nombre de usuario
+          <span *ngIf="hasServerError('userName')" class="ml-2 rounded-full bg-rose-100 px-2 py-0.5 text-xs font-medium text-rose-700 align-middle">
+            Corrige este campo
+          </span>
+        </label>
+        <span *ngIf="hasServerError('userName')" id="userName-flag" class="sr-only">Este campo tiene un error</span>
+        <input type="text" formControlName="userName" autocomplete="username"
+               [class]="inputClass('userName')"
+               [attr.aria-invalid]="ariaInvalid('userName')"
+               [attr.aria-describedby]="hasServerError('userName') ? 'userName-error userName-flag' : null"/>
+        <p class="mt-1 text-xs text-black/60">3–24 caracteres. Letras, números y . _ -</p>
+        <p id="userName-error"
+           class="mt-1 text-sm min-h-[1.25rem] text-rose-600 transition-opacity duration-150"
+           [class.opacity-0]="!msg('userName')">
+          {{ msg('userName') || ' ' }}
+        </p>
+      </div>
+
+      <!-- Email -->
+      <div>
+        <label class="block text-sm text-black/70 mb-1">
+          Email
+          <span *ngIf="hasServerError('email')" class="ml-2 rounded-full bg-rose-100 px-2 py-0.5 text-xs font-medium text-rose-700 align-middle">
+            Corrige este campo
+          </span>
+        </label>
+        <span *ngIf="hasServerError('email')" id="email-flag" class="sr-only">Este campo tiene un error</span>
+        <input type="email" formControlName="email"
+               [class]="inputClass('email')"
+               [attr.aria-invalid]="ariaInvalid('email')"
+               [attr.aria-describedby]="hasServerError('email') ? 'email-error email-flag' : null"/>
+        <p id="email-error"
+           class="mt-1 text-sm min-h-[1.25rem] text-rose-600 transition-opacity duration-150"
+           [class.opacity-0]="!msg('email')">
+          {{ msg('email') || ' ' }}
+        </p>
+      </div>
+
+      <!-- Password -->
+      <div>
+        <label class="block text-sm text-black/70 mb-1">
+          Contraseña
+          <span *ngIf="hasServerError('password')" class="ml-2 rounded-full bg-rose-100 px-2 py-0.5 text-xs font-medium text-rose-700 align-middle">
+            Corrige este campo
+          </span>
+        </label>
+        <span *ngIf="hasServerError('password')" id="password-flag" class="sr-only">Este campo tiene un error</span>
+        <input type="password" formControlName="password" autocomplete="new-password"
+               [class]="inputClass('password')"
+               [attr.aria-invalid]="ariaInvalid('password')"
+               [attr.aria-describedby]="hasServerError('password') ? 'password-error password-flag' : null"/>
+        <p class="mt-1 text-xs text-black/60">Mínimo 12 caracteres e incluir mayúscula, minúscula, número y símbolo.</p>
+        <p id="password-error"
+           class="mt-1 text-sm min-h-[1.25rem] text-rose-600 transition-opacity duration-150"
+           [class.opacity-0]="!msg('password')">
+          {{ msg('password') || ' ' }}
+        </p>
+      </div>
+
+      <div *ngIf="error()" class="text-rose-600 text-sm">{{ error() }}</div>
+      <div *ngIf="success()" class="text-emerald-700 text-sm">Cuenta creada. Revisa tu correo e inicia sesión.</div>
+
+      <button class="mt-1 w-full px-4 py-3 rounded-2xl bg-[color:var(--brand)] text-white hover:bg-[color:var(--brand-strong)] disabled:opacity-50 disabled:cursor-not-allowed"
+              [disabled]="form.invalid || loading()">
+        {{ loading() ? 'Creando cuenta…' : 'Crear cuenta' }}
+      </button>
+
+      <div class="text-sm text-black/60">
+        ¿Ya tienes cuenta?
+        <a
+          [routerLink]="['/login']"
+          [queryParams]="forwardBuyParams()"
+          class="text-[color:var(--brand)] underline"
+        >
+          Inicia sesión
+        </a>
+      </div>
+    </form>
+  </article>
+</section>

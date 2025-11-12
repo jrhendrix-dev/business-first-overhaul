@@ -25,11 +25,11 @@ security:
             pattern: ^/api/login
             stateless: true
             json_login:
-                check_path: api_login
+                check_path: /api/login
                 username_path: email
                 password_path: password
-                success_handler: lexik_jwt_authentication.handler.authentication_success
-                failure_handler: lexik_jwt_authentication.handler.authentication_failure
+                success_handler: App\Security\JwtLoginSuccessHandler
+                failure_handler: App\Security\JwtLoginFailureHandler
 
         # All other /api endpoints secured with JWT
         api:
@@ -37,46 +37,44 @@ security:
             stateless: true
             jwt: ~
 
-        # (Optional) everything else (/, assets, SPA shell) — no auth
-        main:
-            pattern: ^/
-            lazy: true
-            security: false
-
     access_control:
-        # Most-specific rules FIRST
-
-        # Public API docs (UI + JSON/YAML endpoints)
+        # Docs & public assets
         - { path: ^/api/docs(?:$|/), roles: PUBLIC_ACCESS }
         - { path: ^/api/docs\.(?:json|jsonld|yaml|yamlopenapi|jsonopenapi)$, roles: PUBLIC_ACCESS }
-
-        # Static asset paths (whether using Asset Mapper or classic bundles)
         - { path: ^/assets/,  roles: PUBLIC_ACCESS }
         - { path: ^/bundles/, roles: PUBLIC_ACCESS }
-
-        # JSON-LD contexts (safe to expose)
         - { path: ^/api/contexts/, roles: PUBLIC_ACCESS }
+        # Public catalog — no token
+        - { path: ^/api/classrooms$, roles: PUBLIC_ACCESS }     # list
+        - { path: ^/api/classrooms/\d+$, roles: PUBLIC_ACCESS } # detail (if you expose one)
 
-        # Auth endpoints
-        - { path: ^/api/login$, roles: PUBLIC_ACCESS, methods: [POST] }
+        # Public Payment
+        - { path: ^/api/payment/verify$, roles: PUBLIC_ACCESS, methods: [ GET ] }
 
-        # Public endpoints you listed
-        - { path: ^/api/auth/register$,        roles: PUBLIC_ACCESS }
-        - { path: ^/api/password/forgot$, roles: PUBLIC_ACCESS }
-        - { path: ^/api/password/reset$,  roles: PUBLIC_ACCESS }
-        - { path: ^/api/contact$,         roles: PUBLIC_ACCESS }
-        - { path: ^/api/dev/test-mail$,   roles: PUBLIC_ACCESS }
+        # ---- AUTH ENDPOINTS (public) ----
+        - { path: ^/api/auth/google$, roles: PUBLIC_ACCESS, methods: [POST] }
+        - { path: ^/api/auth/google/link$,   roles: IS_AUTHENTICATED_FULLY, methods: [ POST ] }
+        - { path: ^/api/auth/google/unlink$, roles: IS_AUTHENTICATED_FULLY, methods: [ POST ] }
+        - { path: ^/api/login$,         roles: PUBLIC_ACCESS, methods: [POST] }
+        - { path: ^/api/auth/2fa/verify$, roles: PUBLIC_ACCESS, methods: [POST] }
 
-        # CORS preflight for any /api route (avoid spurious 401s on OPTIONS)
+        # Registration / password / contact (public POSTs)
+        - { path: ^/api/auth/register$,    roles: PUBLIC_ACCESS, methods: [POST] }
+        - { path: ^/api/password/(forgot|reset)$, roles: PUBLIC_ACCESS, methods: [POST] }
+        - { path: ^/api/contact$,          roles: PUBLIC_ACCESS, methods: [POST] }
+        - { path: ^/api/dev/test-mail$,    roles: PUBLIC_ACCESS, methods: [POST] }
+
+        # CORS preflight for any /api route
         - { path: ^/api, roles: PUBLIC_ACCESS, methods: [OPTIONS] }
 
-        # Role-based exceptions
-        - { path: ^/api/classes/\d+/students, roles: ROLE_TEACHER }
-        - { path: ^/api/teacher, roles: ROLE_TEACHER }
-        - { path: ^/api/enrollments,          roles: ROLE_USER }
+        # ---- ROLE-GATED ----
+        - { path: ^/api/admin,                 roles: ROLE_ADMIN }
+        - { path: ^/api/classrooms/\d+/students, roles: ROLE_TEACHER }
+        - { path: ^/api/teacher,               roles: ROLE_TEACHER }
+        - { path: ^/api/enrollments,           roles: ROLE_USER }
 
-        # Optionally keep "/" public if you add a redirect/home later
+        # SPA root (optional public GET)
         - { path: ^/$, roles: PUBLIC_ACCESS, methods: [GET] }
 
-        # Catch-all: everything else under /api requires a valid JWT
+        # ---- CATCH-ALL ----
         - { path: ^/api, roles: IS_AUTHENTICATED_FULLY }

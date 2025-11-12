@@ -4,7 +4,9 @@ namespace App\Service;
 
 use App\Entity\Classroom;
 use App\Entity\Enrollment;
+use App\Entity\Exception\ClassroomInactiveException;
 use App\Entity\User;
+use App\Enum\ClassroomStatusEnum;
 use App\Enum\EnrollmentStatusEnum;
 use App\Repository\EnrollmentRepository;
 use App\Service\Contracts\EnrollmentPort;
@@ -27,7 +29,7 @@ final class EnrollmentManager implements EnrollmentPort
     ) {}
 
     /**
-     * Ensure the student is ACTIVE in the classroom (idempotent).
+     * Ensure the student is ACTIVE in the classrooms (idempotent).
      *
      * Flow:
      *  - If ACTIVE exists -> return it (no DB writes).
@@ -89,7 +91,7 @@ final class EnrollmentManager implements EnrollmentPort
             ->setStatus(EnrollmentStatusEnum::DROPPED)
             ->setDroppedAt(new \DateTimeImmutable());
 
-        // Keep classroom link for history; do NOT null it out.
+        // Keep classrooms link for history; do NOT null it out.
         $this->em->flush();
     }
 
@@ -120,7 +122,7 @@ final class EnrollmentManager implements EnrollmentPort
     }
 
 
-    /** Port implementation: bulk drop all ACTIVE enrollments for the classroom */
+    /** Port implementation: bulk drop all ACTIVE enrollments for the classrooms */
     public function dropAllActiveForClassroom(Classroom $classroom): void
     {
         $this->enrollments->softDropAllActiveByClassroom($classroom);
@@ -171,11 +173,11 @@ final class EnrollmentManager implements EnrollmentPort
     {
         $enrollment = $this->enrollments->findOneBy([
             'student'   => $studentId,
-            'classroom' => $classId,
+            'classroom' => $classId,   // <- singular
         ]);
 
         if (!$enrollment) {
-            throw new RuntimeException(sprintf(
+            throw new \RuntimeException(sprintf(
                 'Enrollment not found for studentId=%d and classId=%d',
                 $studentId,
                 $classId
@@ -189,4 +191,63 @@ final class EnrollmentManager implements EnrollmentPort
     {
         return $this->enrollments->countActiveByClassroom($classroom);
     }
+
+    /**
+     * Restore all DROPPED enrollments belonging to the given classroom.
+     *
+     * @param Classroom $classroom
+     * @return int Number of enrollments restored to ACTIVE
+     *
+     * @throws ClassroomInactiveException When classroom is not ACTIVE
+     */
+    public function restoreAllDroppedForClassroom(Classroom $classroom): int
+    {
+        if ($classroom->getStatus() !== ClassroomStatusEnum::ACTIVE) {
+            throw new ClassroomInactiveException($classroom->getStatus()->value);
+        }
+
+        /** @var Enrollment[] $dropped */
+        $dropped = $this->enrollments->findDroppedByClassroom($classroom);
+        $count   = 0;
+
+        foreach ($dropped as $enr) {
+            // If you need extra business rules (e.g., student already active elsewhere),
+            // check here and skip accordingly.
+            $enr->setStatus(EnrollmentStatusEnum::ACTIVE);
+            $this->em->persist($enr);
+            $count++;
+        }
+
+        if ($count > 0) {
+            $this->em->flush();
+        }
+
+        return $count;
+    }
+
+    public function listDroppedForClassroom(Classroom $classroom, ?\DateTimeImmutable $notOlderThan = null): array
+    {
+        return $this->enrollments->findDroppedByClassroomLimited($classroom, $notOlderThan);
+    }
+
+    /**
+     * Hard-delete a single DROPPED enrollment.
+     *
+     * @throws \DomainException if the enrollment is not DROPPED
+     */
+    public function discardDropped(Enrollment $enrollment): void
+    {
+        if ($enrollment->getStatus() !== EnrollmentStatusEnum::DROPPED) {
+            throw new \DomainException('Only dropped enrollments can be discarded.');
+        }
+        $this->enrollments->remove($enrollment);
+        $this->em->flush();
+    }
+
+    /** Optional nightly purge for retention window, e.g., 90 days */
+    public function purgeDroppedOlderThan(\DateTimeImmutable $before): int
+    {
+        return $this->enrollments->purgeDroppedOlderThan($before);
+    }
+
 }

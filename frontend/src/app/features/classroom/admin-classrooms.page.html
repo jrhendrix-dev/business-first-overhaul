@@ -1,0 +1,70 @@
+<section class="p-6 space-y-8">
+  <h1 class="text-2xl font-bold">Admin • Classrooms</h1>
+
+  <!-- Top-level non-validation errors -->
+  <div *ngIf="error() as err" class="text-red-600">{{ err }}</div>
+
+  <!-- Create classrooms -->
+  <form [formGroup]="createForm" (ngSubmit)="create()" class="grid gap-3 max-w-lg border rounded p-4">
+    <h2 class="font-semibold">Create classroom</h2>
+    <input class="border p-2 rounded" placeholder="Name" formControlName="name">
+    <div class="text-sm text-red-600" *ngIf="serverError(createForm.controls.name) as e">{{ e }}</div>
+    <button class="bg-blue-600 text-white px-4 py-2 rounded" [disabled]="busy()">Create</button>
+  </form>
+
+  <div class="grid md:grid-cols-2 gap-8">
+    <!-- Left: list -->
+    <div>
+      <h2 class="font-semibold mb-2">Classrooms</h2>
+      <ul *ngIf="classrooms$ | async as rows" class="divide-y">
+        <li *ngFor="let c of rows; trackBy: trackById" class="py-3 flex items-center justify-between">
+          <div>
+            <div class="font-medium">{{ c.name }}</div>
+            <div class="text-sm text-gray-600">
+              Teacher: {{ c.teacher?.name ?? 'Unassigned' }} • Status: {{ c.status }}
+            </div>
+          </div>
+          <button class="text-blue-700 underline" (click)="select(c.id)">Select</button>
+        </li>
+      </ul>
+    </div>
+
+    <!-- Right: edit selected -->
+    <div>
+      <h2 class="font-semibold mb-2">Selected classroom</h2>
+
+      <!-- When none selected -->
+      <p *ngIf="!(selected$ | async)">Pick one from the list.</p>
+
+      <!-- When selected -->
+      <ng-container *ngIf="selected$ | async as detail">
+        <div class="mb-4">
+          <div class="font-medium">{{ detail.name }}</div>
+          <div class="text-sm text-gray-600">
+            Teacher: {{ detail.teacher?.name ?? 'Unassigned' }} • Students: {{ detail.activeStudents }} • Status: {{ detail.status }}
+          </div>
+        </div>
+
+        <!-- Rename -->
+        <form [formGroup]="renameForm" (ngSubmit)="rename()" class="grid gap-3 max-w-lg border rounded p-4 mb-4">
+          <h3 class="font-medium">Rename</h3>
+          <input class="border p-2 rounded" placeholder="New name" formControlName="name">
+          <div class="text-sm text-red-600" *ngIf="serverError(renameForm.controls.name) as e">{{ e }}</div>
+          <button class="bg-emerald-600 text-white px-4 py-2 rounded" [disabled]="busy()">Save</button>
+        </form>
+
+        <!-- Assign / Unassign teacher -->
+        <form [formGroup]="assignForm" (ngSubmit)="assignTeacher()" class="grid gap-3 max-w-lg border rounded p-4">
+          <h3 class="font-medium">Assign teacher</h3>
+          <input class="border p-2 rounded" type="number" min="1" placeholder="Teacher ID" formControlName="teacherId">
+          <div class="text-sm text-red-600" *ngIf="serverError(assignForm.controls.teacherId) as e">{{ e }}</div>
+
+          <div class="flex gap-3">
+            <button class="bg-indigo-600 text-white px-4 py-2 rounded" [disabled]="busy()">Assign</button>
+            <button type="button" class="bg-gray-200 px-4 py-2 rounded" (click)="unassignTeacher()" [disabled]="busy()">Unassign</button>
+          </div>
+        </form>
+      </ng-container>
+    </div>
+  </div>
+</section>

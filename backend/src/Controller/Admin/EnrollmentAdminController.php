@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Controller\Admin;
 
+use App\Repository\EnrollmentRepository;
 use App\Service\ClassroomManager;
 use App\Service\Contracts\EnrollmentPort;
 use App\Service\EnrollmentManager;
@@ -17,7 +18,7 @@ use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
 /**
- * Admin endpoints for managing classroom enrollments.
+ * Admin endpoints for managing classrooms enrollments.
  *
  * Routing
  * -------
@@ -46,19 +47,19 @@ final class EnrollmentAdminController extends AbstractController
 {
     /**
      * @param EnrollmentManager         $enrollmentManager   Domain service for enrollment workflows.
-     * @param ClassroomManager          $classroomManager    Domain service for classroom logic.
+     * @param ClassroomManager          $classroomManager    Domain service for classrooms logic.
      * @param RequestEntityResolver     $resolver            Helper to resolve/require entities by id.
      * @param EnrollmentResponseMapper  $enrollmentMapper    Maps Enrollment entities to API arrays.
      */
     public function __construct(
-        private readonly EnrollmentPort $enrollmentManager,
-        private readonly ClassroomManager $classroomManager,
-        private readonly RequestEntityResolver $resolver,
-        private readonly EnrollmentResponseMapper $enrollmentMapper,
+        private readonly EnrollmentPort           $enrollmentManager,
+        private readonly ClassroomManager         $classroomManager,
+        private readonly RequestEntityResolver    $resolver,
+        private readonly EnrollmentResponseMapper $enrollmentMapper, private readonly EnrollmentRepository $enrollmentRepository,
     ) {}
 
     /**
-     * Enroll (or reactivate) a student in a classroom (idempotent).
+     * Enroll (or reactivate) a student in a classrooms (idempotent).
      *
      * Route: PUT /api/admin/enrollments/class/{classId}/student/{studentId}
      *
@@ -107,12 +108,12 @@ final class EnrollmentAdminController extends AbstractController
     }
 
     /**
-     * Soft-drop the ACTIVE enrollment for a student in a classroom.
+     * Soft-drop the ACTIVE enrollment for a student in a classrooms.
      *
      * Route: DELETE /api/admin/enrollments/class/{classId}/student/{studentId}
      *
      * Behavior
-     * - Removes the student from the classroom via the ClassroomManager (soft operation).
+     * - Removes the student from the classrooms via the ClassroomManager (soft operation).
      *
      * Responses
      * - 204 No Content on success.
@@ -168,13 +169,13 @@ final class EnrollmentAdminController extends AbstractController
     }
 
     /**
-     * Bulk soft-drop all ACTIVE enrollments in a classroom.
+     * Bulk soft-drop all ACTIVE enrollments in a classrooms.
      *
      * Route: DELETE /api/admin/enrollments/class/{classId}/enrollments
      *
      * Responses
      * - 204 No Content on success.
-     * - 404 Not Found (normalized) if classroom does not exist.
+     * - 404 Not Found (normalized) if classrooms does not exist.
      *
      * @param int $classId  Classroom identifier.
      * @return JsonResponse Empty body with appropriate status code.
@@ -194,13 +195,13 @@ final class EnrollmentAdminController extends AbstractController
     }
 
     /**
-     * List enrollments (any status) for a classroom.
+     * List enrollments (any status) for a classrooms.
      *
      * Route: GET /api/admin/enrollments/class/{classId}/enrollments
      *
      * Responses
      * - 200 OK: array of enrollments mapped by {@see EnrollmentResponseMapper::toCollection()}.
-     * - 404 Not Found (normalized) if classroom does not exist.
+     * - 404 Not Found (normalized) if classrooms does not exist.
      *
      * @param int $classId  Classroom identifier.
      * @return JsonResponse Array of enrollments.
@@ -220,13 +221,13 @@ final class EnrollmentAdminController extends AbstractController
     }
 
     /**
-     * List ACTIVE enrollments for a classroom.
+     * List ACTIVE enrollments for a classrooms.
      *
      * Route: GET /api/admin/enrollments/class/{classId}/active-enrollments
      *
      * Responses
      * - 200 OK: array of active enrollments mapped by {@see EnrollmentResponseMapper::toCollection()}.
-     * - 404 Not Found (normalized) if classroom does not exist.
+     * - 404 Not Found (normalized) if classrooms does not exist.
      *
      * @param int $classId  Classroom identifier.
      * @return JsonResponse Array of active enrollments.
@@ -244,4 +245,24 @@ final class EnrollmentAdminController extends AbstractController
 
         return $this->json($this->enrollmentMapper->toCollection($items));
     }
+
+    // DELETE /api/admin/enrollments/{id}/discard  (only if DROPPED)
+    #[Route('/{id}/discard', name: 'admin_enrollment_discard', requirements: ['id' => '\d+'], methods: ['DELETE'])]
+    public function discard(int $id, EnrollmentRepository $repo): JsonResponse
+    {
+        $affected = $repo->hardDeleteIfDropped($id);
+
+        if ($affected === 0) {
+            // Not found or not in DROPPED state — surface a clean conflict
+            return $this->json([
+                'error' => [
+                    'code' => 'CONFLICT',
+                    'details' => ['state' => 'Only DROPPED enrollments can be discarded'],
+                ],
+            ], 409);
+        }
+
+        return $this->json(['deleted' => true], 200);
+    }
+
 }

@@ -19,6 +19,7 @@ final class StudentClassroomResponseMapper implements StudentClassroomResponsePo
         $teacher = $class->getTeacher();
 
         return new StudentClassroomItemDto(
+            enrollmentId: (int) $e->getId(),
             classId:    (int) $class->getId(),
             className:  (string) $class->getName(),
             status:     $e->getStatus()->value,

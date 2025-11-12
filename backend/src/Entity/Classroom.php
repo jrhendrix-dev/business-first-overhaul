@@ -17,7 +17,7 @@ use Symfony\Component\Serializer\Annotation\MaxDepth;
 #[ORM\Entity(repositoryClass: ClassroomRepository::class)]
 #[ORM\Table(name: 'classes')]
 #[ORM\UniqueConstraint(name: "uniq_class_name", columns: ["name"])]
-#[UniqueEntity(fields: ['name'], message: 'A classroom with this name already exists.')]
+#[UniqueEntity(fields: ['name'], message: 'A classrooms with this name already exists.')]
 class Classroom
 {
     #[ORM\Id]
@@ -43,6 +43,15 @@ class Classroom
 
     #[ORM\Column(type: 'string', enumType: ClassroomStatusEnum::class)]
     private ClassroomStatusEnum $status = ClassroomStatusEnum::ACTIVE;
+
+    #[ORM\Column(type: 'json', options: ['jsonb' => true])]
+    private array $meta = []; // generic bag
+
+    #[ORM\Column(name: 'price_cents', type: 'integer', options: ['unsigned' => true])]
+    private int $priceCents = 1500; // default €15.00 for demo
+
+    #[ORM\Column(name: 'currency', type: 'string', length: 3)]
+    private string $currency = 'EUR';
 
     public function __construct()
     {
@@ -140,8 +149,50 @@ class Classroom
         return $this;
     }
 
+    /** Minor units, e.g., cents. Never use float for money. */
+    public function getPriceCents(): int
+    {
+        return $this->priceCents;
+    }
+
+    /** @return self */
+    public function setPriceCents(int $cents): self
+    {
+        if ($cents < 0) {
+            throw new \InvalidArgumentException('price_cents must be >= 0');
+        }
+        $this->priceCents = $cents;
+        return $this;
+    }
+
+    public function getCurrency(): string
+    {
+        return $this->currency;
+    }
+
+    /** @return self */
+    public function setCurrency(string $iso4217): self
+    {
+        $iso4217 = strtoupper($iso4217);
+        // keep it simple; you can add a whitelist/enum if you want
+        if (\strlen($iso4217) !== 3) {
+            throw new \InvalidArgumentException('currency must be 3-letter ISO code');
+        }
+        $this->currency = $iso4217;
+        return $this;
+    }
+
     public function isDropped(): bool
     {
         return $this->status === ClassroomStatusEnum::DROPPED;
     }
+
+    public function getMeta(): array { return $this->meta; }
+    public function setMeta(array $meta): self { $this->meta = $meta; return $this; }
+    public function isRestoreBannerDismissed(): bool { return (bool)($this->meta['restoreBannerDismissed'] ?? false); }
+    public function dismissRestoreBanner(): self { $this->meta['restoreBannerDismissed'] = true; return $this; }
+    public function resetRestoreBanner(): self { unset($this->meta['restoreBannerDismissed']); return $this; }
+
+
+
 }

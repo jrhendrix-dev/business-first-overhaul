@@ -48,7 +48,7 @@ final readonly class RequestEntityResolver
     /**
      * Resolve both; classroomId can be null to skip that part.
      *
-     * @return array{student: User, classroom: ?Classroom}
+     * @return array{student: User, classrooms: ?Classroom}
      * @throws NotFoundHttpException|BadRequestHttpException
      */
     public function requireStudentAndOptionalClass(int $studentId, ?int $classroomId): array
@@ -56,6 +56,6 @@ final readonly class RequestEntityResolver
         $student = $this->requireStudent($studentId, true);
         $class   = $classroomId !== null ? $this->requireClassroom($classroomId) : null;
 
-        return ['student' => $student, 'classroom' => $class];
+        return ['student' => $student, 'classrooms' => $class];
     }
 }

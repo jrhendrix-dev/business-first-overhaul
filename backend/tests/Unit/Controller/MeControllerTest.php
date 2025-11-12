@@ -356,7 +356,7 @@ final class MeControllerTest extends TestCase
                 'percent'       => 88.5,
                 'gradedAt'      => '2024-01-15T09:00:00+00:00',
                 'enrollmentId'  => 84,
-                'classroom'     => [
+                'classrooms'     => [
                     'id'   => 7,
                     'name' => 'Biology 101',
                 ],

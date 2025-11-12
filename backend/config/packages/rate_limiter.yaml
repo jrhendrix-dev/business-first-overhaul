@@ -1,28 +1,41 @@
 # config/packages/rate_limiter.yaml
 framework:
     rate_limiter:
-        mailtrap_per_second:
-            policy: sliding_window
-            limit: 1
-            interval: '2 second'
+        limiters:
+            # --- Mailer throttle (avoid Mailtrap/API abuse)
+            mailtrap_per_second:
+                policy: sliding_window
+                limit: 1
+                interval: '2 seconds'
 
-        contact_form:
-            policy: fixed_window
-            limit: 5
-            interval: '1 minute'
+            # --- Public contact form
+            contact_form:
+                policy: fixed_window
+                limit: 5
+                interval: '1 minute'
 
-        forgot_ip:
-            policy: sliding_window
-            limit: 5
-            interval: '15 minutes'
+            # --- Forgot password: IP-based limit
+            forgot_ip:
+                policy: sliding_window
+                limit: 5
+                interval: '15 minutes'
 
-        forgot_email:
-            policy: fixed_window
-            limit: 3
-            interval: '10 minutes'
+            # --- Forgot password: per-email limit
+            forgot_email:
+                policy: fixed_window
+                limit: 3
+                interval: '10 minutes'
 
+            # --- Registration: per IP + global
+            register_per_ip:
+                policy: fixed_window
+                limit: 10
+                interval: '1 hour'
 
-services:
-#    App\Controller\ContactController:
-#        arguments:
-#            $contactLimiter: '@limiter.contact_form'
+            register_global:
+                policy: token_bucket
+                # In your Symfony version, use `limit` for bucket size
+                limit: 60           # bucket size (max tokens)
+                rate:
+                    interval: '1 minute'
+                    amount: 30        # tokens refilled per interval

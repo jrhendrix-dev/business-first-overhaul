@@ -28,7 +28,7 @@ use Symfony\Component\Validator\ConstraintViolationInterface;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
 
 /**
- * Teacher-facing grade endpoints enforcing classroom ownership constraints.
+ * Teacher-facing grade endpoints enforcing classrooms ownership constraints.
  */
 #[Route('/teacher')]
 #[IsGranted('ROLE_TEACHER')]
@@ -45,7 +45,7 @@ final class GradeTeacherController extends AbstractController
     ) {
     }
 
-    #[Route('/classes/{classId<\d+>}/students/{studentId<\d+>}/grades', name: 'teacher_grades_list', methods: ['GET'])]
+    #[Route('/classrooms/{classId<\d+>}/students/{studentId<\d+>}/grades', name: 'teacher_grades_list', methods: ['GET'])]
     public function list(int $classId, int $studentId): JsonResponse
     {
         $teacher    = $this->requireTeacher();
@@ -57,7 +57,7 @@ final class GradeTeacherController extends AbstractController
         return $this->json($this->responseMapper->toTeacherCollection($items), Response::HTTP_OK);
     }
 
-    #[Route('/classes/{classId<\d+>}/students/{studentId<\d+>}/grades', name: 'teacher_grades_create', methods: ['POST'])]
+    #[Route('/classrooms/{classId<\d+>}/students/{studentId<\d+>}/grades', name: 'teacher_grades_create', methods: ['POST'])]
     public function create(int $classId, int $studentId, Request $request): JsonResponse
     {
         $teacher    = $this->requireTeacher();
@@ -174,11 +174,11 @@ final class GradeTeacherController extends AbstractController
     }
 
     /**
-     * List all grades in a classroom (across all students) that belongs to the teacher.
+     * List all grades in a classrooms (across all students) that belongs to the teacher.
      *
-     * GET /api/teacher/classes/{classId}/grades
+     * GET /api/teacher/classrooms/{classId}/grades
      */
-    #[Route('/classes/{classId<\d+>}/grades', name: 'teacher_class_grades', methods: ['GET'])]
+    #[Route('/classrooms/{classId<\d+>}/grades', name: 'teacher_class_grades', methods: ['GET'])]
     public function listForClass(int $classId): JsonResponse
     {
         $teacher = $this->requireTeacher();
@@ -186,7 +186,7 @@ final class GradeTeacherController extends AbstractController
         try {
             $items = $this->grades->listForClassOwnedByTeacher($teacher, $classId);
         } catch (\RuntimeException) {
-            // classroom not found
+            // classrooms not found
             throw $this->createNotFoundException();
         } catch (\DomainException $e) {
             // not owned by teacher
@@ -198,11 +198,11 @@ final class GradeTeacherController extends AbstractController
     }
 
     /**
-     * All grades across all classes owned by the authenticated teacher.
+     * All grades across all classrooms owned by the authenticated teacher.
      *
-     * GET /api/teacher/classes/grades
+     * GET /api/teacher/classrooms/grades
      */
-    #[Route('/classes/grades', name: 'teacher_all_classes_grades', methods: ['GET'])]
+    #[Route('/classrooms/grades', name: 'teacher_all_classes_grades', methods: ['GET'])]
     public function listAllClassGrades(): JsonResponse
     {
         $teacher = $this->requireTeacher();

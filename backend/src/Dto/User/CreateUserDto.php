@@ -29,9 +29,7 @@ final class CreateUserDto
     #[Assert\Regex(pattern: '/[A-Z]/', message: 'Password must contain at least one uppercase letter.')]
     #[Assert\Regex(pattern: '/[a-z]/', message: 'Password must contain at least one lowercase letter.')]
     #[Assert\Regex(pattern: '/\d/',   message: 'Password must contain at least one number.')]
-    // Optional (recommended): require a symbol. Tweak to your policy.
     #[Assert\Regex(pattern: '/[^A-Za-z0-9]/', message: 'Password must contain at least one special character.')]
-    // Optional (recommended): rejects passwords found in known breaches
     #[Assert\NotCompromisedPassword(message: 'This password appears in data breaches; please choose another.')]
     public readonly string $password;
 

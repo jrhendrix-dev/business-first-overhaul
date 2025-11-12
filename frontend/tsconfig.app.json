@@ -6,10 +6,17 @@
     "outDir": "./out-tsc/app",
     "types": []
   },
+  "files": [],
   "include": [
     "src/**/*.ts"
   ],
   "exclude": [
     "src/**/*.spec.ts"
-  ]
+  ],
+
+  "angularCompilerOptions": {
+    "strictTemplates": true,
+    "strictInputs": true,
+    "strictInjectionParameters": true
+  }
 }

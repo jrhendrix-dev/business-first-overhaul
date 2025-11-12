@@ -71,7 +71,7 @@ final class GradeResponseMapper
             'percent'      => $grade->getPercent(),
             'gradedAt'     => $grade->getGradedAt()->format(\DATE_ATOM),
             'enrollmentId' => (int) $e->getId(),
-            'classroom'    => [
+            'classrooms'    => [
                 'id'   => (int) $class->getId(),
                 'name' => (string) $class->getName(),
             ],

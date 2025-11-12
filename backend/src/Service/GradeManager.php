@@ -125,7 +125,7 @@ final class GradeManager implements GradePort
     }
 
     /**
-     * List grades across all enrollments for a student with optional classroom filter.
+     * List grades across all enrollments for a student with optional classrooms filter.
      *
      * @return Grade[]
      */
@@ -152,7 +152,7 @@ final class GradeManager implements GradePort
     }
 
     /**
-     * Return all grades for a classroom, verifying teacher ownership.
+     * Return all grades for a classrooms, verifying teacher ownership.
      *
      * @return Grade[]
      */

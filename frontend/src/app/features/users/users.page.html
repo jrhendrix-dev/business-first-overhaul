@@ -1,0 +1,38 @@
+<section class="p-6 space-y-6">
+  <h1 class="text-2xl font-bold">Users</h1>
+
+  <div *ngIf="error() as err" class="text-red-600">{{ err }}</div>
+
+  <form [formGroup]="form" (ngSubmit)="create()" class="grid gap-3 max-w-xl">
+    <input class="border p-2 rounded" placeholder="First name" formControlName="firstName">
+    <div class="text-sm text-red-600" *ngIf="serverError(form.controls.firstName) as e">{{ e }}</div>
+
+    <input class="border p-2 rounded" placeholder="Last name" formControlName="lastName">
+    <div class="text-sm text-red-600" *ngIf="serverError(form.controls.lastName) as e">{{ e }}</div>
+
+    <input class="border p-2 rounded" placeholder="Email" formControlName="email">
+    <div class="text-sm text-red-600" *ngIf="serverError(form.controls.email) as e">{{ e }}</div>
+
+    <input class="border p-2 rounded" placeholder="Username" formControlName="userName">
+    <div class="text-sm text-red-600" *ngIf="serverError(form.controls.userName) as e">{{ e }}</div>
+
+    <input class="border p-2 rounded" type="password" placeholder="Password" formControlName="password">
+    <div class="text-sm text-red-600" *ngIf="serverError(form.controls.password) as e">{{ e }}</div>
+
+    <select class="border p-2 rounded" formControlName="role">
+      <option value="ROLE_STUDENT">Student</option>
+      <option value="ROLE_TEACHER">Teacher</option>
+      <option value="ROLE_ADMIN">Admin</option>
+    </select>
+
+    <button class="bg-blue-600 text-white px-4 py-2 rounded" [disabled]="submitting()">Create</button>
+  </form>
+
+  <!-- users list -->
+  <ul *ngIf="users$ | async as users" class="divide-y">
+    <li *ngFor="let u of users" class="py-3">
+      <div class="font-medium">{{ u.fullName }} <span class="text-sm text-gray-500">({{ u.role ?? 'NONE' }})</span></div>
+      <div class="text-sm text-gray-600">{{ u.email }} • created {{ u.createdAt }}</div>
+    </li>
+  </ul>
+</section>

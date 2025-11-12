@@ -1,0 +1,66 @@
+<section class="min-h-[calc(100vh-6rem)] w-full grid place-items-center bg-brand-paper">
+  <app-toast-container />
+  <!-- Card -->
+  <div class="w-full max-w-md rounded-xl bg-white p-6 shadow-xl ring-1 ring-black/5">
+    <h1 class="mb-6 text-center text-3xl font-extrabold text-brand-navy">Iniciar sesión</h1>
+
+    <!-- FORM -->
+    <form [formGroup]="form" (ngSubmit)="submit()" class="space-y-4" novalidate>
+      <div>
+        <label for="email" class="block text-sm font-medium text-gray-700">Email</label>
+        <input id="email" type="email" autocomplete="username"
+               class="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm
+                      focus:border-brand-crimson focus:outline-none focus:ring-2 focus:ring-brand-crimson/30"
+               formControlName="email" />
+        <p *ngIf="submitted() && form.controls.email.invalid" class="mt-1 text-sm text-red-600">
+          Introduce un email válido.
+        </p>
+      </div>
+
+      <div>
+        <label for="password" class="block text-sm font-medium text-gray-700">Contraseña</label>
+        <input id="password" type="password" autocomplete="current-password"
+               class="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm
+                      focus:border-brand-crimson focus:outline-none focus:ring-2 focus:ring-brand-crimson/30"
+               formControlName="password" />
+        <p *ngIf="submitted() && form.controls.password.invalid" class="mt-1 text-sm text-red-600">
+          La contraseña es obligatoria.
+        </p>
+      </div>
+
+      <div class="flex items-center justify-between">
+        <a class="text-sm text-[color:var(--brand)] hover:underline" routerLink="/password/forgot">
+          ¿Olvidaste tu contraseña?
+        </a>
+      </div>
+
+      <button type="submit"
+              class="mt-2 w-full btn btn-raise bg-brand-crimson text-white hover:bg-red-700
+                     transition disabled:cursor-not-allowed disabled:opacity-60"
+              [disabled]="loading()">
+        {{ loading() ? 'Entrando…' : 'Entrar' }}
+      </button>
+
+      <p *ngIf="error()" role="alert" class="text-center text-sm text-red-600">{{ error() }}</p>
+    </form>
+
+    <!-- Divider + Google button (outside form, still inside the card) -->
+    <div class="mt-6 flex items-center gap-3">
+      <div class="h-px flex-1 bg-slate-200"></div>
+      <span class="text-xs text-slate-500">o</span>
+      <div class="h-px flex-1 bg-slate-200"></div>
+    </div>
+
+    <div class="mt-4 grid place-items-center">
+      <div #googleBtn></div>
+    </div>
+  </div>
+</section>
+
+<!-- 2FA dialog -->
+<app-totp-verify-dialog
+  *ngIf="show2fa()"
+  [preToken]="preToken()"
+  (success)="on2faSuccess($event)"
+  (cancel)="show2fa.set(false)">
+</app-totp-verify-dialog>

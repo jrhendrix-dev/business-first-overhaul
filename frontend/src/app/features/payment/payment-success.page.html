@@ -1,0 +1,24 @@
+<app-toast-container />
+
+<section class="max-w-3xl mx-auto px-4 py-10">
+  <article class="rounded-2xl bg-white p-6 shadow ring-1 ring-black/5">
+    <h1 class="text-2xl font-bold text-emerald-700 mb-2">Payment successful</h1>
+
+    <p *ngIf="checking()" class="text-slate-600">We’re confirming your order…</p>
+
+    <ng-container *ngIf="!checking()">
+      <p *ngIf="confirmed()" class="text-emerald-700">
+        Status: confirmed
+        <span *ngIf="orderId()">· Order #{{ orderId() }}</span>
+      </p>
+
+      <p *ngIf="confirmed() === false" class="text-amber-600">
+        Status: could not confirm (but payment may have succeeded).
+      </p>
+    </ng-container>
+
+    <a routerLink="/student/classes" class="inline-block mt-6 text-[color:var(--brand)] underline">
+      Go back to Classes
+    </a>
+  </article>
+</section>

@@ -15,7 +15,7 @@ use App\Entity\User;
 interface EnrollmentPort
 {
     /**
-     * Enroll (or reactivate) a student in a classroom (idempotent).
+     * Enroll (or reactivate) a student in a classrooms (idempotent).
      *
      * @param Classroom $classroom
      * @param User $student
@@ -24,7 +24,7 @@ interface EnrollmentPort
     public function enrollByIds(Classroom $classroom, User $student): Enrollment;
 
     /**
-     * Soft-drop a student from a classroom (no-op if already inactive).
+     * Soft-drop a student from a classrooms (no-op if already inactive).
      *
      * @param Classroom $classroom
      * @param User $student
@@ -32,12 +32,12 @@ interface EnrollmentPort
     public function softDropByIds(Classroom $classroom, User $student): void;
 
     /**
-     * Soft drop the ACTIVE enrollment for student in a specific classroom (or all if classroom is null).
+     * Soft drop the ACTIVE enrollment for student in a specific classrooms (or all if classrooms is null).
      */
     public function dropActiveForStudent(User $student, ?Classroom $classroom = null): void;
 
     /**
-     * Bulk soft-drop all ACTIVE enrollments for a classroom.
+     * Bulk soft-drop all ACTIVE enrollments for a classrooms.
      *
      * @param Classroom $classroom
      */
@@ -49,12 +49,12 @@ interface EnrollmentPort
     public function dropAllActiveForStudent(User $student): void;
 
     /**
-     * Is student currently ACTIVE in classroom?
+     * Is student currently ACTIVE in classrooms?
      */
     public function isEnrolled(Classroom $classroom, User $student): bool;
 
     /**
-     * ACTIVE enrollments for a classroom (ordered by enrolledAt ASC).
+     * ACTIVE enrollments for a classrooms (ordered by enrolledAt ASC).
      *
      * @return Enrollment[]
      */
@@ -67,7 +67,7 @@ interface EnrollmentPort
 
 
     /**
-     * Any enrollments for a classroom (any status).
+     * Any enrollments for a classrooms (any status).
      *
      * @return Enrollment[]
      */
@@ -81,7 +81,7 @@ interface EnrollmentPort
     public function getActiveForStudent(User $student): array;
 
     /**
-     * Count ACTIVE enrollments for a classroom.
+     * Count ACTIVE enrollments for a classrooms.
      *
      * @param Classroom $classroom
      * @return int

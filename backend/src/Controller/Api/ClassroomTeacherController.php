@@ -27,24 +27,22 @@ final class ClassroomTeacherController extends AbstractController
         private readonly EnrollmentRepository $enrollments,
     ) {}
 
-    // GET /api/teacher/classes
-    #[Route('/classes', name: 'teacher_classes_list', methods: ['GET'])]
+    // GET /api/teacher/classrooms
+    #[Route('/classrooms', name: 'teacher_classes_list', methods: ['GET'])]
     public function listClasses(): JsonResponse
     {
         /** @var User $teacher */
         $teacher = $this->security->getUser();
-        $items   = $this->classes->findBy(['teacher' => $teacher], ['name' => 'ASC']);
 
-        $out = array_map(
-            fn(Classroom $c) => ['id' => (int)$c->getId(), 'name' => (string)$c->getName()],
-            $items
-        );
+        // Use repo helper to ensure ACTIVE only and ordering
+        $rows = $this->classes->findActiveByTeacher($teacher);
 
-        return $this->json($out, Response::HTTP_OK);
+        // findActiveByTeacher already returns scalar array (id, name)
+        return $this->json($rows, Response::HTTP_OK);
     }
 
-    // GET /api/teacher/classes/{classId}/students?status=active|all
-    #[Route('/classes/{classId<\d+>}/students', name: 'teacher_class_roster', methods: ['GET'])]
+    // GET /api/teacher/classrooms/{classId}/students?status=active|all
+    #[Route('/classrooms/{classId<\d+>}/students', name: 'teacher_class_roster', methods: ['GET'])]
     public function roster(int $classId, Request $request): JsonResponse
     {
         $class = $this->requireOwnedClass($classId);

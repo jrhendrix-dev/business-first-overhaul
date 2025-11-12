@@ -1,0 +1,155 @@
+<!-- Hero -->
+<section class="relative overflow-hidden bg-sky-50">
+  <!-- soft vertical tint from top -->
+  <div class="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-b from-sky-100/80 via-transparent to-transparent"></div>
+
+  <div class="mx-auto max-w-6xl px-4 py-12 md:py-16 grid md:grid-cols-2 gap-10 items-center">
+    <div>
+      <h1 class="text-4xl md:text-5xl font-extrabold tracking-tight text-[#0c145a]">
+        Tu academia de inglés corporativo en Rota
+      </h1>
+      <p class="mt-4 text-lg text-black/70">
+        Clases para empresas y particulares, profesores cualificados, y un plan que se adapta a ti.
+      </p>
+
+      <div class="mt-7 flex flex-col sm:flex-row gap-3">
+        <a routerLink="/register"
+           class="inline-flex items-center justify-center rounded-2xl
+                  bg-[color:var(--brand)] hover:bg-[color:var(--brand-strong)]
+                  text-white px-6 py-3 font-semibold " (click)="startNow()">
+          Empieza ahora
+        </a>
+        <a routerLink="/contacto"
+           class="inline-flex items-center justify-center rounded-2xl
+                  border-2 border-[color:var(--brand)] text-[color:var(--brand)]
+                  hover:bg-[color:var(--brand)] hover:text-white px-6 py-3 font-semibold">
+          Solicita información
+        </a>
+      </div>
+    </div>
+
+    <div class="rounded-2xl overflow-hidden ring-1 ring-black/5 shadow-[0_10px_30px_-15px_rgba(0,0,0,0.25)]">
+      <img src="/assets/pics/banner.jpg" alt="Vista oficina corporativa" class="w-full h-full object-cover">
+    </div>
+  </div>
+
+  <!-- subtle bottom rule to ease into next section (optional) -->
+  <div class="mx-auto max-w-6xl px-4">
+    <div class="h-[2px] rounded-full bg-gradient-to-r from-transparent via-[color:var(--brand)]/40 to-transparent"></div>
+  </div>
+</section>
+
+<!-- Services: airy header with subtle texture + wave divider -->
+<section id="servicios" aria-labelledby="services-title"
+         class="relative overflow-hidden bg-sky-50">
+  <!-- background layers -->
+  <div class="absolute inset-0 -z-10">
+    <!-- soft brand tint -->
+    <div class="absolute inset-0 bg-gradient-to-b
+                from-[color:var(--brand)]/3 via-transparent to-transparent"></div>
+
+    <!-- subtle dot grid, masked to upper half -->
+    <div class="absolute inset-0 opacity-50
+                [mask-image:radial-gradient(120%_70%_at_50%_0%,black,transparent)]"
+         style="
+           background-image: radial-gradient(circle at 1px 1px, rgba(12,20,90,0.06) 1px, transparent 1px);
+           background-size: 24px 24px;
+         "></div>
+  </div>
+
+  <div class="mx-auto max-w-6xl px-4 pt-8 md:pt-12 pb-6 text-center">
+    <span class="inline-flex items-center rounded-full px-3 py-1 text-sm font-semibold
+                 bg-[color:var(--brand)]/10 text-[color:var(--brand)]">
+      Servicios
+    </span>
+
+    <h2 id="services-title"
+        class="mt-3 text-3xl md:text-4xl font-extrabold tracking-tight text-[#0c145a]">
+      Lo que ofrecemos
+    </h2>
+
+    <p class="mt-2 text-black/60 max-w-2xl mx-auto">
+      Cursos adaptados para empresas y particulares, con enfoque práctico y resultados medibles.
+    </p>
+
+    <!-- thin gradient rule -->
+    <div class="mt-6 md:mt-8 h-[2px] rounded-full
+                bg-gradient-to-r from-transparent via-[color:var(--brand-crimson)]/60 to-transparent"></div>
+  </div>
+
+  <!-- tiny wave divider to ease into the cards -->
+  <svg aria-hidden="true" class="absolute bottom-0 left-0 h-6 w-full text-[color:var(--brand)]/10"
+       viewBox="0 0 1200 24" preserveAspectRatio="none">
+    <path fill="currentColor" d="M0,12 C200,24 1000,0 1200,12 L1200,24 L0,24 Z"/>
+  </svg>
+</section>
+
+
+<!-- Rows -->
+<section class="mx-auto max-w-6xl space-y-6 px-4 py-8">
+  <!-- Inglés corporativo -->
+  <article class="grid grid-cols-1 items-center gap-6 rounded-xl bg-[lightsteelblue] p-4 transition hover:bg-slate-200 md:grid-cols-3">
+    <img src="/assets/pics/presentation.png" alt="office presentation" class="max-h-80 w-full rounded-md md:col-span-1">
+    <div class="md:col-span-2">
+      <h3 class="mb-3 text-2xl font-semibold text-brand-navy">
+        Inglés corporativo para empresas
+        <a routerLink="/ingles-corporativo" class="ml-3 inline-flex h-9 w-9 items-center justify-center rounded-full bg-brand-crimson text-white transition hover:bg-red-700" aria-label="Ver Inglés corporativo">
+          <i class="fa-solid fa-arrow-right"></i>
+        </a>
+      </h3>
+      <p class="text-lg text-brand-navy/90">
+        Mejora el nivel de inglés de tu equipo con nuestros cursos adaptados a empresas.
+        <br><br>🔹 Evita malentendidos en reuniones, presentaciones y negociaciones internacionales.
+        <br>🔹 Formación práctica para comunicarse con clientes y socios globales.
+        <br>🔹 Tu inversión se traduce en mayor confianza, productividad y oportunidades.
+        <br>🔹 Metodología cómoda, flexible y adaptada a tu sector.
+        <br><br>💼 La mejor solución para equipos que quieren crecer sin fronteras.
+      </p>
+    </div>
+  </article>
+
+  <!-- Exámenes -->
+  <article class="grid grid-cols-1 items-center gap-6 rounded-xl bg-[lightsteelblue] p-4 transition hover:bg-slate-200 md:grid-cols-3">
+    <img src="/assets/pics/estudiantes1.png" alt="estudiantes universitarios" class="max-h-80 w-full rounded-md md:col-span-1">
+    <div class="md:col-span-2">
+      <h3 class="mb-3 text-2xl font-semibold text-brand-navy">
+        Preparación de exámenes oficiales
+        <a routerLink="/examenes" class="ml-3 inline-flex h-9 w-9 items-center justify-center rounded-full bg-brand-crimson text-white transition hover:bg-red-700" aria-label="Ver Exámenes">
+          <i class="fa-solid fa-arrow-right"></i>
+        </a>
+      </h3>
+      <p class="text-lg text-brand-navy/90">
+        Prepárate con nosotros para alcanzar tus metas académicas y profesionales.
+        <br><br>🎯 Aprende inglés para:
+        <br>▪ Estudiar en una universidad extranjera
+        <br>▪ Participar en el programa Erasmus
+        <br>▪ Obtener certificados oficiales de inglés
+        <br><br>💡 Clases enfocadas en TOEFL, TOEIC y Cambridge.
+        <br>📚 Método práctico, personalizado y eficaz.
+        <br><br><strong>¡Matricúlate hoy y da el siguiente paso en tu futuro!</strong>
+      </p>
+    </div>
+  </article>
+
+  <!-- Español -->
+  <article class="grid grid-cols-1 items-center gap-6 rounded-xl bg-[lightsteelblue] p-4 transition hover:bg-slate-200 md:grid-cols-3">
+    <img src="/assets/pics/espanol.png" alt="aprende español" class="max-h-80 w-full rounded-md md:col-span-1">
+    <div class="md:col-span-2">
+      <h3 class="mb-3 text-2xl font-semibold text-brand-navy">
+        Español para extranjeros
+        <a routerLink="/clases-espanol" class="ml-3 inline-flex h-9 w-9 items-center justify-center rounded-full bg-brand-crimson text-white transition hover:bg-red-700" aria-label="Ver Español para extranjeros">
+          <i class="fa-solid fa-arrow-right"></i>
+        </a>
+      </h3>
+      <p class="text-lg text-brand-navy/90">
+        🌍 El español es uno de los idiomas más hablados del mundo.
+        <br><br>¿Vives, trabajas o estudias en España? ¿Quieres comunicarte con fluidez?
+        <br><br>📖 Nuestro curso te enseña:
+        <br>▪ Estructura gramatical y vocabulario útil
+        <br>▪ Expresiones reales para la vida diaria y profesional
+        <br>▪ A desenvolverte en viajes, reuniones y entornos laborales
+        <br><br>✍️ ¡Inscríbete hoy y empieza a hablar español con confianza!
+      </p>
+    </div>
+  </article>
+</section>

@@ -28,7 +28,7 @@ final class EnrollmentAdminControllerTest extends WebTestCase
     }
 
     /**
-     * The list endpoint requires a classroom id. If the classroom doesn't exist,
+     * The list endpoint requires a classrooms id. If the classrooms doesn't exist,
      * our contract returns a NOT_FOUND envelope.
      */
     public function test_list_with_unknown_class_returns_404_contract(): void

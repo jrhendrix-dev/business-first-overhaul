@@ -24,7 +24,7 @@ use Symfony\Component\Validator\ConstraintViolationInterface;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
 
 /**
- * Administrative grade endpoints (full access across students/classes).
+ * Administrative grade endpoints (full access across students/classrooms).
  */
 #[Route('/grades')]
 #[IsGranted('ROLE_ADMIN')]

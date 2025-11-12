@@ -122,7 +122,7 @@ final class ClassroomTeacherControllerTest extends TestCase
         $enrollments->expects($this->never())->method('findActiveByClassroom');
         $enrollments->expects($this->once())
             ->method('findBy')
-            ->with(['classroom' => $classroom], ['enrolledAt' => 'ASC'])
+            ->with(['classrooms' => $classroom], ['enrolledAt' => 'ASC'])
             ->willReturn([$activeEnrollment, $droppedEnrollment]);
 
         $controller = new ClassroomTeacherController($security, $classes, $enrollments);

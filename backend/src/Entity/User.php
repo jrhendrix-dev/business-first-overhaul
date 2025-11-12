@@ -2,6 +2,7 @@
 
 namespace App\Entity;
 
+use AllowDynamicProperties;
 use App\Enum\UserRoleEnum;
 use App\Repository\UserRepository;
 use Doctrine\Common\Collections\Collection;
@@ -10,9 +11,9 @@ use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Security\Core\User\UserInterface;
 use Symfony\Bridge\Doctrine\Validator\Constraints\UniqueEntity;
 use Symfony\Component\Validator\Constraints as Assert;
-use Symfony\Component\Serializer\Annotation\Groups;
 use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
 
+#[AllowDynamicProperties]
 #[ORM\Entity(repositoryClass: UserRepository::class)]
 #[ORM\Table(name: 'users')]
 #[UniqueEntity(fields: ['email'], message: 'There is already an account with this email.')]
@@ -60,6 +61,43 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         orphanRemoval: false
     )]
     private Collection $enrollments;
+
+    // 2FA FIELDS
+    #[ORM\Column(type: 'boolean', options: ['default' => false])]
+    private bool $twoFactorEnabled = false;
+
+    /**
+     * Base32 secret for TOTP (encrypt at rest if using secrets).
+     */
+    #[ORM\Column(type: 'string', length: 255, nullable: true)]
+    private ?string $totpSecret = null;
+
+    /**
+     * Hashed recovery codes (array of strings) — store hashed, never plaintext.
+     */
+    #[ORM\Column(type: 'json', nullable: true)]
+    private ?array $twoFactorRecoveryCodes = null;
+
+    /**
+     * “Remember device” optional — epoch seconds until which 2FA is not required on this device.
+     *  manage this with a signed cookie token instead. Keeping here for completeness.
+     */
+    #[ORM\Column(type: 'datetime', nullable: true)]
+    private ?\DateTimeInterface $last2FAVerifiedAt = null;
+
+    // Google Auth
+    /**
+     * Google subject (the stable Google user id 'sub'). Null if not linked.
+     */
+    #[ORM\Column(type: 'string', length: 64, nullable: true)]
+    private ?string $googleSub = null;
+
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $googleLinkedAt = null;
+
+    /** Optional provider marker if you like */
+    #[ORM\Column(type: 'string', length: 32, nullable: true)]
+    private ?string $oauthProvider = null;
 
     public function __construct()
     {
@@ -253,4 +291,69 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     {
         // No sensitive temporary data stored
     }
+
+    // 2FA functions
+    public function isTwoFactorEnabled(): bool
+    {
+        return $this->twoFactorEnabled;
+    }
+
+    public function enableTwoFactor(): void
+    {
+        $this->twoFactorEnabled = true;
+    }
+
+    public function disableTwoFactor(): void
+    {
+        $this->twoFactorEnabled = false;
+        $this->totpSecret = null;
+        $this->twoFactorRecoveryCodes = null;
+        $this->last2faVerifiedAt = null;
+    }
+
+    public function getTotpSecret(): ?string
+    {
+        return $this->totpSecret;
+    }
+
+    public function setTotpSecret(?string $secret): void
+    {
+        $this->totpSecret = $secret;
+    }
+
+    /** @return string[] */
+    public function getTwoFactorRecoveryCodes(): array
+    {
+        return $this->twoFactorRecoveryCodes ?? [];
+    }
+
+    /** @param string[] $codes */
+    public function setTwoFactorRecoveryCodes(array $codes): void
+    {
+        $this->twoFactorRecoveryCodes = $codes;
+    }
+
+    public function getLast2faVerifiedAt(): ?\DateTimeInterface
+    {
+        return $this->last2faVerifiedAt;
+    }
+
+    public function setLast2faVerifiedAt(?\DateTimeInterface $at): void
+    {
+        $this->last2faVerifiedAt = $at;
+    }
+
+    // Google Auth
+    public function getGoogleSub(): ?string { return $this->googleSub; }
+    public function setGoogleSub(?string $sub): self { $this->googleSub = $sub; return $this; }
+
+    /** @return ?\DateTimeImmutable */
+    public function getGoogleLinkedAt(): ?\DateTimeImmutable { return $this->googleLinkedAt; }
+
+    /** @return $this */
+    public function setGoogleLinkedAt(?\DateTimeImmutable $at): self { $this->googleLinkedAt = $at; return $this; }
+
+    public function getOauthProvider(): ?string { return $this->oauthProvider; }
+    public function setOauthProvider(?string $p): self { $this->oauthProvider = $p; return $this; }
+
 }

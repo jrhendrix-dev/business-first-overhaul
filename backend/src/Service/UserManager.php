@@ -20,6 +20,8 @@ use App\Dto\User\Password\ResetPasswordDto;
 use Symfony\Component\Messenger\MessageBusInterface;
 use App\Message\EmailChangeConfirmMessage;
 use App\Message\EmailChangeNotifyOldMessage;
+use App\Http\Exception\ValidationException;
+use App\Message\WelcomeEmailMessage;
 
 /**
  * Service responsible for managing business logic related to User entities.
@@ -78,29 +80,26 @@ class UserManager
     }
 
     /**
-     * Handle all side-effects of moving between roles.
+     * Apply role transition invariants. Idempotent by design.
      *
-     * Rules:
-     *  - FROM STUDENT → anything: drop all active enrollments, detach classroom seat.
-     *  - TO   STUDENT ← from TEACHER/ADMIN: unassign as teacher from all classrooms.
-     *  - NO-OP if roles are the same.
-     *
-     * @param User          $user
-     * @param UserRoleEnum  $from
-     * @param UserRoleEnum  $to
+     * A user who is not STUDENT must have no active enrollments and must not be attached
+     * as student to any classroom. A user who is not TEACHER must not be assigned as a
+     * classroom teacher.
      */
     private function applyRoleTransition(User $user, UserRoleEnum $from, UserRoleEnum $to): void
     {
-        // Moving away from STUDENT
-        if ($from === UserRoleEnum::STUDENT && $to !== UserRoleEnum::STUDENT) {
-            // Domain invariants: a non-student must not keep student enrollments.
+        if ($from === $to) {
+            return; // no-op
+        }
+
+        // If final role is NOT student → purge student side.
+        if ($to !== UserRoleEnum::STUDENT) {
             $this->enrollments->dropAllActiveForStudent($user);
             $this->classrooms->detachStudentFromAnyClassroom($user);
         }
 
-        // Moving into STUDENT
-        if ($to === UserRoleEnum::STUDENT && $from !== UserRoleEnum::STUDENT) {
-            // A student must not be a teacher anywhere.
+        // If final role is NOT teacher → purge teacher side.
+        if ($to !== UserRoleEnum::TEACHER) {
             $this->classrooms->unassignTeacherFromAll($user);
         }
     }
@@ -163,12 +162,28 @@ class UserManager
         return $this->userRepository->searchByName($name, $role);
     }
 
+
     /**
-     * Verifies if a student belongs to a specific classroom.
+     * searches for users but with pagination
+     *
+     * @param string $q
+     * @param UserRoleEnum|null $role
+     * @param int $page
+     * @param int $size
+     * @return array
+     */
+    public function searchUsers(string $q, ?UserRoleEnum $role, int $page, int $size): array
+    {
+        return $this->userRepository->searchPaginated($q, $role, $page, $size);
+    }
+
+
+    /**
+     * Verifies if a student belongs to a specific classrooms.
      *
      * @param int $studentId The student's ID
-     * @param int $classroomId The classroom's ID
-     * @return User|null The student entity if found in the classroom, null otherwise
+     * @param int $classroomId The classrooms's ID
+     * @return User|null The student entity if found in the classrooms, null otherwise
      */
     public function getUserInClassroom(int $studentId, int $classroomId): ?User
     {
@@ -187,9 +202,9 @@ class UserManager
     }
 
     /**
-     * Retrieves students not assigned to any classroom.
+     * Retrieves students not assigned to any classrooms.
      *
-     * @return User[] Array of student User entities without classroom assignments
+     * @return User[] Array of student User entities without classrooms assignments
      */
     public function getStudentsWithoutClassroom(): ?array
     {
@@ -197,9 +212,9 @@ class UserManager
     }
 
     /**
-     * Retrieves teachers not assigned to any classroom.
+     * Retrieves teachers not assigned to any classrooms.
      *
-     * @return User[] Array of teacher User entities without classroom assignments
+     * @return User[] Array of teacher User entities without classrooms assignments
      */
     public function getTeachersWithoutClassroom(): ?array
     {
@@ -218,9 +233,9 @@ class UserManager
     }
 
     /**
-     * Unassigns all students from a classroom and clears the entity manager cache.
+     * Unassigns all students from a classrooms and clears the entity manager cache.
      *
-     * @param Classroom $classroom The classroom to unassign students from
+     * @param Classroom $classroom The classrooms to unassign students from
      * @return int Number of students unassigned
      */
     public function unassignAllStudentsFromClassroom(Classroom $classroom): int
@@ -250,12 +265,17 @@ class UserManager
         string $password,
         UserRoleEnum $role
     ): User {
-        // Optional soft checks (good UX, not race-safe)
+        // Pre-checks: collect *all* conflicts so we can return multiple field errors
+        $details = [];
         if ($this->userRepository->findByEmail($email)) {
-            throw new \DomainException('email_taken');
+            $details['email'] = 'Este email ya está en uso.';
         }
         if ($this->userRepository->findOneBy(['userName' => $userName])) {
-            throw new \DomainException('username_taken');
+            $details['userName'] = 'Este nombre de usuario ya existe.';
+        }
+        if ($details) {
+            // NOTE: do NOT add a 'message' key here
+            throw new ValidationException($details);
         }
 
         $user = new User();
@@ -270,14 +290,26 @@ class UserManager
             $this->em->persist($user);
             $this->em->flush();
         } catch (UniqueConstraintViolationException $e) {
-            // The DB is the source of truth; map constraint to a friendly domain error.
-            // If you have named constraints, you can inspect $e to distinguish which one.
-            // For now, we check which one exists to return a stable message:
+            // Source of truth says unique constraint(s) failed—recompute both
+            $details = [];
             if ($this->userRepository->findByEmail($email)) {
-                throw new \DomainException('email_taken');
+                $details['email'] = 'Este email ya está en uso.';
             }
-            throw new \DomainException('username_taken');
+            if ($this->userRepository->findOneBy(['userName' => $userName])) {
+                $details['userName'] = 'Este nombre de usuario ya existe.';
+            }
+            // If we cannot determine which one, you may put a generic field message,
+            // but still don't add a 'message' key:
+            if (!$details) {
+                $details['email'] ??= 'Valor inválido.'; // safe generic
+            }
+            throw new ValidationException($details);
         }
+
+        // ✅ Send Welcome Message (asincrónico por Messenger)
+        $this->bus->dispatch(new WelcomeEmailMessage(
+            userId: $user->getId()
+        ));
 
         return $user;
     }
@@ -342,9 +374,11 @@ class UserManager
             payload: ['newEmail' => $newEmail]
         );
 
-        // Build link you’ll handle in your frontend or a confirm endpoint:
-        $base = rtrim($_ENV['APP_URL'] ?? 'http://localhost:8000', '/');
-        $confirmUrl = $base . '/api/me/change-email/confirm?token=' . urlencode($mint['raw']);
+        // Build link the user clicks (FRONTEND handles token and calls API)
+        $frontend = rtrim($_ENV['FRONTEND_URL'] ?? 'http://localhost:4200', '/');
+        // new route we'll add in Angular: /email/confirm
+        $confirmUrl = $frontend . '/email/confirm?token=' . urlencode($mint['raw']);
+
 
         $this->bus->dispatch(new EmailChangeConfirmMessage(
             userId: $user->getId(),
@@ -406,14 +440,18 @@ class UserManager
     {
         $user = $this->userRepository->findByEmail((string)$dto->email);
         if (!$user) {
-            // Do nothing; we return a generic 200 to avoid enumeration.
+            // Do nothing; return generic 200 to avoid user enumeration.
             return;
         }
 
         $expiresAt = (new \DateTimeImmutable())->modify('+1 hour');
         $mint      = $this->tokens->mint($user, AccountTokenType::PASSWORD_RESET, $expiresAt);
 
-        $resetUrl = sprintf('%s/api/me/password/reset?token=%s', $_ENV['APP_URL'] ?? 'http://localhost', $mint['raw']);
+        // Send user to the FRONTEND reset page, which will POST the token + new password to the API.
+        // Prefer FRONTEND_URL, fallback to a sensible local dev URL.
+        $frontendBase = rtrim($_ENV['FRONTEND_URL'] ?? $_ENV['APP_FRONTEND_URL'] ?? 'http://localhost:4200', '/');
+        $resetUrl     = sprintf('%s/password/reset?token=%s', $frontendBase, urlencode($mint['raw']));
+
         $this->mailer->sendPasswordResetLink($user, $resetUrl);
     }
 
@@ -432,6 +470,8 @@ class UserManager
 
         $this->mailer->notifyPasswordChanged($user);
     }
+
+
 
     /**
      * Deletes a user from the database.

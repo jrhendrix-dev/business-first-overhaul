@@ -6,7 +6,7 @@ namespace App\Mapper\Response\Contracts;
 use App\Entity\Classroom;
 
 /**
- * Presenter port for classroom API payloads.
+ * Presenter port for classrooms API payloads.
  */
 interface ClassroomResponsePort
 {

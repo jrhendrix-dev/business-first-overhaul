@@ -6,18 +6,30 @@ namespace App\Dto\Classroom;
 
 use Symfony\Component\Validator\Constraints as Assert;
 
-/** Payload for creating a classroom. */
 final class CreateClassroomDto
 {
-    public function __construct(
-        #[Assert\NotBlank]
-        #[Assert\Length(max: 255)]
-        public string $name = '',
-    ) {}
+    #[Assert\NotBlank]
+    public string $name;
 
-    /** @param array<string,mixed> $a */
-    public static function fromArray(array $a): self
+    /** Decimal price like 15.00; null = free */
+    #[Assert\Type('numeric')]
+    #[Assert\GreaterThanOrEqual(0)]
+    public ?float $price = null;
+
+    /** Optional currency, defaults to EUR */
+    #[Assert\Currency]
+    public ?string $currency = 'EUR';
+
+    public static function fromArray(array $data): self
     {
-        return new self(name: (string)($a['name'] ?? ''));
+        $dto = new self();
+        $dto->name = isset($data['name']) ? (string)$data['name'] : '';
+        $dto->price = array_key_exists('price', $data) && $data['price'] !== null
+            ? (float)$data['price']
+            : null;
+        $dto->currency = array_key_exists('currency', $data) && $data['currency'] !== null
+            ? (string)$data['currency']
+            : 'EUR';
+        return $dto;
     }
 }

@@ -21,7 +21,7 @@ use App\Entity\User;
     }
 
     /**
-     * Fetch a grade with its enrollment, classroom and student associations eagerly loaded.
+     * Fetch a grade with its enrollment, classrooms and student associations eagerly loaded.
      */
     public function findOneWithRelations(int $id): ?Grade
     {
@@ -71,7 +71,7 @@ use App\Entity\User;
     }
 
      /**
-      * List every grade in a classroom, eager-loading enrollment, classroom and student.
+      * List every grade in a classrooms, eager-loading enrollment, classrooms and student.
       *
       * @return Grade[]
       */

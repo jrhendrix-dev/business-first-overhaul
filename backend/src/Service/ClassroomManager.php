@@ -3,27 +3,28 @@
 namespace App\Service;
 
 use App\Entity\Classroom;
+use App\Entity\Exception\ClassroomInactiveException;
 use App\Entity\User;
 use App\Enum\ClassroomStatusEnum;
+use App\Repository\ClassroomRepository;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
-use App\Repository\ClassroomRepository;
 use LogicException;
-use App\Service\Contracts\EnrollmentPort;
-use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 /**
  * Service responsible for managing business logic related to Classroom entities.
- * Provides methods for classroom creation, assignment, unassignment, and retrieval operations.
+ * Provides methods for classrooms creation, assignment, unassignment, and retrieval operations.
  */
 class ClassroomManager
+
+
 {
     /**
      * ClassroomManager constructor.
      *
      * @param EntityManagerInterface $em The Doctrine entity manager for database operations
-     * @param ClassroomRepository $classroomRepository Repository for classroom data access
+     * @param ClassroomRepository $classroomRepository Repository for classrooms data access
      */
     public function __construct(
         private EntityManagerInterface $em,
@@ -31,31 +32,35 @@ class ClassroomManager
         private EnrollmentManager      $enrollments,
     ) {}
 
+    /**
+     * Normalize a classroom name (trim and collapse inner whitespace).
+     *
+     * @param string $name
+     * @return string
+     */
     public function normalizeName(string $name): string
     {
-        // trim + collapse internal whitespace
         return preg_replace('/\s+/u', ' ', trim($name));
     }
 
     /**
-     * Assigns a teacher to a classroom after validating the role.
+     * Assign a teacher to a classroom.
      *
-     * @param Classroom $classroom The classroom to assign the teacher to
-     * @param User $teacher The user to assign as teacher
+     * @param Classroom $classroom
+     * @param User      $teacher
      *
-     * @throws LogicException If the user is not a teacher
-     * @note Classroom must be managed by the entity manager
+     * @throws ClassroomInactiveException When the classroom is not ACTIVE
+     * @throws LogicException             When the user is not a teacher
      */
     public function assignTeacher(Classroom $classroom, User $teacher): void
     {
-        if ($classroom->isDropped()) {
-            throw new LogicException('Cannot assign a teacher to a dropped classroom.');
-        }
+        $this->assertActive($classroom);
+
         if (!$teacher->isTeacher()) {
             throw new LogicException('Only teachers can be assigned to a classroom as a teacher');
         }
 
-        // Compare object identity; IDs may be null in unit tests (I used to compare id, and it was failing tests)
+        // Use object identity to avoid test flakiness with null IDs.
         if ($classroom->getTeacher() !== $teacher) {
             $classroom->setTeacher($teacher);
             $this->em->persist($classroom);
@@ -63,23 +68,44 @@ class ClassroomManager
         }
     }
 
+
+
     /**
-     * Unassigns all teachers and students from a classroom.
+     * Ensure a classroom is ACTIVE before write operations.
      *
-     * @param Classroom $classroom The classroom to reset
-     * @note Uses toArray() to avoid modifying collection during iteration
+     * @param Classroom $classroom
+     * @throws ClassroomInactiveException
+     */
+    private function assertActive(Classroom $classroom): void
+    {
+        if ($classroom->getStatus() !== ClassroomStatusEnum::ACTIVE) {
+            // surface the exact status in the exception
+            throw new ClassroomInactiveException($classroom->getStatus()->value);
+        }
+    }
+
+
+    /**
+     * Unassign the teacher and soft-drop all ACTIVE enrollments.
+     * Safe to call on DROPPED as well (cleanup).
+     *
+     * @param Classroom $classroom
      */
     public function unassignAll(Classroom $classroom): void
     {
         $classroom->setTeacher(null);
         $this->em->persist($classroom);
 
-        // Delegate to enrollment layer — no direct student collection on Classroom anymore
         $this->enrollments->dropAllActiveForClassroom($classroom);
 
         $this->em->flush();
     }
 
+    /**
+     * Unassign the current teacher from a classroom (idempotent).
+     *
+     * @param Classroom $classroom
+     */
     public function unassignTeacher(Classroom $classroom): void
     {
         $classroom->setTeacher(null);
@@ -88,19 +114,21 @@ class ClassroomManager
     }
 
     /**
-     * Retrieves all classrooms from the database.
-     *
-     * @return Classroom[] Array of Classroom entities
+     * @return Classroom[]
      */
     public function findAll(): array
     {
         return $this->classroomRepository->findAll();
     }
 
+    /**
+     * @param int $id
+     * @return array<int,User>
+     */
     public function getStudents(int $id): array
     {
-        $class= $this->getClassById($id);
-        if(!$class){
+        $class = $this->getClassById($id);
+        if (!$class) {
             throw new LogicException('class not found');
         }
         return $class->getStudents();
@@ -118,9 +146,9 @@ class ClassroomManager
     }
 
     /**
-     * Retrieves a classroom by its ID.
+     * Retrieves a classrooms by its ID.
      *
-     * @param int $id The classroom's unique identifier
+     * @param int $id The classrooms's unique identifier
      * @return Classroom|null The found Classroom entity or null if not found
      */
     public function getClassById(int $id): ?Classroom
@@ -161,6 +189,20 @@ class ClassroomManager
         return $this->classroomRepository->countByTeacher($id);
     }
 
+    private function applyPrice(?float $price, ?string $currency, Classroom $c): void
+    {
+        if ($price !== null) {
+            $cents = (int) \round($price * 100);
+            if ($cents < 0) {
+                throw new \DomainException('price must be >= 0');
+            }
+            $c->setPriceCents($cents);
+        }
+        if ($currency !== null && \method_exists($c, 'setCurrency')) {
+            $c->setCurrency($currency);
+        }
+    }
+
     /**
      * Retrieves all classrooms without an assigned teacher.
      *
@@ -173,38 +215,86 @@ class ClassroomManager
 
 
     /**
-     * Creates a new classroom with the specified name.
-     *
-     * @param string $rawName The name of the classroom
-     * @return Classroom The newly created and persisted Classroom entity
+     * @param string $rawName
+     * @param float|null $price
+     * @param string|null $currency
+     * @return Classroom
      */
-    public function createClassroom(string $rawName): Classroom
+    public function createClassroom(string $rawName, ?float $price = null, ?string $currency = 'EUR'): Classroom
     {
         $name = $this->normalizeName($rawName);
         if ($name === '') {
             throw new \DomainException('Field "name" is required.');
         }
-
-        // app-level duplicate guard
         if ($this->classroomRepository->findOneBy(['name' => $name])) {
-            throw new \DomainException('A classroom with that name already exists.');
+            throw new \DomainException('A classrooms with that name already exists.');
         }
 
         $c = new Classroom();
         $c->setName($name);
         $c->setStatus(ClassroomStatusEnum::ACTIVE);
 
+        if ($price !== null) {
+            $c->setPriceCents((int)\round($price * 100));
+            $c->setCurrency($currency ?? 'EUR');
+        } else {
+            $c->setPriceCents(0);      // treat null as free, consistent with FE "—" when 0?
+            $c->setCurrency('EUR');
+        }
+
         try {
             $this->em->persist($c);
             $this->em->flush();
-        } catch (UniqueConstraintViolationException $e) {
-            // race-condition fallback -> surface as a friendly duplicate
-            throw new \DomainException('A classroom with that name already exists.');
+        } catch (UniqueConstraintViolationException) {
+            throw new \DomainException('A classrooms with that name already exists.');
         }
 
         return $c;
     }
 
+    /**
+     * Update name and/or pricing in one place.
+     * - $newName: if not null, rename (duplicate-checked by controller).
+     * - $priceProvided=true & $newPrice===null → set free (0 cents).
+     * - $currencyProvided=false → keep current currency.
+     */
+    public function updateClassroom(
+        Classroom $classroom,
+        ?string $newName,
+        ?float $newPrice,
+        ?string $newCurrency,
+        bool $nameProvided = true,
+        bool $priceProvided = true,
+        bool $currencyProvided = false
+    ): Classroom {
+        if ($nameProvided && $newName !== null) {
+            $classroom->setName($newName);
+        }
+
+        if ($priceProvided) {
+            if ($newPrice === null) {
+                $classroom->setPriceCents(0); // free
+            } else {
+                $classroom->setPriceCents((int)\round($newPrice * 100));
+            }
+            if ($currencyProvided && $newCurrency !== null) {
+                $classroom->setCurrency($newCurrency);
+            }
+        } elseif ($currencyProvided && $newCurrency !== null) {
+            $classroom->setCurrency($newCurrency);
+        }
+
+        $this->em->flush();
+        return $classroom;
+    }
+
+    /**
+     * Rename a classroom (duplicate-safe).
+     *
+     * @param Classroom $classroom
+     * @param string    $rawName
+     * @return Classroom
+     */
     public function rename(Classroom $classroom, string $rawName): Classroom
     {
         $name = $this->normalizeName($rawName);
@@ -212,27 +302,28 @@ class ClassroomManager
             throw new \DomainException('Field "name" is required.');
         }
 
-        // Skip check if unchanged
         if ($name !== $classroom->getName() && $this->classroomRepository->findOneBy(['name' => $name])) {
-            throw new \DomainException('A classroom with that name already exists.');
+            throw new \DomainException('A classrooms with that name already exists.');
         }
 
         $classroom->setName($name);
 
         try {
             $this->em->flush();
-        } catch (UniqueConstraintViolationException $e) {
-            throw new \DomainException('A classroom with that name already exists.');
+        } catch (UniqueConstraintViolationException) {
+            throw new \DomainException('A classrooms with that name already exists.');
         }
 
         return $classroom;
     }
 
     /**
-     * Delete a classroom or soft-delete when active enrollments exist.
+     * Remove a classroom.
+     * - If it has ACTIVE enrollments, soft-drop it and clean relationships (returns false).
+     * - If not, it is hard-deleted (returns true).
      *
-     * @param Classroom $classroom The classroom to remove.
-     * @return bool True when the classroom was hard-deleted, false when marked DROPPED.
+     * @param Classroom $classroom
+     * @return bool True when hard-deleted, false when soft-dropped.
      */
     public function removeClassroom(Classroom $classroom): bool
     {
@@ -240,6 +331,7 @@ class ClassroomManager
         if ($activeEnrollments > 0) {
             $classroom->setStatus(ClassroomStatusEnum::DROPPED);
             $classroom->setTeacher(null);
+            $classroom->resetRestoreBanner();
             $this->em->persist($classroom);
             $this->enrollments->dropAllActiveForClassroom($classroom);
             $this->em->flush();
@@ -256,34 +348,37 @@ class ClassroomManager
     /**
      * Soft-drop the ACTIVE enrollment for $student in the given $classroom.
      *
-     * Delegates to EnrollmentManager and bubbles its NotFoundHttpException when:
-     *  - no ACTIVE enrollment exists for this (student, classroom) pair
-     *
      * @throws NotFoundHttpException when no active enrollment is found
      */
     public function removeStudentFromClassroom(User $student, Classroom $classroom): void
     {
-        // Single line delegation keeps classroom-facing controllers tidy,
-        // while the enrollment rules live in EnrollmentManager.
         $this->enrollments->dropActiveForStudent($student, $classroom);
     }
 
     /**
-     * Detach a student from every classroom by soft-dropping all ACTIVE enrollments.
+     * Detach a student from all classrooms by soft-dropping all ACTIVE enrollments.
      *
-     * Idempotent: safe to call repeatedly.
-     *
-     * @param User $student The user assumed to be in STUDENT role (but not required).
+     * @param User $student
+     * @return void
      */
     public function detachStudentFromAnyClassroom(User $student): void
     {
-        // Delegate to the enrollment boundary which enforces the "ACTIVE only" rule.
         $this->enrollments->dropAllActiveForStudent($student);
-        // No flush here — caller controls transaction boundaries.
+        // caller controls transaction boundaries
     }
 
+    /**
+     * Reactivate a DROPPED classroom (idempotent).
+     * Does not require a teacher at reactivation time.
+     *
+     * @param Classroom $classroom
+     * @return void
+     */
     public function reactivate(Classroom $classroom): void
     {
+        if ($classroom->getStatus() === ClassroomStatusEnum::ACTIVE) {
+            return; // idempotent
+        }
         $classroom->setStatus(ClassroomStatusEnum::ACTIVE);
         $this->em->persist($classroom);
         $this->em->flush();
@@ -307,6 +402,31 @@ class ClassroomManager
             }
         }
         // No flush here — caller controls transaction boundaries.
+    }
+
+    /**
+     * Restore previously DROPPED enrollments for this classroom.
+     *
+     * @param Classroom $classroom
+     * @return int Number of restored enrollments
+     *
+     * @throws ClassroomInactiveException When classroom is not ACTIVE
+     */
+    public function restoreRoster(Classroom $classroom): int
+    {
+        // Delegate to enrollment boundary; keeps classroom service slim.
+        return $this->enrollments->restoreAllDroppedForClassroom($classroom);
+    }
+
+    public function dismissRestoreBanner(Classroom $classroom): void
+    {
+        $classroom->dismissRestoreBanner();
+        $this->em->flush();
+    }
+
+    public function shouldShowRestoreBanner(Classroom $classroom, int $droppedCount): bool
+    {
+        return $droppedCount > 0 && !$classroom->isRestoreBannerDismissed();
     }
 
 
