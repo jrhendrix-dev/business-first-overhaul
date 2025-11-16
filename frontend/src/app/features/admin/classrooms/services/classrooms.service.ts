@@ -1,7 +1,7 @@
 // src/app/features/admin/classrooms/services/classrooms.service.ts
 import { Injectable, inject, isDevMode } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { Observable, catchError, map, throwError } from 'rxjs';
+import { Observable, catchError, map, throwError, of } from 'rxjs';
 import { environment } from '@/environments/environment';
 import { ClassroomItemDto, ClassroomDetailDto } from '@/app/shared/models/classrooms/classroom-read.dto';
 import { UserItemDto } from '@/app/shared/models/user/user-read.dto';
@@ -309,9 +309,33 @@ export class ClassroomsService {
     return this.http.post<{ restored: number; item: ClassroomDetailDto }>(`${BASE}/${classId}/restore-roster`, {});
   }
 
-  /** List dropped enrollments (history) */
-  listDroppedEnrollments(classId: number): Observable<{ id:number; student:{id:number;name:string;email?:string|null}; droppedAt?: string; status: string }[]> {
-    return this.http.get<{items:any[]}>(`${BASE}/${classId}/dropped-enrollments`).pipe(map(r => r.items ?? []));
+  /** List dropped enrollments (history).
+   *  - In prod, the route may not exist yet → 404 NOT_FOUND.
+   *  - We treat that as "no history" instead of breaking the roster UI.
+   */
+  listDroppedEnrollments(
+    classId: number
+  ): Observable<{ id: number; student: { id: number; name: string; email?: string | null }; droppedAt?: string; status: string }[]> {
+    const url = `${BASE}/${classId}/dropped-enrollments`;
+
+    return this.http.get<{ items: any[] }>(url).pipe(
+      map(r => r.items ?? []),
+      catchError(err => {
+        // If the endpoint doesn't exist or returns NOT_FOUND, just behave as if there are no dropped enrollments.
+        if (err?.status === 404) {
+          if (isDevMode()) {
+            console.warn('[ClassroomsService] dropped-enrollments 404, treating as empty list', err);
+          }
+          return of([]);
+        }
+
+        // For other errors, degrade gracefully too — the roster should still work.
+        if (isDevMode()) {
+          console.error('[ClassroomsService] dropped-enrollments failed, treating as empty list', err);
+        }
+        return of([]);
+      })
+    );
   }
 
   /** Discard a single dropped enrollment (hard delete) */

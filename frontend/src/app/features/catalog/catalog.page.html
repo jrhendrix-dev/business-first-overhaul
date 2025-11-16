@@ -1,0 +1,63 @@
+<section class="bg-sky-50">
+  <div class="mx-auto max-w-5xl px-4 py-10 md:py-14">
+    <p class="text-sm font-semibold uppercase tracking-wide text-brand-crimson">
+      Catálogo de clases
+    </p>
+    <h1 class="mt-2 text-3xl md:text-4xl font-extrabold text-brand-navy">
+      Explora nuestro catálogo de clases
+    </h1>
+
+    <p class="mt-3 text-lg text-black/70 max-w-3xl">
+      En nuestro catálogo podrás ver todos los grupos disponibles, horarios,
+      niveles y modalidades de clase. Actualizamos esta información de forma
+      periódica para que siempre tengas una visión real de la oferta actual.
+    </p>
+
+    <div class="mt-6 grid gap-6 md:grid-cols-2">
+      <article class="rounded-xl bg-white p-5 shadow-sm ring-1 ring-black/5">
+        <h2 class="text-xl font-semibold text-brand-navy">
+          Qué encontrarás en el catálogo
+        </h2>
+        <ul class="mt-3 space-y-2 text-sm text-black/80">
+          <li>✔ Clases de inglés general y conversacional.</li>
+          <li>✔ Inglés corporativo y especializado para empresas.</li>
+          <li>✔ Preparación de exámenes oficiales.</li>
+          <li>✔ Español para extranjeros.</li>
+        </ul>
+      </article>
+
+      <article class="rounded-xl bg-white p-5 shadow-sm ring-1 ring-black/5">
+        <h2 class="text-xl font-semibold text-brand-navy">
+          Cómo reservar tu plaza
+        </h2>
+        <ul class="mt-3 space-y-2 text-sm text-black/80">
+          <li>✔ Elige el grupo y horario que mejor se adapte a ti.</li>
+          <li>✔ Regístrate o inicia sesión en nuestra plataforma.</li>
+          <li>✔ Completa la matrícula siguiendo las instrucciones.</li>
+        </ul>
+      </article>
+    </div>
+
+    <div class="mt-10 flex flex-wrap gap-3">
+      <a
+        [href]="externalUrl"
+        target="_blank"
+        rel="noopener"
+        class="inline-flex items-center justify-center rounded-2xl
+               bg-[color:var(--brand)] px-6 py-3 text-sm font-semibold text-white
+               hover:bg-[color:var(--brand-strong)]"
+      >
+        Abrir catálogo de clases
+      </a>
+      <a
+        routerLink="/contacto"
+        class="inline-flex items-center justify-center rounded-2xl border-2
+               border-[color:var(--brand)] px-6 py-3 text-sm font-semibold
+               text-[color:var(--brand)] hover:bg-[color:var(--brand)]
+               hover:text-white"
+      >
+        Necesito ayuda para elegir curso
+      </a>
+    </div>
+  </div>
+</section>

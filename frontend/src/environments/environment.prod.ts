@@ -1,5 +1,5 @@
 export const environment = {
   production: true,
-  apiBase: 'https://businessfirstacademy.net/api',
-  googleClientId: '841992378615-gl4quml94dihvti06kl8js36frrl9jm9.apps.googleusercontent.com',
+  apiBase: 'https://backend.businessfirstacademy.net',
+  googleClientId: '841992378615-mlqk04e0emtkfickinlv0s10eeekn9sj.apps.googleusercontent.com',
 };

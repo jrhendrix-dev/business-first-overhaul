@@ -1,0 +1,180 @@
+<section class="bg-sky-50 min-h-[calc(100vh-6rem)]">
+  <div class="mx-auto flex max-w-6xl flex-col gap-10 px-4 py-10 md:flex-row md:py-14">
+    <!-- Left: info -->
+    <div class="md:w-5/12 space-y-5">
+      <p class="text-sm font-semibold uppercase tracking-wide text-brand-crimson">
+        Contacto
+      </p>
+      <h1 class="text-3xl md:text-4xl font-extrabold text-brand-navy">
+        Estamos aquí para ayudarte
+      </h1>
+      <p class="text-base text-black/70">
+        Si tienes dudas sobre cursos, niveles, horarios o formas de pago,
+        escríbenos y te responderemos lo antes posible.
+      </p>
+
+      <div class="mt-4 space-y-3 text-sm text-black/80">
+        <div>
+          <p class="font-semibold text-brand-navy">Teléfono</p>
+          <a href="tel:+34635507365" class="hover:text-brand-crimson">
+            +34 635 507 365
+          </a>
+        </div>
+
+        <div>
+          <p class="font-semibold text-brand-navy">Email</p>
+          <a
+            href="mailto:jrhendrixdev@gmail.com"
+            class="hover:text-brand-crimson"
+          >
+            jrhendrixdev&#64;gmail.com
+          </a>
+        </div>
+
+        <div>
+          <p class="font-semibold text-brand-navy">Ubicación</p>
+          <p>Rota (Cádiz)</p>
+          <a
+            href="https://www.google.com/maps/search/?api=1&query=Rota%2C+C%C3%A1diz"
+            target="_blank"
+            rel="noopener"
+            class="text-sm text-brand-crimson hover:underline"
+          >
+            Ver en Google Maps
+          </a>
+        </div>
+      </div>
+
+      <p class="mt-4 text-xs text-black/60">
+        También puedes llamarnos directamente si prefieres resolver tus dudas por teléfono.
+      </p>
+    </div>
+
+    <!-- Right: form -->
+    <div class="md:w-7/12">
+      <div class="rounded-2xl bg-white p-6 shadow-md ring-1 ring-black/5">
+        <h2 class="text-xl font-semibold text-brand-navy">
+          Envíanos un mensaje
+        </h2>
+        <p class="mt-1 text-sm text-black/70">
+          Rellena el formulario y te contactaremos lo antes posible.
+        </p>
+
+        <form class="mt-5 space-y-4" [formGroup]="form" (ngSubmit)="onSubmit()">
+          <div>
+            <label for="name" class="block text-sm font-medium text-brand-navy">
+              Nombre y apellidos
+            </label>
+            <input
+              id="name"
+              type="text"
+              formControlName="name"
+              class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm
+                     shadow-sm focus:border-brand-crimson focus:outline-none focus:ring-1 focus:ring-brand-crimson"
+            />
+            <p
+              *ngIf="hasError('name','required')"
+              class="mt-1 text-xs text-red-600"
+            >
+              El nombre es obligatorio.
+            </p>
+            <p
+              *ngIf="hasError('name','minlength')"
+              class="mt-1 text-xs text-red-600"
+            >
+              El nombre debe tener al menos 2 caracteres.
+            </p>
+          </div>
+
+          <div>
+            <label for="email" class="block text-sm font-medium text-brand-navy">
+              Email
+            </label>
+            <input
+              id="email"
+              type="email"
+              formControlName="email"
+              class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm
+                     shadow-sm focus:border-brand-crimson focus:outline-none focus:ring-1 focus:ring-brand-crimson"
+            />
+            <p
+              *ngIf="hasError('email','required')"
+              class="mt-1 text-xs text-red-600"
+            >
+              El email es obligatorio.
+            </p>
+            <p
+              *ngIf="hasError('email','email')"
+              class="mt-1 text-xs text-red-600"
+            >
+              Introduce un email válido.
+            </p>
+          </div>
+
+          <div>
+            <label for="phone" class="block text-sm font-medium text-brand-navy">
+              Teléfono (opcional)
+            </label>
+            <input
+              id="phone"
+              type="tel"
+              formControlName="phone"
+              class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm
+                     shadow-sm focus:border-brand-crimson focus:outline-none focus:ring-1 focus:ring-brand-crimson"
+            />
+          </div>
+
+          <div>
+            <label for="message" class="block text-sm font-medium text-brand-navy">
+              Mensaje
+            </label>
+            <textarea
+              id="message"
+              rows="5"
+              formControlName="message"
+              class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm
+                     shadow-sm focus:border-brand-crimson focus:outline-none focus:ring-1 focus:ring-brand-crimson"
+            ></textarea>
+            <p
+              *ngIf="hasError('message','required')"
+              class="mt-1 text-xs text-red-600"
+            >
+              El mensaje es obligatorio.
+            </p>
+            <p
+              *ngIf="hasError('message','minlength')"
+              class="mt-1 text-xs text-red-600"
+            >
+              El mensaje debe tener al menos 10 caracteres.
+            </p>
+          </div>
+
+          <div class="pt-2">
+            <button
+              type="submit"
+              [disabled]="isSubmitting"
+              class="inline-flex items-center justify-center rounded-2xl
+                     bg-[color:var(--brand)] px-6 py-3 text-sm font-semibold text-white
+                     hover:bg-[color:var(--brand-strong)] disabled:opacity-60"
+            >
+              Enviar mensaje
+            </button>
+          </div>
+
+          <p
+            *ngIf="submitted"
+            class="mt-3 text-xs text-emerald-700"
+          >
+            Se ha abierto tu correo con el mensaje preparado. Puedes revisarlo y enviarlo.
+          </p>
+          <p
+            *ngIf="submitError"
+            class="mt-3 text-xs text-red-700"
+          >
+            {{ submitError }}
+          </p>
+        </form>
+      </div>
+    </div>
+  </div>
+</section>

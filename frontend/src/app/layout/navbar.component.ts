@@ -38,11 +38,25 @@ import { AuthStateService } from '@/app/core/auth/auth.service';
               Cursos
               <span class="mt-1 inline-block border-x-transparent border-t-8 border-b-0 border-l-8 border-r-8 border-t-brand-crimson"></span>
             </button>
-            <div class="invisible absolute left-1/2 z-20 mt-3 w-72 -translate-x-1/2 overflow-hidden rounded-md bg-brand-navy opacity-0 shadow-lg ring-1 ring-black/10 transition-all group-hover:visible group-hover:opacity-100">
-              <a routerLink="/ingles-corporativo" class="block px-4 py-2 hover:bg-brand-crimson">Inglés corporativo</a>
-              <a routerLink="/examenes" class="block px-4 py-2 hover:bg-brand-crimson">Exámenes oficiales</a>
-              <a routerLink="/clases-espanol" class="block px-4 py-2 hover:bg-brand-crimson">Español para extranjeros</a>
+            <div
+              class="invisible absolute left-1/2 z-20 mt-3 w-72 -translate-x-1/2 overflow-hidden
+         rounded-md bg-brand-navy opacity-0 shadow-lg ring-1 ring-black/10
+         transition-all group-hover:visible group-hover:opacity-100"
+            >
+              <a routerLink="/ingles-corporativo" class="block px-4 py-2 hover:bg-brand-crimson">
+                Inglés corporativo
+              </a>
+              <a routerLink="/examenes" class="block px-4 py-2 hover:bg-brand-crimson">
+                Exámenes oficiales
+              </a>
+              <a routerLink="/clases-espanol" class="block px-4 py-2 hover:bg-brand-crimson">
+                Español para extranjeros
+              </a>
+              <a routerLink="/catalog" class="block px-4 py-2 hover:bg-brand-crimson">
+                Catálogo de clases
+              </a>
             </div>
+
           </li>
 
           <!-- Contacto -->
@@ -125,9 +139,18 @@ import { AuthStateService } from '@/app/core/auth/auth.service';
       <!-- Mobile menu -->
       <div *ngIf="open" class="border-t border-white/10 md:hidden">
         <a routerLink="/" class="block px-4 py-3 hover:bg-white/10" (click)="open=false; goHome($event)">Inicio</a>
-        <a routerLink="/ingles-corporativo" class="block px-4 py-3 hover:bg-white/10" (click)="open=false">Inglés corporativo</a>
-        <a routerLink="/examenes" class="block px-4 py-3 hover:bg-white/10" (click)="open=false">Exámenes oficiales</a>
-        <a routerLink="/clases-espanol" class="block px-4 py-3 hover:bg-white/10" (click)="open=false">Español para extranjeros</a>
+        <a routerLink="/ingles-corporativo" class="block px-4 py-3 hover:bg-white/10" (click)="open=false">
+          Inglés corporativo
+        </a>
+        <a routerLink="/examenes" class="block px-4 py-3 hover:bg-white/10" (click)="open=false">
+          Exámenes oficiales
+        </a>
+        <a routerLink="/clases-espanol" class="block px-4 py-3 hover:bg-white/10" (click)="open=false">
+          Español para extranjeros
+        </a>
+        <a routerLink="/catalog" class="block px-4 py-3 hover:bg-white/10" (click)="open=false">
+          Catálogo de clases
+        </a>
 
         <!-- Auth-aware items -->
         <a *ngIf="!auth.loggedIn()" routerLink="/login" class="block px-4 py-3 hover:bg-white/10" (click)="open=false">
