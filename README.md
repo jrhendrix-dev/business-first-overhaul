@@ -5,7 +5,7 @@ This monorepo contains the **Symfony 7 backend** and planned **Angular + Tailwin
 The goal: replace the legacy PHP/MySQL site with a modern, tested, Dockerized architecture that is production-ready and recruiter-authentic.
 
 ---
-[![CI](https://github.com/jrhendrix-dev/business-first-overhaul/actions/workflows/ci.yml/badge.svg)](https://github.com/jrhendrix-dev/business-first-overhaul/actions/workflows/ci.yml)
+
 
 ## 🔧 Stack
 
