@@ -51,7 +51,7 @@ let nextId = 0;
     <div *ngIf="open"
          @panel
          #panel
-         class="fixed right-0 w-[28rem] bg-white shadow-2xl z-[9001]
+         class="fixed right-0 w-full sm:w-[28rem] bg-white shadow-2xl z-[9001]
                 overflow-y-auto border-l border-slate-200 will-change-transform"
          [style.top]="styleTop"
          [style.height]="styleHeight"
@@ -63,15 +63,15 @@ let nextId = 0;
          cdkTrapFocus
          [cdkTrapFocusAutoCapture]="true">
 
-      <header class="px-6 pt-5 pb-3 border-b bg-white sticky top-0 z-10">
-        <h2 class="text-lg font-semibold leading-6 text-slate-800"
+      <header class="px-4 pt-4 pb-2 sm:px-6 sm:pt-5 sm:pb-3 border-b bg-white sticky top-0 z-10">
+        <h2 class="text-base sm:text-lg font-semibold leading-6 text-slate-800"
             [attr.id]="computedHeadingId"
             tabindex="-1">
           {{ heading }}
         </h2>
       </header>
 
-      <div class="px-6 py-5">
+      <div class="px-4 py-4 sm:px-6 sm:py-5 text-sm">
         <ng-content></ng-content>
       </div>
     </div>

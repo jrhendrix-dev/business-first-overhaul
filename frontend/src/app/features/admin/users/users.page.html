@@ -1,21 +1,24 @@
 <app-toast-container />
 <app-admin-header title="Users"></app-admin-header>
 
-<div class="h-full flex flex-col min-h-0">
+<div class="h-full flex flex-col min-h-0 px-2 pb-3 md:px-0">
   <!-- Unified container -->
-  <div class="min-h-0 grow border rounded overflow-hidden">
-    <!-- Filters INSIDE the box -->
-    <div class="px-3 py-3 border-b flex items-end gap-3">
-      <div>
+  <div class="min-h-0 grow border rounded overflow-hidden bg-white">
+    <!-- Filters -->
+    <div class="px-3 py-3 border-b flex flex-col gap-3 md:flex-row md:items-end">
+      <div class="w-full md:w-auto">
         <label class="block text-xs text-slate-600">Search</label>
-        <input class="border rounded px-2 py-1 w-64"
-               [formControl]="filters.controls.q"
-               placeholder="username, email, or name">
+        <input
+          class="border rounded px-2 py-1 w-full md:w-64"
+          [formControl]="filters.controls.q"
+          placeholder="username, email, or name">
       </div>
 
-      <div>
+      <div class="w-full md:w-auto">
         <label class="block text-xs text-slate-600">Role</label>
-        <select class="border rounded px-2 py-1 w-44" [formControl]="filters.controls.role">
+        <select
+          class="border rounded px-2 py-1 w-full md:w-44"
+          [formControl]="filters.controls.role">
           <option value="">Any</option>
           <option value="ROLE_ADMIN">Admin</option>
           <option value="ROLE_TEACHER">Teacher</option>
@@ -23,54 +26,107 @@
         </select>
       </div>
 
-      <!-- Reserve the Actions width on the right -->
-      <div class="ml-auto w-[calc(7rem+1.5rem)] flex justify-end">
-        <button class="btn btn-success" (click)="openCreate()">+ Add user</button>
+      <!-- Actions -->
+      <div
+        class="mt-2 md:mt-0 md:ml-auto w-full md:w-[calc(7rem+1.5rem)] flex justify-stretch md:justify-end">
+        <button
+          class="btn btn-success w-full md:w-auto"
+          (click)="openCreate()">
+          + Add user
+        </button>
       </div>
     </div>
 
     <!-- Scrollable table -->
-    <div class="overflow-auto">
+    <div class="overflow-x-auto">
       <table class="min-w-full text-sm">
         <thead class="bg-slate-50 border-b sticky top-0 z-10">
-        <tr>
-          <th class="text-left px-3 py-2 w-16">ID</th>
-          <th class="text-left px-3 py-2">Name</th>
-          <th class="text-left px-3 py-2">Username</th>
-          <th class="text-left px-3 py-2">Email</th>
-          <th class="text-left px-3 py-2 w-28">Role</th>
-          <th class="text-left px-3 py-2 w-48">Classes</th>
-          <th class="text-left px-3 py-2 w-24">Active</th>
-          <th class="text-left px-3 py-2 w-40">Created</th>
+        <tr class="align-top">
+          <!-- Mobile combined column -->
+          <th class="text-left px-3 py-2 sm:hidden">User</th>
+
+          <!-- Desktop columns -->
+          <th class="text-left px-3 py-2 w-16 hidden sm:table-cell">ID</th>
+          <th class="text-left px-3 py-2 hidden sm:table-cell">Name</th>
+          <th class="text-left px-3 py-2 hidden sm:table-cell">Username</th>
+          <th class="text-left px-3 py-2 hidden sm:table-cell">Email</th>
+          <th class="text-left px-3 py-2 w-28 hidden md:table-cell">Role</th>
+          <th class="text-left px-3 py-2 w-48 hidden lg:table-cell">Classes</th>
+          <th class="text-left px-3 py-2 w-24 hidden lg:table-cell">Active</th>
+          <th class="text-left px-3 py-2 w-40 hidden xl:table-cell">Created</th>
           <th class="text-left px-3 py-2 w-28">Actions</th>
         </tr>
         </thead>
+
         <tbody>
         <tr *ngFor="let u of viewItems()" class="border-b hover:bg-slate-50">
-          <td class="px-3 py-2">{{ u.id }}</td>
-          <td class="px-3 py-2">{{ nameOf(u) }}</td>
-          <td class="px-3 py-2">{{ u.userName }}</td>
-          <td class="px-3 py-2">{{ u.email }}</td>
-          <td class="px-3 py-2">{{ u.role || '—' }}</td>
-          <td class="px-3 py-2">
-            <app-class-list-cell [classes]="classesOf(u)" [manageQuery]="manageQuery(u)"></app-class-list-cell>
+          <!-- Mobile combined cell -->
+          <td class="px-3 py-2 align-top sm:hidden">
+            <div class="font-medium truncate">
+              {{ nameOf(u) }}
+            </div>
+            <div class="text-xs text-slate-500 truncate">
+              {{ u.email }}
+            </div>
+            <div class="text-xs text-slate-500 mt-0.5">
+              {{ u.role || '—' }}
+            </div>
+            <div class="mt-1 flex flex-wrap gap-1 text-[11px] text-slate-500">
+              <span *ngIf="classesOf(u).length">
+                {{ classesOf(u).length }} classes
+              </span>
+              <span>· {{ u.isActive ? 'Active' : 'Inactive' }}</span>
+            </div>
           </td>
-          <td class="px-3 py-2">
+
+          <!-- Desktop cells -->
+          <td class="px-3 py-2 hidden sm:table-cell">{{ u.id }}</td>
+          <td class="px-3 py-2 hidden sm:table-cell">{{ nameOf(u) }}</td>
+          <td class="px-3 py-2 hidden sm:table-cell">{{ u.userName }}</td>
+          <td class="px-3 py-2 hidden sm:table-cell">{{ u.email }}</td>
+          <td class="px-3 py-2 hidden md:table-cell">{{ u.role || '—' }}</td>
+          <td class="px-3 py-2 hidden lg:table-cell">
+            <app-class-list-cell
+              [classes]="classesOf(u)"
+              [manageQuery]="manageQuery(u)">
+            </app-class-list-cell>
+          </td>
+          <td class="px-3 py-2 hidden lg:table-cell">
             <span class="inline-flex items-center gap-1">
-              <span class="h-2.5 w-2.5 rounded-full"
-                    [class.bg-emerald-500]="u.isActive"
-                    [class.bg-slate-300]="!u.isActive"></span>
+              <span
+                class="h-2.5 w-2.5 rounded-full"
+                [class.bg-emerald-500]="u.isActive"
+                [class.bg-slate-300]="!u.isActive">
+              </span>
               {{ u.isActive ? 'Yes' : 'No' }}
             </span>
           </td>
-          <td class="px-3 py-2">{{ formatDate(u.createdAt) }}</td>
+          <td class="px-3 py-2 hidden xl:table-cell">
+            {{ formatDate(u.createdAt) }}
+          </td>
+
+          <!-- Actions -->
           <td class="px-3 py-2">
-            <button class="btn btn-primary btn-sm mr-2" (click)="openEdit(u)">Edit</button>
-            <button class="btn btn-danger btn-sm" (click)="confirmDelete(u)">Delete</button>
+            <div class="flex flex-col gap-1 sm:flex-row sm:items-center">
+              <button
+                class="btn btn-primary btn-sm w-full sm:w-auto sm:mr-2"
+                (click)="openEdit(u)">
+                Edit
+              </button>
+              <button
+                class="btn btn-danger btn-sm w-full sm:w-auto"
+                (click)="confirmDelete(u)">
+                Delete
+              </button>
+            </div>
           </td>
         </tr>
+
         <tr *ngIf="!viewItems().length">
-          <td [attr.colspan]="9" class="px-3 py-6 text-center text-slate-500">No results</td>
+          <td [attr.colspan]="9"
+              class="px-3 py-6 text-center text-slate-500">
+            No results
+          </td>
         </tr>
         </tbody>
       </table>
@@ -78,15 +134,27 @@
   </div>
 
   <!-- Footer / Pager -->
-  <div class="mt-3 flex items-center justify-between text-sm shrink-0">
+  <div class="mt-3 flex flex-col gap-2 md:flex-row md:items-center md:justify-between text-sm shrink-0 px-2 md:px-0">
     <div>
       Showing {{ visibleStart() }}–{{ visibleEnd() }} of {{ total() }}
-      <ng-container *ngIf="filteredTotal() !== items().length"> · Filtered: {{ filteredTotal() }}</ng-container>
+      <ng-container *ngIf="filteredTotal() !== items().length">
+        · Filtered: {{ filteredTotal() }}
+      </ng-container>
     </div>
-    <div class="flex gap-1">
-      <button class="btn btn-ghost btn-sm" [disabled]="page()<=1" (click)="prev()">Prev</button>
+    <div class="flex gap-1 self-end md:self-auto">
+      <button
+        class="btn btn-ghost btn-sm"
+        [disabled]="page()<=1"
+        (click)="prev()">
+        Prev
+      </button>
       <span class="px-2 py-1">Page {{ page() }}</span>
-      <button class="btn btn-ghost btn-sm" [disabled]="page()*size() >= total()" (click)="next()">Next</button>
+      <button
+        class="btn btn-ghost btn-sm"
+        [disabled]="page()*size() >= total()"
+        (click)="next()">
+        Next
+      </button>
     </div>
   </div>
 </div>
