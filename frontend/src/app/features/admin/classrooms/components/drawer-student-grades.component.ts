@@ -1,5 +1,13 @@
 // src/app/features/admin/classrooms/components/drawer-student-grades.component.ts
-import { Component, EventEmitter, Input, Output, ChangeDetectionStrategy, inject, signal, computed } from '@angular/core';
+import {
+  Component,
+  EventEmitter,
+  Input,
+  Output,
+  ChangeDetectionStrategy,
+  inject,
+  signal
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, NonNullableFormBuilder, Validators } from '@angular/forms';
 import { DrawerComponent } from '@/app/core/ui/drawer/drawer.component';
@@ -19,55 +27,86 @@ import { DrawerGradeComponent } from '@/app/features/admin/grades/components/dra
       [offsetVar]="'--admin-navbar-h'"
       (close)="close.emit()">
 
-      <div class="space-y-4">
-        <div class="flex items-center justify-between">
-          <div class="text-sm text-slate-600">
+      <div class="px-3 py-4 space-y-4">
+
+        <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div class="text-xs sm:text-sm text-slate-600">
             Enrollment #{{ enrollmentId }} — {{ studentLabel }} in {{ classroomLabel }}
           </div>
-          <button class="btn btn-success btn-sm" (click)="openCreate()">Add grade</button>
+          <button
+            class="btn btn-success btn-sm w-full sm:w-auto"
+            (click)="openCreate()">
+            Add grade
+          </button>
         </div>
 
         <div class="border rounded overflow-hidden">
-          <table class="min-w-full text-sm">
-            <thead class="bg-slate-50 border-b">
+          <div class="overflow-x-auto">
+            <table class="min-w-full text-sm">
+              <thead class="bg-slate-50 border-b">
               <tr>
                 <th class="text-left px-3 py-2">Component</th>
-                <th class="text-left px-3 py-2">Score</th>
-                <th class="text-left px-3 py-2">%</th>
-                <th class="text-left px-3 py-2 w-36">Actions</th>
+                <th class="text-left px-3 py-2 w-32">Score</th>
+                <th class="text-left px-3 py-2 w-16 hidden sm:table-cell">%</th>
+                <th class="text-left px-3 py-2 w-40">Actions</th>
               </tr>
-            </thead>
-            <tbody>
-              <tr *ngFor="let g of items(); trackBy: track" class="border-b">
-                <td class="px-3 py-2">{{ g.componentLabel }}</td>
-                <td class="px-3 py-2">{{ g.score }} / {{ g.maxScore }}</td>
-                <td class="px-3 py-2">{{ g.percent | number:'1.0-1' }}%</td>
+              </thead>
+              <tbody>
+              <tr
+                *ngFor="let g of items(); trackBy: track"
+                class="border-b">
                 <td class="px-3 py-2">
-                  <div class="flex gap-2">
-                    <button class="btn btn-primary btn-sm" (click)="openEdit(g)">Edit</button>
-                    <button class="btn btn-danger btn-sm" (click)="remove(g)">Delete</button>
+                  {{ g.componentLabel }}
+                </td>
+                <td class="px-3 py-2">
+                  {{ g.score }} / {{ g.maxScore }}
+                  <div class="text-xs text-slate-500 sm:hidden">
+                    {{ g.percent | number:'1.0-1' }}%
+                  </div>
+                </td>
+                <td class="px-3 py-2 hidden sm:table-cell">
+                  {{ g.percent | number:'1.0-1' }}%
+                </td>
+                <td class="px-3 py-2">
+                  <div class="flex flex-col gap-1 sm:flex-row sm:items-center">
+                    <button
+                      class="btn btn-primary btn-sm w-full sm:w-auto"
+                      (click)="openEdit(g)">
+                      Edit
+                    </button>
+                    <button
+                      class="btn btn-danger btn-sm w-full sm:w-auto"
+                      (click)="remove(g)">
+                      Delete
+                    </button>
                   </div>
                 </td>
               </tr>
-              <tr *ngIf="items().length === 0">
-                <td [attr.colspan]="4" class="px-3 py-6 text-center text-slate-500">No grades yet.</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
 
-      <!-- Reuse DrawerGradeComponent for add/edit -->
-      <bf-drawer-grade
-        [open]="childOpen()"
-        [editMode]="editMode()"
-        [form]="form"
-        [fixedEnrollmentId]="fixedEnrollmentId"
-        [fixedStudentLabel]="studentLabel"
-        [fixedClassroomLabel]="classroomLabel"
-        (cancel)="childOpen.set(false)"
-        (save)="submit()">
-      </bf-drawer-grade>
+              <tr *ngIf="items().length === 0">
+                <td
+                  [attr.colspan]="4"
+                  class="px-3 py-6 text-center text-slate-500">
+                  No grades yet.
+                </td>
+              </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Child drawer for add/edit -->
+        <bf-drawer-grade
+          [open]="childOpen()"
+          [editMode]="editMode()"
+          [form]="form"
+          [fixedEnrollmentId]="fixedEnrollmentId"
+          [fixedStudentLabel]="studentLabel"
+          [fixedClassroomLabel]="classroomLabel"
+          (cancel)="childOpen.set(false)"
+          (save)="submit()">
+        </bf-drawer-grade>
+      </div>
     </bf-drawer>
   `
 })
@@ -87,11 +126,11 @@ export class DrawerStudentGradesComponent {
   editMode = signal(false);
   editingId: number | null = null;
 
-  // pin create to this enrollment
-  get fixedEnrollmentId() { return this.enrollmentId ?? null; }
+  get fixedEnrollmentId() {
+    return this.enrollmentId ?? null;
+  }
 
   form = this.fb.group({
-    // student/enrollment are managed by fixedEnrollmentId, keep control for API shape compatibility
     enrollmentId: this.fb.control<number | null>(null),
     component:    this.fb.control<string>('QUIZ', { validators: [Validators.required] }),
     score:        this.fb.control<number>(0, { validators: [Validators.required, Validators.min(0)] }),
@@ -109,7 +148,10 @@ export class DrawerStudentGradesComponent {
   refresh() {
     this.api.listByEnrollment(this.enrollmentId).subscribe({
       next: list => this.items.set(list),
-      error: err => { console.error(err); this.toast.add('Failed to load grades', 'error'); }
+      error: err => {
+        console.error(err);
+        this.toast.add('Failed to load grades', 'error');
+      }
     });
   }
 
@@ -155,7 +197,10 @@ export class DrawerStudentGradesComponent {
           this.toast.add('Grade updated', 'success');
           this.childOpen.set(false);
         },
-        error: err => { console.error(err); this.toast.add('Could not update grade', 'error'); }
+        error: err => {
+          console.error(err);
+          this.toast.add('Could not update grade', 'error');
+        }
       });
     } else {
       const dto: AddGradeDto = {
@@ -169,7 +214,10 @@ export class DrawerStudentGradesComponent {
           this.toast.add('Grade created', 'success');
           this.childOpen.set(false);
         },
-        error: err => { console.error(err); this.toast.add('Could not create grade', 'error'); }
+        error: err => {
+          console.error(err);
+          this.toast.add('Could not create grade', 'error');
+        }
       });
     }
   }
@@ -181,7 +229,10 @@ export class DrawerStudentGradesComponent {
         this.items.set(this.items().filter(x => x.id !== row.id));
         this.toast.add('Grade deleted', 'success');
       },
-      error: err => { console.error(err); this.toast.add('Could not delete grade', 'error'); }
+      error: err => {
+        console.error(err);
+        this.toast.add('Could not delete grade', 'error');
+      }
     });
   }
 }

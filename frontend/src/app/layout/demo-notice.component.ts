@@ -12,7 +12,7 @@ const BAR_H        = '40px'; // keep in sync with h-10/md:h-12 below
   template: `
     <div
       *ngIf="visible()"
-      class="sticky top-0 z-50 w-full h-10 md:h-12 bg-brand-crimson text-white shadow-md"
+      class="fixed inset-x-0 top-0 z-50 h-10 md:h-12 bg-brand-crimson text-white shadow-md"
       role="status" aria-live="polite">
       <div class="mx-auto flex max-w-6xl items-center justify-center gap-4 px-4 h-full">
         <span class="text-center text-sm md:text-base">

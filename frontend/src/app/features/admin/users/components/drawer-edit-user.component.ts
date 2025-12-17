@@ -1,3 +1,4 @@
+// src/app/features/admin/users/components/drawer-edit-user.component.ts
 import { Component, EventEmitter, Input, Output, OnChanges, SimpleChanges, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, NonNullableFormBuilder, Validators } from '@angular/forms';
@@ -22,55 +23,105 @@ type FormKey = 'firstName'|'lastName'|'email'|'userName'|'password'|'role';
       [offsetVar]="'--admin-navbar-h'"
       (close)="handleClose()">
 
-      <form class="space-y-3" (ngSubmit)="submit()" [formGroup]="form">
-        <div>
-          <label class="block text-sm mb-1">First name</label>
-          <input type="text" formControlName="firstName" [class]="inputClass('firstName')" [attr.aria-invalid]="ariaInvalid('firstName')" />
-          <p *ngIf="msg('firstName')" class="text-xs text-rose-600 mt-1">{{ msg('firstName') }}</p>
-        </div>
+      <div class="px-3 py-3 sm:py-4 text-sm">
+        <form class="space-y-3" (ngSubmit)="submit()" [formGroup]="form">
+          <div>
+            <label class="block text-xs font-medium mb-1">First name</label>
+            <input
+              type="text"
+              formControlName="firstName"
+              [class]="inputClass('firstName')"
+              [attr.aria-invalid]="ariaInvalid('firstName')" />
+            <p *ngIf="msg('firstName')" class="text-xs text-rose-600 mt-1">
+              {{ msg('firstName') }}
+            </p>
+          </div>
 
-        <div>
-          <label class="block text-sm mb-1">Last name</label>
-          <input type="text" formControlName="lastName" [class]="inputClass('lastName')" [attr.aria-invalid]="ariaInvalid('lastName')" />
-          <p *ngIf="msg('lastName')" class="text-xs text-rose-600 mt-1">{{ msg('lastName') }}</p>
-        </div>
+          <div>
+            <label class="block text-xs font-medium mb-1">Last name</label>
+            <input
+              type="text"
+              formControlName="lastName"
+              [class]="inputClass('lastName')"
+              [attr.aria-invalid]="ariaInvalid('lastName')" />
+            <p *ngIf="msg('lastName')" class="text-xs text-rose-600 mt-1">
+              {{ msg('lastName') }}
+            </p>
+          </div>
 
-        <div>
-          <label class="block text-sm mb-1">Username</label>
-          <input type="text" formControlName="userName" [class]="inputClass('userName')" [attr.aria-invalid]="ariaInvalid('userName')" />
-          <p *ngIf="msg('userName')" class="text-xs text-rose-600 mt-1">{{ msg('userName') }}</p>
-        </div>
+          <div>
+            <label class="block text-xs font-medium mb-1">Username</label>
+            <input
+              type="text"
+              formControlName="userName"
+              [class]="inputClass('userName')"
+              [attr.aria-invalid]="ariaInvalid('userName')" />
+            <p *ngIf="msg('userName')" class="text-xs text-rose-600 mt-1">
+              {{ msg('userName') }}
+            </p>
+          </div>
 
-        <div>
-          <label class="block text-sm mb-1">Email</label>
-          <input type="email" formControlName="email" [class]="inputClass('email')" [attr.aria-invalid]="ariaInvalid('email')" />
-          <p *ngIf="msg('email')" class="text-xs text-rose-600 mt-1">{{ msg('email') }}</p>
-        </div>
+          <div>
+            <label class="block text-xs font-medium mb-1">Email</label>
+            <input
+              type="email"
+              formControlName="email"
+              [class]="inputClass('email')"
+              [attr.aria-invalid]="ariaInvalid('email')" />
+            <p *ngIf="msg('email')" class="text-xs text-rose-600 mt-1">
+              {{ msg('email') }}
+            </p>
+          </div>
 
-        <div>
-          <label class="block text-sm mb-1">Password (leave blank to keep)</label>
-          <input type="password" formControlName="password" [class]="inputClass('password')" [attr.aria-invalid]="ariaInvalid('password')" />
-          <p *ngIf="msg('password')" class="text-xs text-rose-600 mt-1">{{ msg('password') }}</p>
-        </div>
+          <div>
+            <label class="block text-xs font-medium mb-1">
+              Password <span class="font-normal">(leave blank to keep)</span>
+            </label>
+            <input
+              type="password"
+              formControlName="password"
+              [class]="inputClass('password')"
+              [attr.aria-invalid]="ariaInvalid('password')" />
+            <p *ngIf="msg('password')" class="text-xs text-rose-600 mt-1">
+              {{ msg('password') }}
+            </p>
+          </div>
 
-        <div>
-          <label class="block text-sm mb-1">Role</label>
-          <select formControlName="role" [class]="inputClass('role')" [attr.aria-invalid]="ariaInvalid('role')">
-            <option [ngValue]="null">— Select —</option>
-            <option value="ROLE_ADMIN">Admin</option>
-            <option value="ROLE_TEACHER">Teacher</option>
-            <option value="ROLE_STUDENT">Student</option>
-          </select>
-          <p *ngIf="msg('role')" class="text-xs text-rose-600 mt-1">{{ msg('role') }}</p>
-        </div>
+          <div>
+            <label class="block text-xs font-medium mb-1">Role</label>
+            <select
+              formControlName="role"
+              [class]="inputClass('role')"
+              [attr.aria-invalid]="ariaInvalid('role')">
+              <option [ngValue]="null">— Select —</option>
+              <option value="ROLE_ADMIN">Admin</option>
+              <option value="ROLE_TEACHER">Teacher</option>
+              <option value="ROLE_STUDENT">Student</option>
+            </select>
+            <p *ngIf="msg('role')" class="text-xs text-rose-600 mt-1">
+              {{ msg('role') }}
+            </p>
+          </div>
 
-        <div class="pt-4 flex justify-end gap-2">
-          <button type="button" class="btn btn-outline-muted" (click)="handleClose()">Cancel</button>
-          <button type="submit" class="btn btn-primary" [disabled]="loading()">Save</button>
-        </div>
-      </form>
+          <div class="pt-3 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <button
+              type="button"
+              class="btn btn-outline-muted w-full sm:w-auto"
+              (click)="handleClose()">
+              Cancel
+            </button>
+            <button
+              type="submit"
+              class="btn btn-primary w-full sm:w-auto"
+              [disabled]="loading()">
+              Save
+            </button>
+          </div>
+        </form>
+      </div>
     </bf-drawer>
   `,
+
 })
 export class DrawerEditUserComponent implements OnChanges {
   private fb    = inject(NonNullableFormBuilder);
@@ -92,7 +143,7 @@ export class DrawerEditUserComponent implements OnChanges {
     lastName:  this.fb.control('', { validators: [Validators.required, Validators.minLength(2)] }),
     email:     this.fb.control('', { validators: [Validators.required, Validators.email] }),
     userName:  this.fb.control('', { validators: [Validators.required, Validators.minLength(2)] }),
-    password:  this.fb.control('', { validators: [] }), // optional
+    password:  this.fb.control('', { validators: [] }),
     role:      this.fb.control<UserRole | null>(null, { validators: [Validators.required] }),
   });
 
@@ -126,7 +177,7 @@ export class DrawerEditUserComponent implements OnChanges {
     }
   }
 
-  // ===== UI helpers
+  // ==== UI helpers etc. remain exactly as in your file
   private readonly baseOk =
     'border rounded px-2 py-1 w-full focus:outline-none ring-1 ring-slate-300 ring-offset-1 ring-offset-white focus:ring-2 focus:ring-[color:var(--brand)] focus:ring-offset-1';
   private readonly baseErr =

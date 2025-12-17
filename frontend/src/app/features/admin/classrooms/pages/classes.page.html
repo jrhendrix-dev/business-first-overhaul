@@ -2,51 +2,62 @@
 <app-toast-container />
 <app-admin-header title="Classes"></app-admin-header>
 
-<div class="h-full flex flex-col min-h-0">
+<div class="h-full flex flex-col min-h-0 px-2 pb-3 md:px-0">
   <!-- Unified container -->
-  <div class="min-h-0 grow border rounded overflow-hidden">
+  <div class="min-h-0 grow border rounded overflow-hidden bg-white">
     <!-- Filters -->
-    <div class="px-3 py-3 border-b flex items-end gap-3">
-      <div>
+    <div class="px-3 py-3 border-b flex flex-col gap-3 md:flex-row md:items-end">
+      <div class="w-full md:w-auto">
         <label class="block text-xs text-slate-600">Search by name</label>
-        <input class="border rounded px-2 py-1 w-64"
-               [formControl]="filters.controls.q"
-               placeholder="e.g. B1, Classroom 2">
+        <input
+          class="border rounded px-2 py-1 w-full md:w-64"
+          [formControl]="filters.controls.q"
+          placeholder="e.g. B1, Classroom 2">
       </div>
 
-      <label class="inline-flex items-center gap-2">
+      <label class="inline-flex items-center gap-2 md:ml-1">
         <input type="checkbox" [formControl]="filters.controls.onlyUnassigned">
         <span class="text-sm">Only unassigned</span>
       </label>
 
-      <!-- Actions width (22rem) + td paddings (1.5rem) -->
-      <div class="ml-auto w-[calc(22rem+1.5rem)] flex justify-end gap-2">
-        <button *ngIf="isFiltered()" class="btn btn-outline" (click)="resetToAll()">All classes</button>
-        <button class="btn btn-success" (click)="openCreate()">+ New class</button>
+      <!-- Actions -->
+      <div
+        class="mt-2 md:mt-0 md:ml-auto w-full md:w-[calc(22rem+1.5rem)] flex justify-stretch md:justify-end gap-2">
+        <button
+          *ngIf="isFiltered()"
+          class="btn btn-outline w-full md:w-auto"
+          (click)="resetToAll()">
+          All classes
+        </button>
+        <button
+          class="btn btn-success w-full md:w-auto"
+          (click)="openCreate()">
+          + New class
+        </button>
       </div>
     </div>
 
     <!-- Table -->
-    <div class="overflow-auto">
+    <div class="overflow-x-auto">
       <table class="min-w-full text-sm">
         <thead class="bg-slate-50 border-b sticky top-0 z-10">
         <tr class="text-sm">
-          <th class="text-left px-4 py-3 w-16">ID</th>
+          <th class="text-left px-4 py-3 w-16 hidden sm:table-cell">ID</th>
           <th class="text-left px-4 py-3">Name</th>
-          <th class="text-left px-4 py-3 w-36">Price</th>
-          <th class="text-left px-4 py-3 w-56">Teacher</th>
-          <th class="text-left px-4 py-3 w-32">Status</th>
+          <th class="text-left px-4 py-3 w-36 hidden md:table-cell">Price</th>
+          <th class="text-left px-4 py-3 w-56 hidden lg:table-cell">Teacher</th>
+          <th class="text-left px-4 py-3 w-32 hidden lg:table-cell">Status</th>
           <th class="text-left px-4 py-3 w-[26rem]">Actions</th>
         </tr>
         </thead>
 
         <tbody class="text-[15px]">
         <tr *ngFor="let c of items()" class="border-b hover:bg-slate-50">
-          <td class="px-4 py-3">{{ c.id }}</td>
+          <td class="px-4 py-3 hidden sm:table-cell">{{ c.id }}</td>
           <td class="px-4 py-3">{{ c.name }}</td>
 
           <!-- PRICE -->
-          <td class="px-4 py-3">
+          <td class="px-4 py-3 hidden md:table-cell">
             <ng-container *ngIf="c.price != null; else centsOrDash">
               {{ c.price | currency:(c.currency || 'EUR'):'symbol':'1.2-2' }}
             </ng-container>
@@ -59,45 +70,65 @@
           </td>
 
           <!-- Teacher -->
-          <td class="px-4 py-3">
+          <td class="px-4 py-3 hidden lg:table-cell">
             <span *ngIf="c.teacher; else noTeacher">{{ c.teacher?.name }}</span>
             <ng-template #noTeacher><em>Unassigned</em></ng-template>
           </td>
 
           <!-- Status -->
-          <td class="px-4 py-3">
-      <span class="inline-flex items-center gap-2">
-        <span class="h-2.5 w-2.5 rounded-full"
-              [class.bg-emerald-500]="!isDropped(c)"
-              [class.bg-slate-400]="isDropped(c)"></span>
-        {{ c.status }}
-      </span>
+          <td class="px-4 py-3 hidden lg:table-cell">
+            <span class="inline-flex items-center gap-2">
+              <span
+                class="h-2.5 w-2.5 rounded-full"
+                [class.bg-emerald-500]="!isDropped(c)"
+                [class.bg-slate-400]="isDropped(c)">
+              </span>
+              {{ c.status }}
+            </span>
           </td>
 
           <!-- Actions -->
           <td class="px-4 py-3">
-            <div class="flex items-center gap-3 min-h-[2.5rem]">
-              <button class="btn btn-primary btn-sm" (click)="openRoster(c)">Students</button>
-              <button class="btn btn-outline btn-sm" (click)="openRename(c)">Edit</button>
-              <button class="btn btn-outline btn-sm"
-                      [disabled]="!canAssign(c)"
-                      title="{{ canAssign(c) ? '' : 'Reactivate the class to assign a teacher' }}"
-                      (click)="openAssign(c)">
+            <div class="flex flex-col gap-1 sm:flex-row sm:flex-wrap sm:items-center min-h-[2.5rem]">
+              <button class="btn btn-primary btn-sm w-full sm:w-auto" (click)="openRoster(c)">
+                Students
+              </button>
+              <button class="btn btn-outline btn-sm w-full sm:w-auto" (click)="openRename(c)">
+                Edit
+              </button>
+              <button
+                class="btn btn-outline btn-sm w-full sm:w-auto"
+                [disabled]="!canAssign(c)"
+                title="{{ canAssign(c) ? '' : 'Reactivate the class to assign a teacher' }}"
+                (click)="openAssign(c)">
                 {{ c.teacher ? 'Change teacher' : 'Assign teacher' }}
               </button>
-              <button class="btn btn-outline-muted btn-sm"
-                      [class.invisible]="!c.teacher" [disabled]="!c.teacher"
-                      (click)="c.teacher && unassign(c)">
+              <button
+                class="btn btn-outline-muted btn-sm w-full sm:w-auto"
+                [class.invisible]="!c.teacher"
+                [disabled]="!c.teacher"
+                (click)="c.teacher && unassign(c)">
                 Unassign
               </button>
-              <button class="btn btn-success btn-sm" *ngIf="isDropped(c)" (click)="reactivate(c)">Reactivate</button>
-              <button class="btn btn-danger btn-sm" (click)="remove(c)">Delete</button>
+              <button
+                class="btn btn-success btn-sm w-full sm:w-auto"
+                *ngIf="isDropped(c)"
+                (click)="reactivate(c)">
+                Reactivate
+              </button>
+              <button
+                class="btn btn-danger btn-sm w-full sm:w-auto"
+                (click)="remove(c)">
+                Delete
+              </button>
             </div>
           </td>
         </tr>
 
         <tr *ngIf="!items().length && !loading()">
-          <td [attr.colspan]="6" class="px-4 py-8 text-center text-slate-500">No results</td>
+          <td [attr.colspan]="6" class="px-4 py-8 text-center text-slate-500">
+            No results
+          </td>
         </tr>
         </tbody>
       </table>

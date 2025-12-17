@@ -18,30 +18,49 @@ export type TeacherOption = { id: number; name: string; email?: string | null };
       [offsetVar]="'--admin-navbar-h'"
       (close)="cancel.emit()">
 
-      <form [formGroup]="form" class="space-y-3" (ngSubmit)="submit.emit()">
-        <label class="inline-flex items-center gap-2">
-          <input type="checkbox" formControlName="onlyVacant">
-          <span class="text-sm">Only unassigned teachers</span>
-        </label>
+      <div class="px-3 py-4 space-y-4">
+        <form
+          [formGroup]="form"
+          class="space-y-4"
+          (ngSubmit)="submit.emit()">
 
-        <div>
-          <label class="block text-xs text-slate-600 mb-1">Select teacher</label>
-          <select class="w-full border rounded px-2 py-1" formControlName="teacherId">
-            <option [ngValue]="null" disabled>— Select a teacher —</option>
-            <option *ngFor="let t of teachers" [ngValue]="t.id">
-              {{ t.name }} 
-            </option>
-          </select>
-          <div *ngIf="loading" class="text-xs text-slate-500 mt-1">Loading teachers…</div>
-        </div>
+          <label class="inline-flex items-center gap-2">
+            <input type="checkbox" formControlName="onlyVacant">
+            <span class="text-sm">Only unassigned teachers</span>
+          </label>
 
-        <div class="pt-2 flex justify-end gap-2">
-          <button type="button" class="btn btn-outline" (click)="cancel.emit()">Cancel</button>
-          <button class="btn btn-success" [disabled]="form.invalid">Assign</button>
-        </div>
-      </form>
+          <div>
+            <label class="block text-xs text-slate-600 mb-1">Select teacher</label>
+            <select
+              class="w-full border rounded px-2 py-2 text-sm"
+              formControlName="teacherId">
+              <option [ngValue]="null" disabled>— Select a teacher —</option>
+              <option *ngFor="let t of teachers" [ngValue]="t.id">
+                {{ t.name }}
+              </option>
+            </select>
+            <div *ngIf="loading" class="text-xs text-slate-500 mt-1">Loading teachers…</div>
+          </div>
 
-      <p class="text-xs text-slate-500 mt-3">Tip: toggle “Only unassigned teachers” to limit the list.</p>
+          <div class="pt-2 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <button
+              type="button"
+              class="btn btn-outline w-full sm:w-auto"
+              (click)="cancel.emit()">
+              Cancel
+            </button>
+            <button
+              class="btn btn-success w-full sm:w-auto"
+              [disabled]="form.invalid">
+              Assign
+            </button>
+          </div>
+        </form>
+
+        <p class="text-xs text-slate-500">
+          Tip: toggle “Only unassigned teachers” to limit the list.
+        </p>
+      </div>
     </bf-drawer>
   `,
 })
