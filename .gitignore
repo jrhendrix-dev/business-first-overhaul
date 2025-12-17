@@ -7,8 +7,7 @@ Thumbs.db
 *.log
 
 /node_modules/
-/package-lock.json
-/package.json
+
 
 # ===================================
 # Symfony / PHP
