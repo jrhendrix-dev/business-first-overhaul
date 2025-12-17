@@ -1,18 +1,14 @@
 # backend/Dockerfile.prod
 FROM php:8.3-fpm-alpine
 
-# System deps + PHP extensions + su-exec (to drop privileges at runtime)
-RUN apk add --no-cache \
-    bash icu-dev libzip-dev oniguruma-dev git curl tzdata su-exec \
+RUN apk add --no-cache bash icu-dev libzip-dev oniguruma-dev git curl tzdata su-exec \
  && docker-php-ext-install pdo pdo_mysql intl opcache
 
 WORKDIR /var/www/app
 
-# Composer
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 ENV COMPOSER_ALLOW_SUPERUSER=1
 
-# ---------- Opcache (prod) ----------
 RUN { \
       echo 'opcache.enable=1'; \
       echo 'opcache.enable_cli=0'; \
@@ -21,48 +17,39 @@ RUN { \
       echo 'opcache.preload_user=www-data'; \
     } > /usr/local/etc/php/conf.d/opcache.ini
 
-# 1) Vendors without scripts (bin/console not copied yet)
+# ---------- PHP-FPM logging (Docker safe) ----------
+RUN { \
+  echo '[global]'; \
+  echo 'error_log = /dev/stderr'; \
+  echo 'log_level = notice'; \
+  echo ''; \
+  echo '[www]'; \
+  echo 'catch_workers_output = yes'; \
+  echo 'decorate_workers_output = no'; \
+} > /usr/local/etc/php-fpm.d/zz-docker.conf
+
+
 COPY composer.json composer.lock ./
 RUN composer install --no-dev --prefer-dist --no-interaction --no-progress --ansi --no-scripts
 
-# 2) App code
 COPY . ./
 
-# Ensure www-data exists (Alpine usually has it, but keep it deterministic)
 RUN addgroup -g 82 -S www-data || true \
- && adduser  -u 82 -D -S -G www-data www-data || true
-
-# Prepare runtime dirs in the image (NOTE: jwt volume mount will override ownership at runtime)
-RUN mkdir -p var/cache var/log config/jwt \
+ && adduser  -u 82 -D -S -G www-data www-data || true \
+ && mkdir -p var/cache var/log config/jwt \
  && chown -R www-data:www-data /var/www/app
 
-# Finish composer and optimize
 RUN composer dump-autoload -o --ansi \
  && composer run-script post-install-cmd --no-interaction || true
 
-# IMPORTANT: keep default USER (root) so we can chown mounted volumes at startup
-# USER www-data  <-- do NOT set this here
-
 CMD ["sh","-lc", "\
-  set -e; \
-  \
-  # Ensure runtime dirs exist (including subdirs Symfony needs) \
+  set -eu; \
   mkdir -p var/cache var/log config/jwt; \
-  \
-  # Fix permissions (critical because config/jwt is a mounted volume in prod) \
   chown -R www-data:www-data var config/jwt; \
-  \
-  # Generate JWT keys only if missing (do NOT overwrite on each boot) \
   if [ ! -f config/jwt/private.pem ] || [ ! -f config/jwt/public.pem ]; then \
     su-exec www-data php bin/console lexik:jwt:generate-keypair --no-interaction; \
   fi; \
-  \
-  # Cache warmup (must be writable) \
-  su-exec www-data php bin/console cache:clear --no-warmup --env=prod; \
-  su-exec www-data php bin/console cache:warmup --env=prod; \
-  \
-  # Migrations: fail if something is wrong, but allow 'no migration needed' \
-  su-exec www-data php bin/console doctrine:migrations:migrate --no-interaction --allow-no-migration; \
-  \
-  exec su-exec www-data php-fpm -F \
+  su-exec www-data php bin/console cache:clear --no-warmup --env=prod || true; \
+  su-exec www-data php bin/console cache:warmup --env=prod || true; \
+  exec php-fpm -F \
 "]
