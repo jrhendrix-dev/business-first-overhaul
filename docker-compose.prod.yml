@@ -29,6 +29,11 @@ services:
       APP_ENV: prod
       APP_DEBUG: "0"
       DATABASE_URL: "mysql://${MYSQL_USER:-symfony}:${MYSQL_PASSWORD:-password}@db:3306/${MYSQL_DATABASE:-bfe_db}?serverVersion=8.0&charset=utf8mb4&ssl-mode=DISABLED"
+
+      MAILER_DSN: "${MAILER_DSN}"
+      MAILER_FROM: "${MAILER_FROM}"
+
+
     volumes:
       - jwt_keys:/var/www/app/config/jwt
     healthcheck:
@@ -50,6 +55,12 @@ services:
       APP_ENV: prod
       APP_DEBUG: "0"
       DATABASE_URL: "mysql://${MYSQL_USER:-symfony}:${MYSQL_PASSWORD:-password}@db:3306/${MYSQL_DATABASE:-bfe_db}?serverVersion=8.0&charset=utf8mb4&ssl-mode=DISABLED"
+
+      MAILER_DSN: "${MAILER_DSN}"
+      MAILER_FROM: "${MAILER_FROM}"
+
+
+
     command: >
       sh -lc "
         php bin/console messenger:setup-transports --no-interaction &&

@@ -4,7 +4,7 @@ security:
         Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface: 'auto'
 
     role_hierarchy:
-        ROLE_ADMIN:   [ROLE_TEACHER, ROLE_USER]
+        ROLE_ADMIN:   [ROLE_TEACHER, ROLE_USER] #inherits Teacher
         ROLE_TEACHER: [ROLE_USER]
         ROLE_STUDENT: [ROLE_USER]
 
