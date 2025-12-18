@@ -42,6 +42,10 @@ RUN addgroup -g 82 -S www-data || true \
 RUN composer dump-autoload -o --ansi \
  && composer run-script post-install-cmd --no-interaction || true
 
+# Force PHP-FPM to listen on the container network (not only localhost)
+RUN printf "listen = 9000\n" > /usr/local/etc/php-fpm.d/zz-listen.conf
+
+
 CMD ["sh","-lc", "\
   set -eu; \
   mkdir -p var/cache var/log config/jwt; \

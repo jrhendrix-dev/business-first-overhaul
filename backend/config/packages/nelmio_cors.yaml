@@ -1,14 +1,23 @@
 nelmio_cors:
-    defaults:
-        allow_origin: ['http://localhost:4200', 'http://127.0.0.1:4200']
-        allow_credentials: true
-        allow_headers: ['Content-Type', 'Authorization']
-        allow_methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS']
-        max_age: 3600
-    paths:
-        '^/api/':
-            origin_regex: true
-            allow_origin: ['http://localhost:4200', 'http://127.0.0.1:4200']
-            allow_credentials: true
-            allow_headers: ['Content-Type', 'Authorization']
-            allow_methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS']
+  defaults:
+    origin_regex: false
+    allow_credentials: true
+    allow_origin: []
+    allow_headers: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin']
+    expose_headers: []
+    max_age: 3600
+
+  paths:
+    '^/':
+      allow_origin:
+        - 'https://businessfirstacademy.net'
+        - 'https://www.businessfirstacademy.net'
+        - 'http://localhost:4200'        # keep for local dev if you want
+      allow_headers:
+        - 'Content-Type'
+        - 'Authorization'
+        - 'X-Requested-With'
+        - 'Accept'
+        - 'Origin'
+      allow_methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS']
+      max_age: 3600
