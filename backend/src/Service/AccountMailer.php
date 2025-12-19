@@ -121,11 +121,22 @@ final class AccountMailer
     {
         $this->throttle();
 
+        $name = htmlspecialchars($user->getFirstName() ?? 'there', ENT_QUOTES);
+
         $email = (new Email())
             ->from($this->fromAddress)
             ->to($user->getEmail())
             ->subject('Reset your password')
-            ->text("Use this link to reset your password: $resetUrl");
+            ->html(sprintf(
+                '<p>Hello %s,</p>
+             <p>You requested to reset your password.</p>
+             <p>
+                <a href="%s">Click here to reset your password</a>
+             </p>
+             <p>If you did not request this, you can safely ignore this email.</p>',
+                $name,
+                $resetUrl
+            ));
 
         $this->mailer->send($email);
     }
