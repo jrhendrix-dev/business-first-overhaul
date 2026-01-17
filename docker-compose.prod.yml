@@ -94,6 +94,7 @@ services:
       - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
       - /etc/letsencrypt:/etc/letsencrypt:ro
       - /var/www/portfolio:/var/www/portfolio:ro
+      - /var/www/certbot:/var/www/certbot:ro
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost/healthz"]
       interval: 30s

@@ -1,7 +1,6 @@
 services:
   mysql:
     image: mysql:8.0
-    container_name: mysql-1
     restart: no
     networks:
       bfe_network:
@@ -25,7 +24,6 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: bfe_symfony_backend
     restart: no
     working_dir: /var/www/app
     # Load secrets (Stripe, Mailer, etc.) from your dev-only file
@@ -67,7 +65,6 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: bfe_symfony_worker
     restart: no
     working_dir: /var/www/app
     # Use the same dev secrets (Stripe keys needed if a handler touches Stripe later)
@@ -86,7 +83,7 @@ services:
         set -euo pipefail;
         php bin/console doctrine:query:sql 'SELECT 1' >/dev/null 2>&1 || true;
         php bin/console messenger:setup-transports --no-interaction;
-        exec php bin/console messenger:consume async -vv --sleep=1 --memory-limit=256M --time-limit=3600
+        exec php bin/console messenger:consume async -vv --sleep=1 --memory-limit=256M
       "
     networks:
       - bfe_network
@@ -95,7 +92,6 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    container_name: bfe_angular_frontend
     restart: no
     working_dir: /app
     ports:
