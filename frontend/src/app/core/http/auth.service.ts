@@ -1,4 +1,5 @@
 // src/app/core/http/auth-api.service.ts
+import { environment } from '@/environments/environment';
 import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 
@@ -8,11 +9,11 @@ export class AuthService {
 
   /** Backend always returns 200 with a generic message to avoid enumeration. */
   requestPasswordReset(email: string) {
-    return this.http.post<{ message: string }>(`/api/password/forgot`, { email });
+    return this.http.post<{ message: string }>(`${environment.apiBase}/api/password/forgot`, { email });
   }
 
   /** For the reset page you added later (token + newPassword) */
   confirmPasswordReset(payload: { token: string; newPassword: string }) {
-    return this.http.post<{ message: string }>(`/api/password/reset`, payload);
+    return this.http.post<{ message: string }>(`${environment.apiBase}/api/password/reset`, payload);
   }
 }

@@ -14,11 +14,23 @@ import { AuthStateService } from '@/app/core/auth/auth.service';
       <!-- Desktop (logo | links | account) -->
       <div class="mx-auto hidden max-w-6xl grid-cols-[300px_1fr_220px] items-center gap-4 px-4 py-5 md:grid">
 
-        <!-- Logo -->
-        <a routerLink="/" class="flex items-center" (click)="goHome($event)">
-          <img src="assets/pics/logoNew.png" alt="Business First"
-               class="h-12 w-auto md:h-[64px] lg:h-[72px] xl:h-[80px] object-contain" />
-        </a>
+        <!-- Logo + optional portfolio return -->
+        <div class="flex flex-col items-start gap-1">
+          <a routerLink="/" class="flex items-center" (click)="goHome($event)">
+            <img src="assets/pics/logoNew.png" alt="Business First"
+                 class="h-12 w-auto md:h-[64px] lg:h-[72px] xl:h-[80px] object-contain" />
+          </a>
+          <a *ngIf="isPortfolioDemo"
+             href="https://jonathan-hendrix.dev"
+             class="flex items-center gap-1 text-xs text-white/70 hover:text-white transition"
+             title="Volver al portfolio de Jonathan Hendrix">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none"
+                 viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+            </svg>
+            Volver al portfolio
+          </a>
+        </div>
 
         <!-- Center links -->
         <ul class="flex items-center justify-center gap-14 text-[15.5px] font-medium tracking-wide uppercase">
@@ -38,25 +50,14 @@ import { AuthStateService } from '@/app/core/auth/auth.service';
               Cursos
               <span class="mt-1 inline-block border-x-transparent border-t-8 border-b-0 border-l-8 border-r-8 border-t-brand-crimson"></span>
             </button>
-            <div
-              class="invisible absolute left-1/2 z-20 mt-3 w-72 -translate-x-1/2 overflow-hidden
-         rounded-md bg-brand-navy opacity-0 shadow-lg ring-1 ring-black/10
-         transition-all group-hover:visible group-hover:opacity-100"
-            >
-              <a routerLink="/ingles-corporativo" class="block px-4 py-2 hover:bg-brand-crimson">
-                Inglés corporativo
-              </a>
-              <a routerLink="/examenes" class="block px-4 py-2 hover:bg-brand-crimson">
-                Exámenes oficiales
-              </a>
-              <a routerLink="/clases-espanol" class="block px-4 py-2 hover:bg-brand-crimson">
-                Español para extranjeros
-              </a>
-              <a routerLink="/catalog" class="block px-4 py-2 hover:bg-brand-crimson">
-                Catálogo de clases
-              </a>
+            <div class="invisible absolute left-1/2 z-20 mt-3 w-72 -translate-x-1/2 overflow-hidden
+                        rounded-md bg-brand-navy opacity-0 shadow-lg ring-1 ring-black/10
+                        transition-all group-hover:visible group-hover:opacity-100">
+              <a routerLink="/ingles-corporativo" class="block px-4 py-2 hover:bg-brand-crimson">Inglés corporativo</a>
+              <a routerLink="/examenes" class="block px-4 py-2 hover:bg-brand-crimson">Exámenes oficiales</a>
+              <a routerLink="/clases-espanol" class="block px-4 py-2 hover:bg-brand-crimson">Español para extranjeros</a>
+              <a routerLink="/catalog" class="block px-4 py-2 hover:bg-brand-crimson">Catálogo de clases</a>
             </div>
-
           </li>
 
           <!-- Contacto -->
@@ -74,8 +75,9 @@ import { AuthStateService } from '@/app/core/auth/auth.service';
           </li>
         </ul>
 
-        <!-- Right side: CTA / Account -->
+        <!-- Right side: Portfolio button + CTA / Account -->
         <div class="flex items-center justify-end gap-3">
+
           <!-- Logged out -->
           <ng-container *ngIf="!auth.loggedIn()">
             <a routerLink="/register"
@@ -83,7 +85,6 @@ import { AuthStateService } from '@/app/core/auth/auth.service';
                       hover:text-white hover:border-white hover:bg-white/10">
               Registrarse
             </a>
-
             <a routerLink="/login"
                class="rounded-md bg-brand-crimson px-3 py-2 font-semibold text-white transition hover:bg-red-700 whitespace-nowrap">
               Iniciar sesión
@@ -96,8 +97,7 @@ import { AuthStateService } from '@/app/core/auth/auth.service';
               class="relative flex items-center gap-2 px-2 py-1 transition-colors hover:text-brand-crimson"
               (click)="toggleAccountMenu()"
               aria-haspopup="menu"
-              [attr.aria-expanded]="accountOpen"
-            >
+              [attr.aria-expanded]="accountOpen">
               <span class="opacity-90">{{ fullName() }}</span>
               <span class="mt-1 inline-block border-x-transparent border-t-8 border-b-0 border-l-8 border-r-8 border-t-brand-crimson"></span>
             </button>
@@ -109,7 +109,6 @@ import { AuthStateService } from '@/app/core/auth/auth.service';
                 <p class="truncate text-white/70">{{ userEmail() }}</p>
               </div>
               <div class="border-t border-white/10"></div>
-
               <a routerLink="/me" class="block px-4 py-2 hover:bg-brand-crimson" (click)="closeMenus()">Mi perfil</a>
               <a *ngIf="panelRoute() as pr" [routerLink]="pr" class="block px-4 py-2 hover:bg-brand-crimson" (click)="closeMenus()">
                 {{ panelLabel() }}
@@ -130,38 +129,34 @@ import { AuthStateService } from '@/app/core/auth/auth.service';
         <button class="rounded p-2 focus:outline-none focus:ring-2 focus:ring-white/50"
                 (click)="open = !open" aria-label="Abrir menú">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                  d="M4 6h16M4 12h16M4 18h16"/>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
           </svg>
         </button>
       </div>
 
       <!-- Mobile menu -->
       <div *ngIf="open" class="border-t border-white/10 md:hidden">
-        <a routerLink="/" class="block px-4 py-3 hover:bg-white/10" (click)="open=false; goHome($event)">Inicio</a>
-        <a routerLink="/ingles-corporativo" class="block px-4 py-3 hover:bg-white/10" (click)="open=false">
-          Inglés corporativo
-        </a>
-        <a routerLink="/examenes" class="block px-4 py-3 hover:bg-white/10" (click)="open=false">
-          Exámenes oficiales
-        </a>
-        <a routerLink="/clases-espanol" class="block px-4 py-3 hover:bg-white/10" (click)="open=false">
-          Español para extranjeros
-        </a>
-        <a routerLink="/catalog" class="block px-4 py-3 hover:bg-white/10" (click)="open=false">
-          Catálogo de clases
+
+        <!-- Portfolio return link — mobile -->
+        <a *ngIf="isPortfolioDemo"
+           href="https://jonathan-hendrix.dev"
+           class="flex items-center gap-2 px-4 py-3 hover:bg-white/10 border-b border-white/10">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none"
+               viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+          </svg>
+          Volver al portfolio
         </a>
 
-        <!-- Auth-aware items -->
-        <a *ngIf="!auth.loggedIn()" routerLink="/login" class="block px-4 py-3 hover:bg-white/10" (click)="open=false">
-          Iniciar sesión
-        </a>
-        <a *ngIf="!auth.loggedIn()" routerLink="/register" class="block px-4 py-3 hover:bg-white/10" (click)="open=false">
-          Registrarse
-        </a>
-        <a *ngIf="auth.loggedIn()" routerLink="/me" class="block px-4 py-3 hover:bg-white/10" (click)="open=false">
-          Mi perfil
-        </a>
+        <a routerLink="/" class="block px-4 py-3 hover:bg-white/10" (click)="open=false; goHome($event)">Inicio</a>
+        <a routerLink="/ingles-corporativo" class="block px-4 py-3 hover:bg-white/10" (click)="open=false">Inglés corporativo</a>
+        <a routerLink="/examenes" class="block px-4 py-3 hover:bg-white/10" (click)="open=false">Exámenes oficiales</a>
+        <a routerLink="/clases-espanol" class="block px-4 py-3 hover:bg-white/10" (click)="open=false">Español para extranjeros</a>
+        <a routerLink="/catalog" class="block px-4 py-3 hover:bg-white/10" (click)="open=false">Catálogo de clases</a>
+
+        <a *ngIf="!auth.loggedIn()" routerLink="/login" class="block px-4 py-3 hover:bg-white/10" (click)="open=false">Iniciar sesión</a>
+        <a *ngIf="!auth.loggedIn()" routerLink="/register" class="block px-4 py-3 hover:bg-white/10" (click)="open=false">Registrarse</a>
+        <a *ngIf="auth.loggedIn()" routerLink="/me" class="block px-4 py-3 hover:bg-white/10" (click)="open=false">Mi perfil</a>
         <a *ngIf="auth.loggedIn() && panelRoute() as pr" [routerLink]="pr" class="block px-4 py-3 hover:bg-white/10" (click)="open=false">
           {{ panelLabel() }}
         </a>
@@ -178,13 +173,23 @@ export class NavbarComponent implements OnDestroy {
   private host = inject(ElementRef<HTMLElement>);
   private destroy$ = new Subject<void>();
 
-  /** mobile menu */
   open = false;
-  /** account dropdown */
   accountOpen = false;
 
+  /**
+   * True when the app is mounted at /businessfirst/ (portfolio demo mode).
+   * Drives the "Volver al portfolio" button visibility.
+   */
+  readonly isPortfolioDemo = document.querySelector('base')
+    ?.getAttribute('href')
+    ?.includes('/businessfirst') ?? false;
+
   constructor() {
-    // Smooth scroll to top when navigating to '/'
+    // Swap favicon when running as portfolio sub-path
+    if (this.isPortfolioDemo) {
+      this.swapFavicon('favicon.ico');
+    }
+
     this.router.events
       .pipe(takeUntil(this.destroy$))
       .subscribe(e => {
@@ -194,28 +199,38 @@ export class NavbarComponent implements OnDestroy {
       });
   }
 
-  /** Close dropdowns on Escape */
-  @HostListener('window:keydown', ['$event'])
-  onKeydown(ev: KeyboardEvent) {
-    if (ev.key === 'Escape') this.closeMenus();
-  }
-
-  /** Close account menu when clicking outside the nav */
-  @HostListener('document:click', ['$event'])
-  onDocClick(ev: MouseEvent) {
-    if (!this.accountOpen) return;
-    const target = ev.target as Node | null;
-    if (target && !this.host.nativeElement.contains(target)) {
-      this.accountOpen = false;
-    }
-  }
-
   ngOnDestroy(): void {
     this.destroy$.next();
     this.destroy$.complete();
   }
 
-  /** Home link behavior: if already on '/', just scroll to top */
+  /**
+   * Swaps the browser tab favicon.
+   *
+   * @param href path to the favicon asset
+   */
+  private swapFavicon(href: string): void {
+    let link = document.querySelector<HTMLLinkElement>('link[rel~="icon"]');
+    if (!link) {
+      link = document.createElement('link');
+      link.rel = 'icon';
+      document.head.appendChild(link);
+    }
+    link.href = href;
+  }
+
+  @HostListener('window:keydown', ['$event'])
+  onKeydown(ev: KeyboardEvent) {
+    if (ev.key === 'Escape') this.closeMenus();
+  }
+
+  @HostListener('document:click', ['$event'])
+  onDocClick(ev: MouseEvent) {
+    if (!this.accountOpen) return;
+    const target = ev.target as Node | null;
+    if (target && !this.host.nativeElement.contains(target)) this.accountOpen = false;
+  }
+
   goHome(ev: MouseEvent) {
     const path = this.router.url.replace(/[?#].*$/, '');
     if (path === '/') {
@@ -227,8 +242,6 @@ export class NavbarComponent implements OnDestroy {
 
   toggleAccountMenu() { this.accountOpen = !this.accountOpen; }
   closeMenus() { this.accountOpen = false; this.open = false; }
-
-  /** ===== Helpers that read info from the JWT payload ===== */
 
   private decodePayload(): any {
     const token = this.auth.getAccessToken();
@@ -244,16 +257,13 @@ export class NavbarComponent implements OnDestroy {
     } catch { return null; }
   }
 
-  userEmail(): string {
-    return this.decodePayload()?.email ?? '';
-  }
+  userEmail(): string { return this.decodePayload()?.email ?? ''; }
 
   userRoles(): string[] {
     const r = this.decodePayload()?.roles;
     return Array.isArray(r) ? r : [];
   }
 
-  /** Full name preferred, fallback to email, then 'Cuenta' */
   fullName(): string {
     const p = this.decodePayload();
     const name = [p?.firstName, p?.lastName].filter(Boolean).join(' ').trim();
